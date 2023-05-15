@@ -2,8 +2,6 @@ import argparse
 
 import conda.plugins
 
-# Directly modifies the example in https://github.com/conda/conda-plugin-template/tree/main/tutorials/subcommands/python which
-# is available under the BSD 3-clause license: https://github.com/conda/conda-plugin-template/blob/main/LICENSE
 
 def conda_ops(argv: list):
     parser = argparse.ArgumentParser("conda ops")
