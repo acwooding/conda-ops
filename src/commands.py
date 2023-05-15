@@ -16,32 +16,50 @@ def ops_init():
     '''
     Initialize the conda ops project by creating a .conda-ops directory including the conda-ops project structure
     '''
-    print('checking if conda ops is already initialized...')
 
     conda_ops_path = Path(f'./{CONDA_OPS_DIR_NAME}')
 
     if conda_ops_path.exists():
-        print('conda ops is already initialized...for now, there is nothing more to do')
-        # eventually, reinitialize from the new templates as with git init
+        print("conda ops has already been initialized")
+        if input("Would you like to reinitialize (this will overwrite the existing config)? (y/n) ").lower() != 'y':
+            sys.exit()
+        # eventually, reinitialize from the new templates as with git init with no overwriting
     else:
-        print('Initializing conda ops')
         conda_ops_path.mkdir()
 
-        # setup initial config
-        config_file = conda_ops_path / CONFIG_FILENAME
-        config = configparser.ConfigParser()
-        config['DEFAULT'] = {'ENV_NAME': Path.cwd().name}
-        with open(config_file, 'w') as f:
-            config.write(f)
+    print('Initializing conda ops...')
 
-        # create other files
-        status_file = conda_ops_path / STATUS_FILENAME
-        requirements_file = conda_ops_path / REQUIREMENTS_FILENAME
-        lock_file = conda_ops_path / LOCK_FILENAME # we may not want this until we create the first environment
-        for filename in [status_file, requirements_file, lock_file]:
-            filename.touch()
-        print(f'Initialized conda-ops project in {conda_ops_path.resolve()}')
+    # setup initial config
+    config_file = conda_ops_path / CONFIG_FILENAME
+    config = configparser.ConfigParser()
+    config['DEFAULT'] = {'ENV_NAME': Path.cwd().name}
+    with open(config_file, 'w') as f:
+        config.write(f)
 
+    # create other files
+    status_file = conda_ops_path / STATUS_FILENAME
+    requirements_file = conda_ops_path / REQUIREMENTS_FILENAME
+    for filename in [status_file, requirements_file]:
+        filename.touch()
+    print(f'Initialized conda-ops project in {conda_ops_path.resolve()}')
+
+def ops_create():
+    '''
+    Create the first lockfile and environment
+    '''
+    ops_dir = find_conda_ops_dir()
+    print('generating the lock file')
+    lock_file = ops_dir / LOCK_FILENAME # we may not want this until we create the first environment
+    lock_file.touch()
+    config = configparser.ConfigParser()
+    config.read(ops_dir / CONFIG_FILENAME)
+    env_name = config['DEFAULT']['ENV_NAME']
+    print(f'creating the environment: {env_name}')
+    status_file = ops_dir / STATUS_FILENAME
+    with open(status_file, 'w') as f:
+        f.write(f"Environment {env_name} created.")
+
+    print(f'Environment created. Activate the environment using `conda activate {env_name}` to begin.')
 
 
 ######################

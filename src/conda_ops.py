@@ -2,7 +2,7 @@ import argparse
 
 import conda.plugins
 
-from .commands import ops_init, consistency_check
+from .commands import ops_init, ops_create, consistency_check
 
 
 def conda_ops(argv: list):
@@ -28,7 +28,7 @@ def conda_ops(argv: list):
         print('Removing environment')
         print('Recreating environment from the lock file')
     elif args.command == 'create':
-        print('creating the conda environment')
+        ops_create()
     elif args.command == 'delete':
         if input("Are you sure you want to delete your conda environment? (y/n) ").lower() != 'y':
                 exit()
