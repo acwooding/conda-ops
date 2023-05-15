@@ -3,6 +3,7 @@
 from pathlib import Path
 import sys
 import configparser
+import json
 
 CONDA_OPS_DIR_NAME = '.conda-ops'
 STATUS_FILENAME = 'status.txt'
@@ -32,33 +33,38 @@ def ops_init():
     # setup initial config
     config_file = conda_ops_path / CONFIG_FILENAME
     config = configparser.ConfigParser()
-    config['DEFAULT'] = {'ENV_NAME': Path.cwd().name}
+    env_name = Path.cwd().name
+    config['DEFAULT'] = {'ENV_NAME': env_name}
     with open(config_file, 'w') as f:
         config.write(f)
 
-    # create other files
-    status_file = conda_ops_path / STATUS_FILENAME
+    # create basic requirements file
     requirements_file = conda_ops_path / REQUIREMENTS_FILENAME
-    for filename in [status_file, requirements_file]:
-        filename.touch()
+    requirements_dict = {'env_name': env_name, 'dependencies': ['python', 'pip']}
+    with open(requirements_file, 'w') as f:
+        json.dump(requirements_dict, f)
     print(f'Initialized conda-ops project in {conda_ops_path.resolve()}')
 
 def ops_create():
     '''
     Create the first lockfile and environment
     '''
+    print('TODO: check if the environment already exists...')
+
     ops_dir = find_conda_ops_dir()
+
     print('generating the lock file')
     lock_file = ops_dir / LOCK_FILENAME # we may not want this until we create the first environment
     lock_file.touch()
+
     config = configparser.ConfigParser()
     config.read(ops_dir / CONFIG_FILENAME)
     env_name = config['DEFAULT']['ENV_NAME']
-    print(f'creating the environment: {env_name}')
+    print(f'creating the environment {env_name}')
+
     status_file = ops_dir / STATUS_FILENAME
     with open(status_file, 'w') as f:
         f.write(f"Environment {env_name} created.")
-
     print(f'Environment created. Activate the environment using `conda activate {env_name}` to begin.')
 
 
