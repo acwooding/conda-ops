@@ -1,0 +1,22 @@
+package:
+  name: conda-ops
+  version: 1.0
+
+source:
+  path: ../
+
+build:
+  script: $PYTHON -m pip install --no-deps .
+
+requirements:
+  host:
+    - python >=3.7
+
+  run:
+    - conda
+    - python >=3.7
+
+about:
+  home: https://github.com/acwooding/conda-ops
+  license: MIT
+  summary: My conda ops subcommand plugin
