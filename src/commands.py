@@ -12,7 +12,7 @@ import conda.cli.python_api
 import logging
 
 logger = logging.getLogger("conda.cli.python_api")
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 ch = logging.StreamHandler()
 ch.setFormatter(logging.Formatter("%(asctime)s %(name)-15s %(levelname)-8s %(processName)-10s %(message)s"))
@@ -22,7 +22,8 @@ CONDA_OPS_DIR_NAME = '.conda-ops'
 STATUS_FILENAME = 'status.txt'
 CONFIG_FILENAME = 'config.ini'
 REQUIREMENTS_FILENAME = 'environment.yml'
-LOCK_FILENAME = 'lockfile'
+LOCK_FILENAME = 'lockfile.json'
+EXPLICIT_LOCK_FILENAME = 'lockfile.explicit'
 
 yaml = YAML()
 yaml.default_flow_style=False
@@ -76,14 +77,11 @@ def ops_create():
     '''
     print('TODO: check if the environment already exists...')
 
-    print(conda.cli.python_api.__name__)
-    print(logger)
     ops_dir = find_conda_ops_dir()
     requirements_file = ops_dir / REQUIREMENTS_FILENAME
 
     requirements = yaml.load(requirements_file)
     env_name = requirements['name']
-    print(f'creating the environment {env_name}')
 
     print('generating multi-step requirements files')
     create_split_files(requirements_file, ops_dir)
@@ -91,26 +89,45 @@ def ops_create():
     with open(ops_dir / '.ops.channel-order.include', 'r') as f:
         order_list = f.read().split()
 
+    print('generating the lock file')
+    # creating the environment with the first stage
     with open(ops_dir / f'.ops.{order_list[0]}-environment.txt') as f:
         package_list = f.read().split()
 
     create_args = ["-n", env_name] + package_list + ['--dry-run', '--json']
 
-    print(create_args)
-
     stdout, stderr, result_code = run_command("create", create_args, use_exception_handler=True)
     if result_code != 0:
+        print(stdout)
         print(stderr)
         sys.exit()
     json_reqs = json.loads(stdout)
-    print(json_reqs.keys())
-    print(json_reqs)
 
-    print('generating the lock file')
-    lock_file = ops_dir / LOCK_FILENAME # we may not want this until we create the first environment
-    lock_file.touch()
+    lock_file = ops_dir / LOCK_FILENAME
+    with open(lock_file, 'w') as f:
+        json.dump(json_reqs['actions'], f)
 
-    print('TODO: continuing to the other steps...')
+    print('creating explicit file for installation')
+    explicit_str = "# This file may be used to create an environment using:\n# $ conda create --name <env> --file <this file>\n@EXPLICIT\n"
+    for package in json_reqs['actions']['LINK']:
+        package_str = '/'.join([package['base_url'], package['platform'], (package['dist_name'] + '.conda')]).strip()
+        explicit_str += package_str+"\n"
+
+    explicit_lock_file = ops_dir / EXPLICIT_LOCK_FILENAME
+    with open(explicit_lock_file, 'w') as f:
+        f.write(explicit_str)
+
+    print(f"Creating the environment {env_name}")
+    create_args = ["-n", env_name, "--file", str(explicit_lock_file)]
+    stdout, stderr, result_code = run_command("create", create_args, use_exception_handler=True)
+    print(stdout)
+
+    if len(order_list) > 1:
+        ## XXX implement the next steps here
+        print(f"TODO: Implement multi-stage install here...currently ignorning channels other than {order_list[0]}")
+
+    ## XXX Implement the pip step here
+    print('TODO: Implement the pip installation step here')
 
     status_file = ops_dir / STATUS_FILENAME
     with open(status_file, 'w') as f:
@@ -123,7 +140,6 @@ def ops_create():
 # Helper Functions
 #
 ######################
-
 def consistency_check():
     ops_dir = find_conda_ops_dir()
     print('checking consistency of the requirements, lock file, and environment...')
@@ -152,8 +168,7 @@ def find_conda_ops_dir():
 
 def find_upwards(cwd, filename):
     """
-    Search in the current directory and all directories above it
-    for a filename or directory of a particular name.
+    Search in the current directory and all directories above it    for a filename or directory of a particular name.
 
     Arguments:
     ---------
@@ -174,3 +189,9 @@ def find_upwards(cwd, filename):
         return fullpath if fullpath.exists() else find_upwards(cwd.parent, filename)
     except RecursionError:
         return None
+
+def json_to_explicit(json_dict):
+    """
+    Convert a json environment dump to the explicit file format that can be used for create and updating
+    conda environments.
+    """
