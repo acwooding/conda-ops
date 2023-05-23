@@ -140,18 +140,56 @@ def ops_create():
 ######################
 def consistency_check():
     ops_dir = find_conda_ops_dir()
-    print('checking consistency of the requirements, lock file, and environment...')
+    print('\nChecking consistency of the requirements, lock file, and environment...\n')
+
     config = configparser.ConfigParser()
     config.read(ops_dir / CONFIG_FILENAME)
     env_name = config['DEFAULT']['ENV_NAME']
-    print(env_name)
+
     status_file = ops_dir / STATUS_FILENAME
     requirements_file = ops_dir / REQUIREMENTS_FILENAME
+    explicit_lock_file = ops_dir / EXPLICIT_LOCK_FILENAME
     lock_file = ops_dir / LOCK_FILENAME
 
-    print('check if requirements file is newer than the lock file')
-    print('check if the lock file has packages not in the environment')
-    print('check if the environment has packages not in the lock file')
+
+    # check requirements and lock file time sync
+    if requirements_file.stat().st_mtime < lock_file.stat().st_mtime:
+        print("Lock file is newer than the requirements file")
+    else:
+        print("The requirements file is newer than the lock file. Please run `conda ops sync`.\n")
+
+    print('Checking that the environment and lock file are in sync...\n')
+
+    # packages from the environment
+    conda_args = ["-n", env_name, "--explicit"]
+    stdout, stderr, result_code = run_command("list", conda_args, use_exception_handler=True)
+    if result_code != 0:
+        print(stdout)
+        print(stderr)
+        sys.exit()
+    conda_set = set([x for x in stdout.split("\n") if ('https' in x)])
+
+    # packages from the lock file
+    with open(explicit_lock_file, 'r') as f:
+        lock_contents = f.read()
+    lock_set = set([x for x in lock_contents.split("\n") if ('https' in x)])
+
+    if conda_set == lock_set:
+        print("Environment and lock file are in sync.\n")
+    else:
+        print('The lock file and environment are not in sync')
+        in_env = conda_set.difference(lock_set)
+        in_lock = lock_set.difference(conda_set)
+        if len(in_env) > 0:
+            print("\nThe following packages are in the environment but not in the lock file:\n")
+            print("\n".join(in_env))
+            print("\n")
+            print("Run `conda ops clean` to restore the environment to the state of the lock file")
+        if len(in_lock) > 0:
+            print("\nThe following packages are in the lock file but not in the environment:\n")
+            print("\n".join(in_lock))
+            print("\n")
+            print("Run `conda ops sync` to update the environment to match the lock file.\n")
 
 def find_conda_ops_dir():
     '''

@@ -44,7 +44,6 @@ def conda_ops(argv: list):
         print('DONE')
     elif args.command in ['status', None]:
         consistency_check()
-        print("Here's your status")
     elif args.command == 'uninstall':
         consistency_check()
         package_str = " ".join(args.packages)
