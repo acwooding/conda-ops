@@ -2,6 +2,8 @@ import argparse
 
 import conda.plugins
 
+from .commands import ops_init, ops_create, consistency_check
+
 
 def conda_ops(argv: list):
     parser = argparse.ArgumentParser("conda ops")
@@ -26,14 +28,13 @@ def conda_ops(argv: list):
         print('Removing environment')
         print('Recreating environment from the lock file')
     elif args.command == 'create':
-        print('creating the conda environment')
+        ops_create()
     elif args.command == 'delete':
         if input("Are you sure you want to delete your conda environment? (y/n) ").lower() != 'y':
                 exit()
         print('deleting the conda ops managed environment')
     elif args.command == 'init':
-        print('checking if conda ops is already initialized...')
-        print('initializing conda ops')
+        ops_init()
     elif args.command == 'install':
         consistency_check()
         package_str = " ".join(args.packages)
@@ -43,7 +44,6 @@ def conda_ops(argv: list):
         print('DONE')
     elif args.command in ['status', None]:
         consistency_check()
-        print("Here's your status")
     elif args.command == 'uninstall':
         consistency_check()
         package_str = " ".join(args.packages)
@@ -157,14 +157,7 @@ def configure_parser_update(subparsers):
     p.add_argument('packages', type=str, nargs='+')
     return p
 
-# #############################################################################################
-#
-# common operation
-#
-# #############################################################################################
 
-def consistency_check():
-    print('checking consistency of the requirements, lock file, and environment...')
 
 @conda.plugins.hookimpl
 def conda_subcommands():
