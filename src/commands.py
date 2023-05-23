@@ -109,9 +109,7 @@ def ops_create():
 
     print('creating explicit file for installation')
     explicit_str = "# This file may be used to create an environment using:\n# $ conda create --name <env> --file <this file>\n@EXPLICIT\n"
-    for package in json_reqs['actions']['LINK']:
-        package_str = '/'.join([package['base_url'], package['platform'], (package['dist_name'] + '.conda')]).strip()
-        explicit_str += package_str+"\n"
+    explicit_str += json_to_explicit(json_reqs['actions']['LINK'])
 
     explicit_lock_file = ops_dir / EXPLICIT_LOCK_FILENAME
     with open(explicit_lock_file, 'w') as f:
@@ -190,8 +188,13 @@ def find_upwards(cwd, filename):
     except RecursionError:
         return None
 
-def json_to_explicit(json_dict):
+def json_to_explicit(json_list):
     """
-    Convert a json environment dump to the explicit file format that can be used for create and updating
-    conda environments.
+    Convert a json environment dump (as in ['actions']['link'] to the explicit file format that
+    can be used for create and update conda environments.
     """
+    explicit_str = ''
+    for package in json_list:
+        package_str = '/'.join([package['base_url'], package['platform'], (package['dist_name'] + '.conda')]).strip()
+        explicit_str += package_str+"\n"
+    return explicit_str
