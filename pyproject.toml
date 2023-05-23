@@ -7,7 +7,7 @@ name = "conda-ops"
 version = "1.0"
 description = "My conda ops subcommand plugin"
 requires-python = ">=3.7"
-dependencies = ["conda"]
+dependencies = ["conda", "ruamel.yaml"]
 
 [project.entry-points.conda]
 conda-ops = "src.conda_ops"
