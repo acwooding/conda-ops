@@ -11,12 +11,18 @@ import conda.cli.python_api
 
 import logging
 
-logger = logging.getLogger("conda.cli.python_api")
-logger.setLevel(logging.INFO)
+logger = logging.getLogger()
+
+conda_logger = logging.getLogger("conda.cli.python_api")
+conda_logger.setLevel(logging.INFO)
 
 ch = logging.StreamHandler()
 ch.setFormatter(logging.Formatter("%(asctime)s %(name)-15s %(levelname)-8s %(processName)-10s %(message)s"))
-logger.addHandler(ch)
+conda_logger.addHandler(ch)
+
+sh = logging.StreamHandler()
+sh.setFormatter(logging.Formatter("%(message)s"))
+logger.addHandler(sh)
 
 CONDA_OPS_DIR_NAME = '.conda-ops'
 STATUS_FILENAME = 'status.txt'
@@ -35,17 +41,17 @@ def ops_init():
     Initialize the conda ops project by creating a .conda-ops directory including the conda-ops project structure
     '''
 
-    conda_ops_path = Path(f'./{CONDA_OPS_DIR_NAME}')
+    conda_ops_path = Path.cwd() / CONDA_OPS_DIR_NAME
 
     if conda_ops_path.exists():
-        print("conda ops has already been initialized")
+        logger.info("conda ops has already been initialized")
         if input("Would you like to reinitialize (this will overwrite the existing config)? (y/n) ").lower() != 'y':
             sys.exit()
         # eventually, reinitialize from the new templates as with git init with no overwriting
     else:
         conda_ops_path.mkdir()
 
-    print('Initializing conda ops...')
+    logger.info('Initializing conda ops...')
 
     # setup initial config
     config_file = conda_ops_path / CONFIG_FILENAME
@@ -64,18 +70,18 @@ def ops_init():
                              'channels': ['defaults'],
                              'channel-order': ['defaults'],
                              'dependencies': ['python', 'pip']}
-        print('rewriting')
+        logger.info('rewriting')
         with open(requirements_file, 'w') as f:
             yaml.dump(requirements_dict, f)
     else:
-        print(f'Requirements file {requirements_file} already exists')
-    print(f'Initialized conda-ops project in {conda_ops_path.resolve()}')
+        logger.info(f'Requirements file {requirements_file} already exists')
+    logger.info(f'Initialized conda-ops project in {conda_ops_path.resolve()}')
 
 def ops_create():
     '''
     Create the first lockfile and environment
     '''
-    print('TODO: check if the environment already exists...')
+    logger.info('TODO: check if the environment already exists...')
 
     ops_dir = find_conda_ops_dir()
     requirements_file = ops_dir / REQUIREMENTS_FILENAME
@@ -83,13 +89,13 @@ def ops_create():
     requirements = yaml.load(requirements_file)
     env_name = requirements['name']
 
-    print('generating multi-step requirements files')
+    logger.info('generating multi-step requirements files')
     create_split_files(requirements_file, ops_dir)
 
     with open(ops_dir / '.ops.channel-order.include', 'r') as f:
         order_list = f.read().split()
 
-    print('generating the lock file')
+    logger.info('generating the lock file')
     # creating the environment with the first stage
     with open(ops_dir / f'.ops.{order_list[0]}-environment.txt') as f:
         package_list = f.read().split()
@@ -98,8 +104,8 @@ def ops_create():
 
     stdout, stderr, result_code = run_command("create", create_args, use_exception_handler=True)
     if result_code != 0:
-        print(stdout)
-        print(stderr)
+        logger.info(stdout)
+        logger.info(stderr)
         sys.exit()
     json_reqs = json.loads(stdout)
 
@@ -107,7 +113,7 @@ def ops_create():
     with open(lock_file, 'w') as f:
         json.dump(json_reqs['actions'], f)
 
-    print('creating explicit file for installation')
+    logger.info('creating explicit file for installation')
     explicit_str = "# This file may be used to create an environment using:\n# $ conda create --name <env> --file <this file>\n@EXPLICIT\n"
     explicit_str += json_to_explicit(json_reqs['actions']['LINK'])
 
@@ -115,22 +121,22 @@ def ops_create():
     with open(explicit_lock_file, 'w') as f:
         f.write(explicit_str)
 
-    print(f"Creating the environment {env_name}")
+    logger.info(f"Creating the environment {env_name}")
     create_args = ["-n", env_name, "--file", str(explicit_lock_file)]
     stdout, stderr, result_code = run_command("create", create_args, use_exception_handler=True)
-    print(stdout)
+    logger.info(stdout)
 
     if len(order_list) > 1:
         ## XXX implement the next steps here
-        print(f"TODO: Implement multi-stage install here...currently ignorning channels other than {order_list[0]}")
+        logger.info(f"TODO: Implement multi-stage install here...currently ignorning channels other than {order_list[0]}")
 
     ## XXX Implement the pip step here
-    print('TODO: Implement the pip installation step here')
+    logger.info('TODO: Implement the pip installation step here')
 
     status_file = ops_dir / STATUS_FILENAME
     with open(status_file, 'w') as f:
         f.write(f"Environment {env_name} created.")
-    print(f'Environment created. Activate the environment using `conda activate {env_name}` to begin.')
+    logger.info(f'Environment created. Activate the environment using `conda activate {env_name}` to begin.')
 
 
 ######################
@@ -140,7 +146,7 @@ def ops_create():
 ######################
 def consistency_check():
     ops_dir = find_conda_ops_dir()
-    print('\nChecking consistency of the requirements, lock file, and environment...\n')
+    logger.info('\nChecking consistency of the requirements, lock file, and environment...\n')
 
     config = configparser.ConfigParser()
     config.read(ops_dir / CONFIG_FILENAME)
@@ -154,18 +160,18 @@ def consistency_check():
 
     # check requirements and lock file time sync
     if requirements_file.stat().st_mtime < lock_file.stat().st_mtime:
-        print("Lock file is newer than the requirements file")
+        logger.info("Lock file is newer than the requirements file")
     else:
-        print("The requirements file is newer than the lock file. Please run `conda ops sync`.\n")
+        logger.info("The requirements file is newer than the lock file. Please run `conda ops sync`.\n")
 
-    print('Checking that the environment and lock file are in sync...\n')
+    logger.info('Checking that the environment and lock file are in sync...\n')
 
     # packages from the environment
     conda_args = ["-n", env_name, "--explicit"]
     stdout, stderr, result_code = run_command("list", conda_args, use_exception_handler=True)
     if result_code != 0:
-        print(stdout)
-        print(stderr)
+        logger.info(stdout)
+        logger.info(stderr)
         sys.exit()
     conda_set = set([x for x in stdout.split("\n") if ('https' in x)])
 
@@ -175,21 +181,21 @@ def consistency_check():
     lock_set = set([x for x in lock_contents.split("\n") if ('https' in x)])
 
     if conda_set == lock_set:
-        print("Environment and lock file are in sync.\n")
+        logger.info("Environment and lock file are in sync.\n")
     else:
-        print('The lock file and environment are not in sync')
+        logger.info('The lock file and environment are not in sync')
         in_env = conda_set.difference(lock_set)
         in_lock = lock_set.difference(conda_set)
         if len(in_env) > 0:
-            print("\nThe following packages are in the environment but not in the lock file:\n")
-            print("\n".join(in_env))
-            print("\n")
-            print("Run `conda ops clean` to restore the environment to the state of the lock file")
+            logger.info("\nThe following packages are in the environment but not in the lock file:\n")
+            logger.info("\n".join(in_env))
+            logger.info("\n")
+            logger.info("Run `conda ops clean` to restore the environment to the state of the lock file")
         if len(in_lock) > 0:
-            print("\nThe following packages are in the lock file but not in the environment:\n")
-            print("\n".join(in_lock))
-            print("\n")
-            print("Run `conda ops sync` to update the environment to match the lock file.\n")
+            logger.info("\nThe following packages are in the lock file but not in the environment:\n")
+            logger.info("\n".join(in_lock))
+            logger.info("\n")
+            logger.info("Run `conda ops sync` to update the environment to match the lock file.\n")
 
 def find_conda_ops_dir():
     '''
@@ -197,7 +203,7 @@ def find_conda_ops_dir():
     '''
     ops_dir = find_upwards(Path.cwd(), CONDA_OPS_DIR_NAME)
     if ops_dir is None:
-        print('Fatal: Not a conda ops project (or any of the parent directories). To create a conda ops project run `conda ops init`')
+        logger.info('Fatal: Not a conda ops project (or any of the parent directories). To create a conda ops project run `conda ops init`')
         sys.exit()
     else:
         return ops_dir
