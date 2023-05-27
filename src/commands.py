@@ -257,7 +257,7 @@ def find_upwards(cwd, filename):
     pathlib.Path, the location of the first file found or
     None, if none was found
     """
-    if cwd == Path(cwd.root) or cwd == cwd.parent:
+    if cwd == cwd.parent or cwd == Path(cwd.root):
         return None
 
     fullpath = cwd / filename
