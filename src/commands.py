@@ -21,7 +21,7 @@ ch.setFormatter(logging.Formatter("%(asctime)s %(name)-15s %(levelname)-8s %(pro
 conda_logger.addHandler(ch)
 
 sh = logging.StreamHandler()
-sh.setFormatter(logging.Formatter("%(message)s"))
+sh.setFormatter(logging.Formatter(" %(levelname)-8s (%(name)s) %(message)s"))
 logger.addHandler(sh)
 
 CONDA_OPS_DIR_NAME = '.conda-ops'
