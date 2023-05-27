@@ -226,18 +226,26 @@ def consistency_check():
 
 def find_conda_ops_dir():
     '''
-    Helper function to locate a conda ops directory in the current or parent directories.
+    Locate the conda ops configuration directory.
+
+    Searches current and all parent directories.
     '''
+    logger.debug("Searching for conda_ops dir.")
     ops_dir = find_upwards(Path.cwd(), CONDA_OPS_DIR_NAME)
     if ops_dir is None:
-        logger.info('Fatal: Not a conda ops project (or any of the parent directories). To create a conda ops project run `conda ops init`')
-        sys.exit()
-    else:
-        return ops_dir
+        logger.warning('No managed "conda ops" environment found (here or in parent directories).')
+        logger.info("To start managing a new conda ops environment")
+        logger.info(">>> conda ops init")
+        sys.exit(1)
+
+    return ops_dir
 
 def find_upwards(cwd, filename):
     """
-    Search in the current directory and all directories above it    for a filename or directory of a particular name.
+    Search recursively for a file/directory.
+
+    Start searching in current directory, then upwards through all parents,
+    stopping at the root directory.
 
     Arguments:
     ---------
