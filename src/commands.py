@@ -8,6 +8,7 @@ from ruamel.yaml import YAML
 from .split_requirements import create_split_files
 from .python_api import run_command
 import conda.cli.python_api
+from conda.cli.main_info import get_info_dict
 
 import logging
 
@@ -35,6 +36,10 @@ yaml = YAML()
 yaml.default_flow_style=False
 yaml.width=4096
 yaml.indent(offset=4)
+
+def ops_sync():
+    """Generate a lockfile from a requirements file, then update the environment from it."""
+    logger.error("Unimplemented: sync")
 
 def ops_init():
     '''
@@ -147,7 +152,6 @@ def ops_create():
 def consistency_check():
 
     ops_dir = find_conda_ops_dir()
-    logger.debug('\nChecking consistency of the requirements, lock file, and environment...\n')
 
     logger.debug('Checking config.ini constistency')
     config = configparser.ConfigParser()
@@ -176,13 +180,12 @@ def consistency_check():
         logger.info(">>> conda ops add <package>")
         sys.exit(0)
 
-
-    from conda.cli.main_info import get_info_dict
-
-    info_dict = get_info_dict()
+    info_dict = get_conda_info()
     active_conda_env = info_dict['active_prefix_name']
+    platform = info_dict['platform']
 
     logger.info(f"Active conda environment: {active_conda_env}")
+    logger.info(f"Platform: {platform}")
     if active_conda_env == env_name:
         pass
     else:
@@ -201,16 +204,22 @@ def consistency_check():
         logger.info(stderr)
         sys.exit()
     conda_set = set([x for x in stdout.split("\n") if ('https' in x)])
+    logger.debug(f"Found {len(conda_set)} packages in environment: {active_conda_env}")
 
+    if not explicit_lock_file.exists():
+        logger.warning(f"No Lock File Found ({explicit_lock_file.name})")
+        logger.info("To lock the environment:")
+        logger.info(">>> conda ops lock")
+        sys.exit(0)
     # packages from the lock file
     with open(explicit_lock_file, 'r') as f:
         lock_contents = f.read()
     lock_set = set([x for x in lock_contents.split("\n") if ('https' in x)])
 
     if conda_set == lock_set:
-        logger.info("Environment and lock file are in sync.\n")
+        logger.debug("Environment and lock file are in sync.\n")
     else:
-        logger.info('The lock file and environment are not in sync')
+        logger.warning('The lock file and environment are not in sync')
         in_env = conda_set.difference(lock_set)
         in_lock = lock_set.difference(conda_set)
         if len(in_env) > 0:
@@ -223,6 +232,15 @@ def consistency_check():
             logger.info("\n".join(in_lock))
             logger.info("\n")
             logger.info("Run `conda ops sync` to update the environment to match the lock file.\n")
+
+def get_conda_info():
+    """Get conda configuration information.
+
+    This currently peeks into the conda internals.
+    XXX Should this maybe be a conda info API call instead?
+    """
+    return get_info_dict()
+
 
 def find_conda_ops_dir():
     '''
