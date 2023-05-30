@@ -2,7 +2,7 @@ import argparse
 
 import conda.plugins
 
-from .commands import ops_init, ops_create, consistency_check
+from .commands import ops_init, ops_create, consistency_check, ops_add, ops_sync
 
 
 def conda_ops(argv: list):
@@ -11,6 +11,7 @@ def conda_ops(argv: list):
 
     # add subparsers
 
+    add = configure_parser_add(subparsers)
     clean = configure_parser_clean(subparsers)
     create = configure_parser_create(subparsers)
     delete = configure_parser_delete(subparsers)
@@ -63,6 +64,8 @@ def conda_ops(argv: list):
         print('creating new lock file')
         print(f'updating packages {package_str}')
         print('DONE')
+    elif args.command == 'add':
+        ops_add(args.packages, channel=args.channel)
 
 
 # #############################################################################################
@@ -157,7 +160,16 @@ def configure_parser_update(subparsers):
     p.add_argument('packages', type=str, nargs='+')
     return p
 
-
+def configure_parser_add(subparsers):
+    descr = 'Add listed packages to the requirements file'
+    p = subparsers.add_parser(
+        'add',
+        description=descr,
+        help=descr
+    )
+    p.add_argument('packages', type=str, nargs='+')
+    p.add_argument('-c', '--channel', help="indicate the channel that the packages are coming from, set this to 'pip' if the packages you are adding are to be installed via pip")
+    return p
 
 @conda.plugins.hookimpl
 def conda_subcommands():
