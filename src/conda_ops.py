@@ -2,7 +2,7 @@ import argparse
 
 import conda.plugins
 
-from .commands import ops_init, ops_create, consistency_check, ops_add, ops_sync
+from .commands import ops_init, ops_create, consistency_check, ops_add, ops_sync, ops_lock
 
 
 def conda_ops(argv: list):
@@ -17,6 +17,7 @@ def conda_ops(argv: list):
     delete = configure_parser_delete(subparsers)
     init = configure_parser_init(subparsers)
     install = configure_parser_install(subparsers)
+    lock = configure_parser_lock(subparsers)
     status = configure_parser_status(subparsers)
     sync = configure_parser_sync(subparsers)
     uninstall = configure_parser_uninstall(subparsers)
@@ -66,6 +67,8 @@ def conda_ops(argv: list):
         print('DONE')
     elif args.command == 'add':
         ops_add(args.packages, channel=args.channel)
+    elif args.command == 'lock':
+        ops_lock()
 
 
 # #############################################################################################
@@ -73,6 +76,18 @@ def conda_ops(argv: list):
 # sub-parsers
 #
 # #############################################################################################
+
+
+def configure_parser_add(subparsers):
+    descr = 'Add listed packages to the requirements file'
+    p = subparsers.add_parser(
+        'add',
+        description=descr,
+        help=descr
+    )
+    p.add_argument('packages', type=str, nargs='+')
+    p.add_argument('-c', '--channel', help="indicate the channel that the packages are coming from, set this to 'pip' if the packages you are adding are to be installed via pip")
+    return p
 
 def configure_parser_clean(subparsers):
     descr = 'Recreate the environment from the lock file'
@@ -121,6 +136,15 @@ def configure_parser_install(subparsers):
     p.add_argument('packages', type=str, nargs='+')
     return p
 
+def configure_parser_lock(subparsers):
+    descr = 'Update the lock file based on the requirements file'
+    p = subparsers.add_parser(
+        'lock',
+        description=descr,
+        help=descr
+    )
+    return p
+
 def configure_parser_status(subparsers):
     descr = 'Check consistency of requirements, lock file and the environment'
     p = subparsers.add_parser(
@@ -160,16 +184,6 @@ def configure_parser_update(subparsers):
     p.add_argument('packages', type=str, nargs='+')
     return p
 
-def configure_parser_add(subparsers):
-    descr = 'Add listed packages to the requirements file'
-    p = subparsers.add_parser(
-        'add',
-        description=descr,
-        help=descr
-    )
-    p.add_argument('packages', type=str, nargs='+')
-    p.add_argument('-c', '--channel', help="indicate the channel that the packages are coming from, set this to 'pip' if the packages you are adding are to be installed via pip")
-    return p
 
 @conda.plugins.hookimpl
 def conda_subcommands():
