@@ -37,9 +37,19 @@ yaml.default_flow_style=False
 yaml.width=4096
 yaml.indent(offset=4)
 
+def ops_activate():
+    """Activate the managed environment"""
+    logger.error("Unimplemented: activate")
+
+def ops_deactivate():
+    """Deactivate managed conda environment"""
+    # check current environment is correct one
+    logger.error("Unimplemented: deactivate")
+
 def ops_sync():
     """Generate a lockfile from a requirements file, then update the environment from it."""
     logger.error("Unimplemented: sync")
+
 
 def ops_init():
     '''
@@ -163,6 +173,7 @@ def consistency_check():
     explicit_lock_file = ops_dir / EXPLICIT_LOCK_FILENAME
     lock_file = ops_dir / LOCK_FILENAME
 
+    logger.debug(f"Managed Conda Environment name: {env_name}")
     if requirements_file.exists():
         logger.debug("Requirements file present")
         if lock_file.exists():
@@ -189,11 +200,20 @@ def consistency_check():
     if active_conda_env == env_name:
         pass
     else:
-        logger.warning("Incorrect or missing conda environment.")
+        # enumerate conda envs
+        conda_args = ["--envs"]
+        stdout, stderr, result_code = run_command("info", conda_args, use_exception_handler=True)
+        if result_code != 0:
+            logger.info(stdout)
+            logger.info(stderr)
+            sys.exit(result_code)
+
+        # XXX check if desired environment exists. if no prompt to create
+        logger.warning(f"Managed conda environment ('{env_name}') is not active.")
+        logger.info("To activate it:")
+        logger.info(">>> conda ops activate")
         logger.info("To create it:")
         logger.info(">>> conda ops create")
-        logger.info("To activate it:")
-        logger.info(f">>> conda ops activate")
         sys.exit(1)
 
     logger.debug("Enumerating packages from the active environment")

@@ -2,7 +2,8 @@ import argparse
 
 import conda.plugins
 
-from .commands import ops_init, ops_create, consistency_check
+from .commands import (ops_init, ops_create, consistency_check,
+                       ops_activate)
 
 
 def conda_ops(argv: list):
@@ -20,6 +21,9 @@ def conda_ops(argv: list):
     sync = configure_parser_sync(subparsers)
     uninstall = configure_parser_uninstall(subparsers)
     update = configure_parser_update(subparsers)
+    activate = configure_parser_activate(subparsers)
+    deactivate = configure_parser_deactivate(subparsers)
+
 
     args = parser.parse_args(argv)
 
@@ -70,6 +74,24 @@ def conda_ops(argv: list):
 # sub-parsers
 #
 # #############################################################################################
+
+def configure_parser_activate(subparsers):
+    descr = "Activate the managed conda environment"
+    p = subparsers.add_parser(
+        'activate',
+        description=descr,
+        help=descr
+    )
+    return p
+
+def configure_parser_deactivate(subparsers):
+    descr = "Deactivate the managed conda environment"
+    p = subparsers.add_parser(
+        'deactivate',
+        description=descr,
+        help=descr
+    )
+    return p
 
 def configure_parser_clean(subparsers):
     descr = 'Recreate the environment from the lock file'
