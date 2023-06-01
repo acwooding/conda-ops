@@ -3,7 +3,7 @@ import argparse
 import conda.plugins
 
 from .commands import (ops_init, ops_create, consistency_check,
-                       ops_activate)
+                       ops_activate, load_config)
 
 
 def conda_ops(argv: list):
@@ -26,13 +26,18 @@ def conda_ops(argv: list):
 
 
     args = parser.parse_args(argv)
+    config = load_config(die_on_error=False)
 
-    if args.command == 'clean':
+    if args.command == 'activate':
+        ops_activate(config=config, name=args.name)
+    elif args.command == 'clean':
         consistency_check()
         print('Removing environment')
         print('Recreating environment from the lock file')
     elif args.command == 'create':
         ops_create()
+    elif args.command == 'deactivate':
+        ops_deactivate()
     elif args.command == 'delete':
         if input("Are you sure you want to delete your conda environment? (y/n) ").lower() != 'y':
                 exit()
@@ -67,6 +72,8 @@ def conda_ops(argv: list):
         print('creating new lock file')
         print(f'updating packages {package_str}')
         print('DONE')
+    else:
+        logger.error(f"Unhandled conda ops subcommand: '{args.command}'")
 
 
 # #############################################################################################
@@ -82,6 +89,8 @@ def configure_parser_activate(subparsers):
         description=descr,
         help=descr
     )
+    p.add_argument("-n", "--name", help="Name of environment to activate. Default is the environment name in config.ini.",
+                   action="store")
     return p
 
 def configure_parser_deactivate(subparsers):

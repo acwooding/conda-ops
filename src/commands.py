@@ -37,8 +37,10 @@ yaml.default_flow_style=False
 yaml.width=4096
 yaml.indent(offset=4)
 
-def ops_activate():
+def ops_activate(*, config=None, name=None):
     """Activate the managed environment"""
+    if name is None:
+        xxx
     logger.error("Unimplemented: activate")
 
 def ops_deactivate():
@@ -159,21 +161,30 @@ def ops_create():
 # Helper Functions
 #
 ######################
+
+def load_config(die_on_error=True):
+    """Load the conda ops configuration file."""
+    ops_dir = find_conda_ops_dir(die_on_error=die_on_error)
+
+    if ops_dir is not None:
+        logger.debug('Checking config.ini constistency')
+        config = configparser.ConfigParser()
+        config.read(ops_dir / CONFIG_FILENAME)
+    else:
+        config = None
+    return config
+
 def consistency_check():
 
-    ops_dir = find_conda_ops_dir()
-
-    logger.debug('Checking config.ini constistency')
-    config = configparser.ConfigParser()
-    config.read(ops_dir / CONFIG_FILENAME)
+    config = load_config()
     env_name = config['DEFAULT']['ENV_NAME']
+    logger.debug(f"Managed Conda Environment name: {env_name}")
 
     status_file = ops_dir / STATUS_FILENAME
     requirements_file = ops_dir / REQUIREMENTS_FILENAME
     explicit_lock_file = ops_dir / EXPLICIT_LOCK_FILENAME
     lock_file = ops_dir / LOCK_FILENAME
 
-    logger.debug(f"Managed Conda Environment name: {env_name}")
     if requirements_file.exists():
         logger.debug("Requirements file present")
         if lock_file.exists():
@@ -262,11 +273,16 @@ def get_conda_info():
     return get_info_dict()
 
 
-def find_conda_ops_dir():
+def find_conda_ops_dir(die_on_error=True):
     '''
     Locate the conda ops configuration directory.
 
     Searches current and all parent directories.
+
+    die_on_error: Boolean
+        if ops_dir is not found:
+            if True, exit with error
+            if False, return None
     '''
     logger.debug("Searching for conda_ops dir.")
     ops_dir = find_upwards(Path.cwd(), CONDA_OPS_DIR_NAME)
@@ -274,8 +290,8 @@ def find_conda_ops_dir():
         logger.warning('No managed "conda ops" environment found (here or in parent directories).')
         logger.info("To start managing a new conda ops environment")
         logger.info(">>> conda ops init")
-        sys.exit(1)
-
+        if die_on_error:
+            sys.exit(1)
     return ops_dir
 
 def find_upwards(cwd, filename):
