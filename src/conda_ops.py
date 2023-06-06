@@ -3,7 +3,8 @@ import argparse
 import conda.plugins
 
 from .commands import (ops_init, ops_create, consistency_check,
-                       ops_activate, load_config)
+                       ops_activate, ops_add, ops_sync, ops_lock, ops_delete,
+                       load_config)
 
 
 def conda_ops(argv: list):
@@ -12,11 +13,13 @@ def conda_ops(argv: list):
 
     # add subparsers
 
+    add = configure_parser_add(subparsers)
     clean = configure_parser_clean(subparsers)
     create = configure_parser_create(subparsers)
     delete = configure_parser_delete(subparsers)
     init = configure_parser_init(subparsers)
     install = configure_parser_install(subparsers)
+    lock = configure_parser_lock(subparsers)
     status = configure_parser_status(subparsers)
     sync = configure_parser_sync(subparsers)
     uninstall = configure_parser_uninstall(subparsers)
@@ -26,7 +29,9 @@ def conda_ops(argv: list):
 
 
     args = parser.parse_args(argv)
-    config = load_config(die_on_error=False)
+
+    if not args.command in ['init']:
+        config = load_config(die_on_error=False)
 
     if args.command == 'activate':
         ops_activate(config=config, name=args.name)
@@ -35,52 +40,61 @@ def conda_ops(argv: list):
         print('Removing environment')
         print('Recreating environment from the lock file')
     elif args.command == 'create':
-        ops_create()
+        ops_create(config=config)
     elif args.command == 'deactivate':
         ops_deactivate()
     elif args.command == 'delete':
         if input("Are you sure you want to delete your conda environment? (y/n) ").lower() != 'y':
                 exit()
-        print('deleting the conda ops managed environment')
+        else:
+            ops_delete(config=config)
     elif args.command == 'init':
         ops_init()
     elif args.command == 'install':
-        consistency_check()
+        consistency_check(config=config)
         package_str = " ".join(args.packages)
         print(f'adding {package_str} to requirements')
         print('creating new lock file')
         print(f'installing packages {package_str}')
         print('DONE')
     elif args.command in ['status', None]:
-        consistency_check()
+        consistency_check(config=config)
     elif args.command == 'uninstall':
-        consistency_check()
+        consistency_check(config=config)
         package_str = " ".join(args.packages)
         print(f'removing {package_str} from requirements')
         print('creating new lock file')
         print(f'uninstalling packages {package_str}')
         print('DONE')
     elif args.command == 'sync':
-        consistency_check()
+        consistency_check(config=config)
         print('updating lock file from requirements')
         print('updating environment')
         print('DONE')
     elif args.command == 'update':
         package_str = " ".join(args.packages)
         print(f'checking {package_str} are in requirements')
-        consistency_check()
+        consistency_check(config=config)
         print('creating new lock file')
         print(f'updating packages {package_str}')
         print('DONE')
+    elif args.command == 'add':
+        ops_add(args.packages, channel=args.channel, config=config)
+    elif args.command == 'lock':
+        ops_lock(config=config)
+    elif args.command == 'activate':
+        ops_activate()
+    elif args.command == 'deactivate':
+        ops_deactivate()
     else:
         logger.error(f"Unhandled conda ops subcommand: '{args.command}'")
-
 
 # #############################################################################################
 #
 # sub-parsers
 #
 # #############################################################################################
+
 
 def configure_parser_activate(subparsers):
     descr = "Activate the managed conda environment"
@@ -93,14 +107,15 @@ def configure_parser_activate(subparsers):
                    action="store")
     return p
 
-def configure_parser_deactivate(subparsers):
-    descr = "Deactivate the managed conda environment"
+def configure_parser_add(subparsers):
+    descr = 'Add listed packages to the requirements file'
     p = subparsers.add_parser(
-        'deactivate',
+        'add',
         description=descr,
         help=descr
     )
-    return p
+    p.add_argument('packages', type=str, nargs='+')
+    p.add_argument('-c', '--channel', help="indicate the channel that the packages are coming from, set this to 'pip' if the packages you are adding are to be installed via pip")
 
 def configure_parser_clean(subparsers):
     descr = 'Recreate the environment from the lock file'
@@ -115,6 +130,15 @@ def configure_parser_create(subparsers):
     descr = 'Create the conda environment'
     p = subparsers.add_parser(
         'create',
+        description=descr,
+        help=descr
+    )
+    return p
+
+def configure_parser_deactivate(subparsers):
+    descr = "Deactivate the managed conda environment"
+    p = subparsers.add_parser(
+        'deactivate',
         description=descr,
         help=descr
     )
@@ -147,6 +171,15 @@ def configure_parser_install(subparsers):
     )
 
     p.add_argument('packages', type=str, nargs='+')
+    return p
+
+def configure_parser_lock(subparsers):
+    descr = 'Update the lock file based on the requirements file'
+    p = subparsers.add_parser(
+        'lock',
+        description=descr,
+        help=descr
+    )
     return p
 
 def configure_parser_status(subparsers):
@@ -187,7 +220,6 @@ def configure_parser_update(subparsers):
     )
     p.add_argument('packages', type=str, nargs='+')
     return p
-
 
 
 @conda.plugins.hookimpl

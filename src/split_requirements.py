@@ -79,8 +79,9 @@ def create_split_files(file_to_split, base_path):
     for kind in channel_order:
         if kind == "pip":
             filename = '.ops.pip-requirements.txt'
-            with open(base_path / filename, 'w') as f:
-                f.write("\n".join(channel_dict['pip']['pip']))
+            if type(channel_dict['pip']) is dict:
+                with open(base_path / filename, 'w') as f:
+                    f.write("\n".join(channel_dict['pip']['pip']))
         else:
             filename = f'.ops.{kind}-environment.txt'
             with open(base_path / filename, 'w') as f:
