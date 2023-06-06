@@ -29,7 +29,9 @@ def conda_ops(argv: list):
 
 
     args = parser.parse_args(argv)
-    config = load_config(die_on_error=False)
+
+    if not args.command in ['init']:
+        config = load_config(die_on_error=False)
 
     if args.command == 'activate':
         ops_activate(config=config, name=args.name)
@@ -38,48 +40,48 @@ def conda_ops(argv: list):
         print('Removing environment')
         print('Recreating environment from the lock file')
     elif args.command == 'create':
-        ops_create()
+        ops_create(config=config)
     elif args.command == 'deactivate':
         ops_deactivate()
     elif args.command == 'delete':
         if input("Are you sure you want to delete your conda environment? (y/n) ").lower() != 'y':
                 exit()
         else:
-            ops_delete()
+            ops_delete(config=config)
     elif args.command == 'init':
         ops_init()
     elif args.command == 'install':
-        consistency_check()
+        consistency_check(config=config)
         package_str = " ".join(args.packages)
         print(f'adding {package_str} to requirements')
         print('creating new lock file')
         print(f'installing packages {package_str}')
         print('DONE')
     elif args.command in ['status', None]:
-        consistency_check()
+        consistency_check(config=config)
     elif args.command == 'uninstall':
-        consistency_check()
+        consistency_check(config=config)
         package_str = " ".join(args.packages)
         print(f'removing {package_str} from requirements')
         print('creating new lock file')
         print(f'uninstalling packages {package_str}')
         print('DONE')
     elif args.command == 'sync':
-        consistency_check()
+        consistency_check(config=config)
         print('updating lock file from requirements')
         print('updating environment')
         print('DONE')
     elif args.command == 'update':
         package_str = " ".join(args.packages)
         print(f'checking {package_str} are in requirements')
-        consistency_check()
+        consistency_check(config=config)
         print('creating new lock file')
         print(f'updating packages {package_str}')
         print('DONE')
     elif args.command == 'add':
-        ops_add(args.packages, channel=args.channel)
+        ops_add(args.packages, channel=args.channel, config=config)
     elif args.command == 'lock':
-        ops_lock()
+        ops_lock(config=config)
     elif args.command == 'activate':
         ops_activate()
     elif args.command == 'deactivate':

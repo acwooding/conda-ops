@@ -7,6 +7,8 @@ import json
 from ruamel.yaml import YAML
 from .split_requirements import create_split_files
 from .python_api import run_command
+from .kvstore import KVStore
+from ._paths import PathStore
 import conda.cli.python_api
 from conda.cli.main_info import get_info_dict
 
@@ -16,7 +18,6 @@ logger = logging.getLogger()
 
 conda_logger = logging.getLogger("conda.cli.python_api")
 conda_logger.setLevel(logging.INFO)
-
 ch = logging.StreamHandler()
 ch.setFormatter(logging.Formatter("%(asctime)s %(name)-15s %(levelname)-8s %(processName)-10s %(message)s"))
 conda_logger.addHandler(ch)
@@ -26,11 +27,7 @@ sh.setFormatter(logging.Formatter(" %(levelname)-8s (%(name)s) %(message)s"))
 logger.addHandler(sh)
 
 CONDA_OPS_DIR_NAME = '.conda-ops'
-STATUS_FILENAME = 'status.txt'
 CONFIG_FILENAME = 'config.ini'
-REQUIREMENTS_FILENAME = 'environment.yml'
-LOCK_FILENAME = 'lockfile.json'
-EXPLICIT_LOCK_FILENAME = 'lockfile.explicit'
 
 yaml = YAML()
 yaml.default_flow_style=False
@@ -40,7 +37,7 @@ yaml.indent(offset=4)
 def ops_activate(*, config=None, name=None):
     """Activate the managed environment"""
     if name is None:
-        xxx
+        name = config['settings']['env_name']
     logger.error("Unimplemented: activate")
 
 def ops_deactivate():
@@ -52,13 +49,13 @@ def ops_sync():
     """Generate a lockfile from a requirements file, then update the environment from it."""
     logger.error("Unimplemented: sync")
 
-def ops_add(packages, channel=None):
+def ops_add(packages, channel=None, config=None):
     """
     Add packages to the requirements file from a given channel. By default add the channel to the
     end of the channel order. Treat pip as a special channel.
     """
-    ops_dir = find_conda_ops_dir()
-    requirements_file = ops_dir / REQUIREMENTS_FILENAME
+    requirements_file = config['paths']['requirements_path']
+
     logger.info(f'adding packages {packages} from channel {channel} to the requirements file {requirements_file}')
 
     with open(requirements_file, 'r') as yamlfile:
@@ -95,14 +92,15 @@ def ops_add(packages, channel=None):
     with open(requirements_file, 'w') as yamlfile:
         yaml.dump(reqs, yamlfile)
 
-    print(f'Added packages {packages} to requirements file. \nRun `conda ops lock` to update the lockfile accordingly.')
+    print(f'Added packages {packages} to requirements file.')
+    print('To update the lockfile accordingly:')
+    print('>>> conda ops lock')
 
-def ops_delete():
-    ops_dir = find_conda_ops_dir()
-
-    config = configparser.ConfigParser()
-    config.read(ops_dir / CONFIG_FILENAME)
-    env_name = config['DEFAULT']['ENV_NAME']
+def ops_delete(config=None):
+    """
+    Deleted the cond ops managed conda environment (aka. conda remove -n env_name --all)
+    """
+    env_name = config['settings']['env_name']
 
     env_exists = check_env_exists(env_name)
     if not env_exists:
@@ -139,48 +137,54 @@ def ops_init():
 
     # setup initial config
     config_file = conda_ops_path / CONFIG_FILENAME
-    config = configparser.ConfigParser()
 
     # currently defaults to creating an env_name based on the location of the project
     env_name = Path.cwd().name
-    config['DEFAULT'] = {'ENV_NAME': env_name}
-    with open(config_file, 'w') as f:
-        config.write(f)
+
+    _config_paths = {
+        'ops_dir': '${catalog_path}',
+        'requirements_path': '${catalog_path}/environment.yml',
+        'lockfile_path': '${catalog_path}/lockfile.json',
+        'explicit_lockfile_path': '${catalog_path}/lockfile.explicit'
+    }
+    _config_settings ={
+        'env_name': env_name,
+    }
+    config = KVStore(_config_settings, config_file=config_file, config_section='OPS_SETTINGS')
+    path_config = PathStore(_config_paths, config_file=config_file, config_section='OPS_PATHS')
 
     # create basic requirements file
-    requirements_file = conda_ops_path / REQUIREMENTS_FILENAME
+    requirements_file = path_config['requirements_path']
     if not requirements_file.exists():
         requirements_dict = {'name': env_name,
                              'channels': ['defaults'],
                              'channel-order': ['defaults'],
                              'dependencies': ['python', 'pip']}
-        logger.info('rewriting')
+        logger.info('writing')
         with open(requirements_file, 'w') as f:
             yaml.dump(requirements_dict, f)
     else:
         logger.info(f'Requirements file {requirements_file} already exists')
     logger.info(f'Initialized conda-ops project in {conda_ops_path.resolve()}')
+    print('To create the conda ops environment:')
+    print('>>> conda ops create')
 
-def ops_create():
+def ops_create(config=None):
     '''
     Create the first lockfile and environment
     '''
     logger.info('TODO: check if the environment already exists...')
 
-    ops_dir = find_conda_ops_dir()
-    requirements_file = ops_dir / REQUIREMENTS_FILENAME
+    ops_dir = config['paths']['ops_dir']
+    env_name = config['settings']['env_name']
 
-    requirements = yaml.load(requirements_file)
-    env_name = requirements['name']
-    lock_file = ops_dir / LOCK_FILENAME
-
-    json_reqs = generate_lock_file(requirements_file, lock_file, ops_dir=ops_dir)
+    json_reqs = generate_lock_file(config)
 
     logger.info('creating explicit file for installation')
     explicit_str = "# This file may be used to create an environment using:\n# $ conda create --name <env> --file <this file>\n@EXPLICIT\n"
     explicit_str += json_to_explicit(json_reqs['actions']['LINK'])
 
-    explicit_lock_file = ops_dir / EXPLICIT_LOCK_FILENAME
+    explicit_lock_file = config['paths']['explicit_lockfile_path']
     with open(explicit_lock_file, 'w') as f:
         f.write(explicit_str)
 
@@ -189,21 +193,14 @@ def ops_create():
     stdout, stderr, result_code = run_command("create", create_args, use_exception_handler=True)
     logger.info(stdout)
 
-    status_file = ops_dir / STATUS_FILENAME
-    with open(status_file, 'w') as f:
-        f.write(f"Environment {env_name} created.")
     logger.info(f'Environment created. To activate the environment:')
-    logger.into(">>> conda ops activate")
+    logger.info(">>> conda ops activate")
 
-def ops_lock():
+def ops_lock(config=None):
     """
     Create a lock file from the requirements file
     """
-    ops_dir = find_conda_ops_dir()
-    requirements_file = ops_dir / REQUIREMENTS_FILENAME
-    lock_file = ops_dir / LOCK_FILENAME
-
-    generate_lock_file(requirements_file, lock_file, ops_dir=ops_dir)
+    generate_lock_file(config)
 
     logger.info("lock file generated")
 
@@ -220,22 +217,23 @@ def load_config(die_on_error=True):
 
     if ops_dir is not None:
         logger.debug('Checking config.ini constistency')
-        config = configparser.ConfigParser()
-        config.read(ops_dir / CONFIG_FILENAME)
+        path_config = PathStore(config_file=(ops_dir / CONFIG_FILENAME), config_section='OPS_PATHS')
+        ops_config = KVStore(config_file=(ops_dir / CONFIG_FILENAME), config_section='OPS_SETTINGS')
+        config = {'paths': path_config, 'settings': ops_config}
     else:
         config = None
     return config
 
-def consistency_check():
-
-    config = load_config()
-    env_name = config['DEFAULT']['ENV_NAME']
+def consistency_check(config=None):
+    """
+    Check the consistency of the requirements file vs. lock file vs. conda environment
+    """
+    env_name = config['settings']['env_name']
     logger.debug(f"Managed Conda Environment name: {env_name}")
 
-    status_file = ops_dir / STATUS_FILENAME
-    requirements_file = ops_dir / REQUIREMENTS_FILENAME
-    explicit_lock_file = ops_dir / EXPLICIT_LOCK_FILENAME
-    lock_file = ops_dir / LOCK_FILENAME
+    requirements_file = config['paths']['requirements_path']
+    explicit_lock_file = config['paths']['explicit_lockfile_path']
+    lock_file = config['paths']['lockfile_path']
 
     if requirements_file.exists():
         logger.debug("Requirements file present")
@@ -380,14 +378,16 @@ def json_to_explicit(json_list):
         explicit_str += package_str+"\n"
     return explicit_str
 
-def generate_lock_file(requirements_file, lock_file, ops_dir=None):
+def generate_lock_file(config):
     """
     Generate a lock file from the requirements file.
     """
-    if ops_dir is None:
-        ops_dir = find_conda_ops_dir()
+    ops_dir = config['paths']['ops_dir']
+    requirements_file = config['paths']['requirements_path']
+    lock_file = config['paths']['lockfile_path']
     requirements = yaml.load(requirements_file)
-    env_name = requirements['name']
+    env_name = config['settings']['env_name']
+    logger.debug(env_name)
 
     logger.info('generating multi-step requirements files')
     create_split_files(requirements_file, ops_dir)
