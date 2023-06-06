@@ -74,7 +74,10 @@ def conda_ops(argv: list):
         ops_add(args.packages, channel=args.channel)
     elif args.command == 'lock':
         ops_lock()
-
+    elif args.command == 'activate':
+        ops_activate()
+    elif args.command == 'deactivate':
+        ops_deactivate()
 
 # #############################################################################################
 #

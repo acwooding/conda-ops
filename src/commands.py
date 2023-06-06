@@ -190,7 +190,8 @@ def ops_create():
     status_file = ops_dir / STATUS_FILENAME
     with open(status_file, 'w') as f:
         f.write(f"Environment {env_name} created.")
-    logger.info(f'Environment created. Activate the environment using `conda activate {env_name}` to begin.')
+    logger.info(f'Environment created. To activate the environment:')
+    logger.into(">>> conda ops activate")
 
 def ops_lock():
     """
