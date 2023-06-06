@@ -3,7 +3,7 @@ import argparse
 import conda.plugins
 
 from .commands import (ops_init, ops_create, consistency_check,
-                       ops_activate, ops_add, ops_sync, ops_lock)
+                       ops_activate, ops_add, ops_sync, ops_lock, ops_delete)
 
 
 def conda_ops(argv: list):
@@ -38,7 +38,8 @@ def conda_ops(argv: list):
     elif args.command == 'delete':
         if input("Are you sure you want to delete your conda environment? (y/n) ").lower() != 'y':
                 exit()
-        print('deleting the conda ops managed environment')
+        else:
+            ops_delete()
     elif args.command == 'init':
         ops_init()
     elif args.command == 'install':

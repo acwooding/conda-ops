@@ -95,6 +95,29 @@ def ops_add(packages, channel=None):
 
     print(f'Added packages {packages} to requirements file. \nRun `conda ops lock` to update the lockfile accordingly.')
 
+def ops_delete():
+    ops_dir = find_conda_ops_dir()
+
+    config = configparser.ConfigParser()
+    config.read(ops_dir / CONFIG_FILENAME)
+    env_name = config['DEFAULT']['ENV_NAME']
+
+    env_exists = check_env_exists(env_name)
+    if not env_exists:
+        logger.warning(f"The conda environment {env_name} does not exist, and cannot be deleted.")
+        logger.info("To create the environment:")
+        logger.info(">>> conda ops create")
+    else:
+        print(f"Deleting the conda environment {env_name}")
+        stdout, stderr, result_code = run_command("remove", '-n', env_name, '--all', use_exception_handler=True)
+        if result_code != 0:
+            logger.info(stdout)
+            logger.info(stderr)
+            sys.exit(result_code)
+        print("Environment deleted.")
+        print("To create the environment again:")
+        print(">>> conda ops create")
+
 def ops_init():
     '''
     Initialize the conda ops project by creating a .conda-ops directory including the conda-ops project structure
@@ -149,7 +172,7 @@ def ops_create():
     env_name = requirements['name']
     lock_file = ops_dir / LOCK_FILENAME
 
-    generate_lock_file(requirements_file, lock_file)
+    json_reqs = generate_lock_file(requirements_file, lock_file, ops_dir=ops_dir)
 
     logger.info('creating explicit file for installation')
     explicit_str = "# This file may be used to create an environment using:\n# $ conda create --name <env> --file <this file>\n@EXPLICIT\n"
@@ -164,13 +187,6 @@ def ops_create():
     stdout, stderr, result_code = run_command("create", create_args, use_exception_handler=True)
     logger.info(stdout)
 
-    if len(order_list) > 1:
-        ## XXX implement the next steps here
-        logger.info(f"TODO: Implement multi-stage install here...currently ignorning channels other than {order_list[0]}")
-
-    ## XXX Implement the pip step here
-    logger.info('TODO: Implement the pip installation step here')
-
     status_file = ops_dir / STATUS_FILENAME
     with open(status_file, 'w') as f:
         f.write(f"Environment {env_name} created.")
@@ -184,7 +200,7 @@ def ops_lock():
     requirements_file = ops_dir / REQUIREMENTS_FILENAME
     lock_file = ops_dir / LOCK_FILENAME
 
-    generate_lock_file(requirements_file, lock_file)
+    generate_lock_file(requirements_file, lock_file, ops_dir=ops_dir)
 
     logger.info("lock file generated")
 
@@ -347,11 +363,12 @@ def json_to_explicit(json_list):
         explicit_str += package_str+"\n"
     return explicit_str
 
-def generate_lock_file(requirements_file, lock_file):
+def generate_lock_file(requirements_file, lock_file, ops_dir=None):
     """
     Generate a lock file from the requirements file.
     """
-    ops_dir = find_conda_ops_dir()
+    if ops_dir is None:
+        ops_dir = find_conda_ops_dir()
     requirements = yaml.load(requirements_file)
     env_name = requirements['name']
 
@@ -381,17 +398,25 @@ def generate_lock_file(requirements_file, lock_file):
             logger.info(stderr)
             sys.exit()
     json_reqs = json.loads(stdout)
-    if json_reqs['message'] == 'All requested packages already installed.':
-        logger.warning("All requested packages are already installed. Cannot generate lock file")
+    if json_reqs.get('message', None) == 'All requested packages already installed.':
+        logger.error("All requested packages are already installed. Cannot generate lock file")
         logger.warning("TODO: Decide what to do when all requested packages are already installed in the environment. Probably need to sync? And check that the lock file and environment are in sync.")
     elif 'actions' in json_reqs:
-        sys.exit(0)
         with open(lock_file, 'w') as f:
             json.dump(json_reqs['actions'], f)
+        print(f"Lockfile {lock_file} successfully created.")
     else:
         logger.error(f"Unexpected output:\n {json_reqs}")
+        sys.exit()
 
+    if len(order_list) > 1:
+        ## XXX implement the next steps here
+        logger.error(f"TODO: Implement multi-stage install here...currently ignorning channels other than {order_list[0]}")
+
+    ## XXX Implement the pip step here
+    logger.error('TODO: Implement the pip installation step here')
     logger.error("NOT IMPLEMENTED YET: lock files currently only contain packages from the defaults channel and do not include any other channels")
+    return json_reqs
 
 def check_env_exists(env_name):
     """
