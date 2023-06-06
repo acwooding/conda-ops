@@ -37,6 +37,15 @@ yaml.default_flow_style=False
 yaml.width=4096
 yaml.indent(offset=4)
 
+def ops_activate():
+    """Activate the managed environment"""
+    logger.error("Unimplemented: activate")
+
+def ops_deactivate():
+    """Deactivate managed conda environment"""
+    # check current environment is correct one
+    logger.error("Unimplemented: deactivate")
+
 def ops_sync():
     """Generate a lockfile from a requirements file, then update the environment from it."""
     logger.error("Unimplemented: sync")
@@ -199,6 +208,7 @@ def consistency_check():
     explicit_lock_file = ops_dir / EXPLICIT_LOCK_FILENAME
     lock_file = ops_dir / LOCK_FILENAME
 
+    logger.debug(f"Managed Conda Environment name: {env_name}")
     if requirements_file.exists():
         logger.debug("Requirements file present")
         if lock_file.exists():
