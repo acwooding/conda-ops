@@ -88,7 +88,7 @@ def ops_add(packages, channel=None):
     if pip_dict is not None:
         reqs['dependencies'] = [pip_dict] + reqs['dependencies']
 
-    logger.warning("NOT YET IMPLEMENTED: check that the given packages have not already been specified in a different channel. Figure out what to suggest in that case")
+    logger.error("NOT YET IMPLEMENTED: check that the given packages have not already been specified in a different channel. Figure out what to suggest in that case")
 
     with open(requirements_file, 'w') as yamlfile:
         yaml.dump(reqs, yamlfile)
@@ -381,15 +381,17 @@ def generate_lock_file(requirements_file, lock_file):
             logger.info(stderr)
             sys.exit()
     json_reqs = json.loads(stdout)
-    if json_req['message'] == 'All requested packages already installed.':
+    if json_reqs['message'] == 'All requested packages already installed.':
+        logger.warning("All requested packages are already installed. Cannot generate lock file")
         logger.warning("TODO: Decide what to do when all requested packages are already installed in the environment. Probably need to sync? And check that the lock file and environment are in sync.")
     elif 'actions' in json_reqs:
+        sys.exit(0)
         with open(lock_file, 'w') as f:
             json.dump(json_reqs['actions'], f)
     else:
         logger.error(f"Unexpected output:\n {json_reqs}")
 
-    logger.warning("NOT IMPLEMENTED YET: lock files currently only contain packages from the defaults channel and do not include any other channels")
+    logger.error("NOT IMPLEMENTED YET: lock files currently only contain packages from the defaults channel and do not include any other channels")
 
 def check_env_exists(env_name):
     """
