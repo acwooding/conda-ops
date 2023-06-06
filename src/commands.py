@@ -36,8 +36,19 @@ yaml.indent(offset=4)
 
 def ops_activate(*, config=None, name=None):
     """Activate the managed environment"""
+    env_name = config['settings']['env_name']
     if name is None:
-        name = config['settings']['env_name']
+        name = env_name
+    if name != env_name:
+        logger.warning(f'Activating environment {name} which does not match the conda ops managed environment {env_name}')
+    ## Note: this is tricky as activate balks
+    logger.error("XXX: figuring this out")
+    stdout, stderr, result_code = run_command('activate', name, use_exception_handler=True)
+    if result_code != 0:
+        logger.info(stdout)
+        logger.info(stderr)
+        sys.exit(result_code)
+
     logger.error("Unimplemented: activate")
 
 def ops_deactivate():
