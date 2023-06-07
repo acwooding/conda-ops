@@ -34,6 +34,13 @@ yaml.default_flow_style=False
 yaml.width=4096
 yaml.indent(offset=4)
 
+
+######################
+#
+# Compound Functions
+#
+######################
+
 def cmd_activate(*, config=None, name=None):
     """Activate the managed environment"""
     env_name = config['settings']['env_name']
@@ -64,7 +71,7 @@ def cmd_create(config=None):
         logger.info("To activate it:")
         logger.info(f">>> conda activate {env_name}")
         sys.exit(1)
-    json_reqs = generate_lock_file(config)
+    json_reqs = lockfile_generate(config)
 
     env_create(config)
 
@@ -90,14 +97,6 @@ def cmd_init():
     logger.info(f'Initialized conda-ops project in {ops_dir}')
     print('To create the conda ops environment:')
     print('>>> conda ops create')
-
-def cmd_lock(config=None):
-    """
-    Create a lock file from the requirements file
-    """
-    generate_lock_file(config)
-
-    logger.info("Lock file generated")
 
 
 ######################
@@ -216,6 +215,68 @@ def reqs_create(config):
     else:
         logger.info(f'Requirements file {requirements_file} already exists')
 
+######################
+#
+# Lockfile Level Functions
+#
+######################
+
+def lockfile_generate(config):
+    """
+    Generate a lock file from the requirements file.
+    """
+    ops_dir = config['paths']['ops_dir']
+    requirements_file = config['paths']['requirements_path']
+    lock_file = config['paths']['lockfile_path']
+    requirements = yaml.load(requirements_file)
+    env_name = config['settings']['env_name']
+    logger.debug(env_name)
+
+    logger.info('generating multi-step requirements files')
+    create_split_files(requirements_file, ops_dir)
+
+    with open(ops_dir / '.ops.channel-order.include', 'r') as f:
+        order_list = f.read().split()
+
+    logger.info('generating the lock file')
+    # creating the environment with the first stage
+    with open(ops_dir / f'.ops.{order_list[0]}-environment.txt') as f:
+        package_list = f.read().split()
+
+    create_args = ["-n", env_name] + package_list + ['--dry-run', '--json']
+
+    if check_env_exists(env_name):
+        stdout, stderr, result_code = run_command("install", create_args, use_exception_handler=True)
+        if result_code != 0:
+            logger.info(stdout)
+            logger.info(stderr)
+            sys.exit()
+    else:
+        stdout, stderr, result_code = run_command("create", create_args, use_exception_handler=True)
+        if result_code != 0:
+            logger.info(stdout)
+            logger.info(stderr)
+            sys.exit()
+    json_reqs = json.loads(stdout)
+    if json_reqs.get('message', None) == 'All requested packages already installed.':
+        logger.error("All requested packages are already installed. Cannot generate lock file")
+        logger.warning("TODO: Decide what to do when all requested packages are already installed in the environment. Probably need to sync? And check that the lock file and environment are in sync.")
+    elif 'actions' in json_reqs:
+        with open(lock_file, 'w') as f:
+            json.dump(json_reqs, f)
+        print(f"Lockfile {lock_file} successfully created.")
+    else:
+        logger.error(f"Unexpected output:\n {json_reqs}")
+        sys.exit()
+
+    if len(order_list) > 1:
+        ## XXX implement the next steps here
+        logger.error(f"TODO: Implement multi-stage install here...currently ignorning channels other than {order_list[0]}")
+
+    ## XXX Implement the pip step here
+    logger.error('TODO: Implement the pip installation step here')
+    logger.error("NOT IMPLEMENTED YET: lock files currently only contain packages from the defaults channel and do not include any other channels")
+    return json_reqs
 
 ######################
 #
@@ -456,62 +517,6 @@ def json_to_explicit(json_list):
         explicit_str += package_str+"\n"
     return explicit_str
 
-def generate_lock_file(config):
-    """
-    Generate a lock file from the requirements file.
-    """
-    ops_dir = config['paths']['ops_dir']
-    requirements_file = config['paths']['requirements_path']
-    lock_file = config['paths']['lockfile_path']
-    requirements = yaml.load(requirements_file)
-    env_name = config['settings']['env_name']
-    logger.debug(env_name)
-
-    logger.info('generating multi-step requirements files')
-    create_split_files(requirements_file, ops_dir)
-
-    with open(ops_dir / '.ops.channel-order.include', 'r') as f:
-        order_list = f.read().split()
-
-    logger.info('generating the lock file')
-    # creating the environment with the first stage
-    with open(ops_dir / f'.ops.{order_list[0]}-environment.txt') as f:
-        package_list = f.read().split()
-
-    create_args = ["-n", env_name] + package_list + ['--dry-run', '--json']
-
-    if check_env_exists(env_name):
-        stdout, stderr, result_code = run_command("install", create_args, use_exception_handler=True)
-        if result_code != 0:
-            logger.info(stdout)
-            logger.info(stderr)
-            sys.exit()
-    else:
-        stdout, stderr, result_code = run_command("create", create_args, use_exception_handler=True)
-        if result_code != 0:
-            logger.info(stdout)
-            logger.info(stderr)
-            sys.exit()
-    json_reqs = json.loads(stdout)
-    if json_reqs.get('message', None) == 'All requested packages already installed.':
-        logger.error("All requested packages are already installed. Cannot generate lock file")
-        logger.warning("TODO: Decide what to do when all requested packages are already installed in the environment. Probably need to sync? And check that the lock file and environment are in sync.")
-    elif 'actions' in json_reqs:
-        with open(lock_file, 'w') as f:
-            json.dump(json_reqs, f)
-        print(f"Lockfile {lock_file} successfully created.")
-    else:
-        logger.error(f"Unexpected output:\n {json_reqs}")
-        sys.exit()
-
-    if len(order_list) > 1:
-        ## XXX implement the next steps here
-        logger.error(f"TODO: Implement multi-stage install here...currently ignorning channels other than {order_list[0]}")
-
-    ## XXX Implement the pip step here
-    logger.error('TODO: Implement the pip installation step here')
-    logger.error("NOT IMPLEMENTED YET: lock files currently only contain packages from the defaults channel and do not include any other channels")
-    return json_reqs
 
 def generate_explicit_lock_file(config):
     """
