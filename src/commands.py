@@ -154,9 +154,9 @@ def ops_init():
 
     _config_paths = {
         'ops_dir': '${catalog_path}',
-        'requirements_path': '${catalog_path}/environment.yml',
-        'lockfile_path': '${catalog_path}/lockfile.json',
-        'explicit_lockfile_path': '${catalog_path}/lockfile.explicit'
+        'requirements_path': '${ops_dir}/environment.yml',
+        'lockfile_path': '${ops_dir}/lockfile.json',
+        'explicit_lockfile_path': '${ops_dir}/lockfile.explicit'
     }
     _config_settings ={
         'env_name': env_name,
