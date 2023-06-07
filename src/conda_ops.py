@@ -3,7 +3,8 @@ import argparse
 import conda.plugins
 
 from .commands import (cmd_init, cmd_create, consistency_check,
-                       cmd_activate, cmd_add, cmd_sync, cmd_lock, cmd_delete,
+                       cmd_activate, cmd_add, cmd_sync, cmd_lock,
+                       env_create, env_delete,
                        load_config, proj_create, reqs_create)
 
 
@@ -57,7 +58,7 @@ def conda_ops(argv: list):
         if input("Are you sure you want to delete your conda environment? (y/n) ").lower() != 'y':
                 exit()
         else:
-            cmd_delete(config=config)
+            env_delete(config=config)
     elif args.command == 'init':
         cmd_init()
     elif args.command == 'install':
@@ -119,13 +120,13 @@ def conda_ops(argv: list):
             print('call lockfile_update')
     elif args.command == 'env':
         if args.kind == 'create':
-            print('call env_create')
+            env_create(config)
         elif args.kind == 'sync':
             print('call env_sync')
         elif args.kind == 'clean':
             print('call env_clean')
         elif args.kind == 'delete':
-            cmd_delete(config)
+            env_delete(config)
         elif args.kind == 'dump':
             print('call env_dump')
         elif args.kind == 'activate':

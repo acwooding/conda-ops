@@ -98,28 +98,20 @@ def cmd_add(packages, channel=None, config=None):
 
 def cmd_create(config=None):
     '''
-    Create the first lockfile and environment
+    Create the first lockfile and environment.
+
+    XXX Possibily init if that hasn't been done yet
     '''
-    logger.info('TODO: check if the environment already exists...')
-
-    ops_dir = config['paths']['ops_dir']
     env_name = config['settings']['env_name']
-
+    if check_env_exists(env_name):
+        logger.error(f"Environment {env_name} exists.")
+        logger.info("To activate it:")
+        logger.info(f">>> conda activate {env_name}")
+        sys.exit(1)
     json_reqs = generate_lock_file(config)
 
-    generate_explicit_lock_file(config)
+    env_create(config)
 
-    logger.info(f"Creating the environment {env_name}")
-    create_args = ["-n", env_name, "--file", str(explicit_lock_file)]
-    stdout, stderr, result_code = run_command("create", create_args, use_exception_handler=True)
-    if result_code != 0:
-        logger.info(stdout)
-        logger.info(stderr)
-        sys.exit(result_code)
-    logger.info(stdout)
-
-    logger.info(f'Environment created. To activate the environment:')
-    logger.info(">>> conda ops activate")
 
 def cmd_deactivate():
     """Deactivate managed conda environment"""
@@ -129,28 +121,6 @@ def cmd_deactivate():
 def cmd_sync():
     """Generate a lockfile from a requirements file, then update the environment from it."""
     logger.error("Unimplemented: sync")
-
-def cmd_delete(config=None):
-    """
-    Deleted the conda ops managed conda environment (aka. conda remove -n env_name --all)
-    """
-    env_name = config['settings']['env_name']
-
-    env_exists = check_env_exists(env_name)
-    if not env_exists:
-        logger.warning(f"The conda environment {env_name} does not exist, and cannot be deleted.")
-        logger.info("To create the environment:")
-        logger.info(">>> conda ops create")
-    else:
-        print(f"Deleting the conda environment {env_name}")
-        stdout, stderr, result_code = run_command("remove", '-n', env_name, '--all', use_exception_handler=True)
-        if result_code != 0:
-            logger.info(stdout)
-            logger.info(stderr)
-            sys.exit(result_code)
-        print("Environment deleted.")
-        print("To create the environment again:")
-        print(">>> conda ops create")
 
 def cmd_init():
     '''
@@ -245,6 +215,60 @@ def reqs_create(config):
     else:
         logger.info(f'Requirements file {requirements_file} already exists')
 
+
+######################
+#
+# Environment Level Functions
+#
+######################
+
+def env_create(config):
+    """
+    Create the conda ops managed environment from the lock file
+    """
+    env_name = config['settings']['env_name']
+    if check_env_exists(env_name):
+        logger.error(f"Environment {env_name} exists.")
+        logger.info("To activate it:")
+        logger.info(f">>> conda activate {env_name}")
+        sys.exit(1)
+    explicit_lock_file = config['paths']['explicit_lockfile_path']
+    generate_explicit_lock_file(config)
+
+    logger.info(f"Creating the environment {env_name}")
+    create_args = ["-n", env_name, "--file", str(explicit_lock_file)]
+    stdout, stderr, result_code = run_command("create", create_args, use_exception_handler=True)
+    if result_code != 0:
+        logger.info(stdout)
+        logger.info(stderr)
+        sys.exit(result_code)
+    logger.info(stdout)
+
+    logger.info(f'Environment created. To activate the environment:')
+    logger.info(">>> conda activate {env_name}")
+
+def env_delete(config=None):
+    """
+    Deleted the conda ops managed conda environment (aka. conda remove -n env_name --all)
+    """
+    env_name = config['settings']['env_name']
+
+    env_exists = check_env_exists(env_name)
+    if not env_exists:
+        logger.warning(f"The conda environment {env_name} does not exist, and cannot be deleted.")
+        logger.info("To create the environment:")
+        logger.info(">>> conda ops create")
+    else:
+        print(f"Deleting the conda environment {env_name}")
+        stdout, stderr, result_code = run_command("remove", '-n', env_name, '--all', use_exception_handler=True)
+        if result_code != 0:
+            logger.info(stdout)
+            logger.info(stderr)
+            sys.exit(result_code)
+        print("Environment deleted.")
+        print("To create the environment again:")
+        print(">>> conda ops create")
+
 ######################
 #
 # Helper Functions
@@ -306,7 +330,7 @@ def consistency_check(config=None):
         if env_exists:
             logger.info(f"Environment {env_name} exists.")
             logger.info("To activate it:")
-            logger.info(f">>> conda ops activate")
+            logger.info(f">>> conda activate {env_name}")
         else:
             logger.info(f"Environment {env_name} does not yet exist.")
             logger.info("To create it:")
