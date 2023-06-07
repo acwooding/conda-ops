@@ -31,11 +31,11 @@ def conda_ops(argv: list):
     # add additional parsers for hidden commands
     proj = subparsers.add_parser('proj', help='Accepts create, check and load')
     proj.add_argument('kind', type=str)
-    env = subparsers.add_parser('env')
+    env = subparsers.add_parser('env', , help='Accepts create, add, remove, check')
     env.add_argument('kind', type=str)
-    reqs = subparsers.add_parser('reqs', help='Accepts create, add, remove, check')
+    reqs = subparsers.add_parser('reqs', help='Accepts create, sync, clean, delete, dump, activate, deactivate, check')
     reqs.add_argument('kind', type=str)
-    lockfile = subparsers.add_parser('lockfile')
+    lockfile = subparsers.add_parser('lockfile', help='Accepts create, update, check')
     lockfile.add_argument('kind', type=str)
 
 
