@@ -1,12 +1,14 @@
 import argparse
+import logging
 
 import conda.plugins
 
 from .commands import (cmd_init, cmd_create, consistency_check,
-                       cmd_activate, cmd_add, cmd_sync, cmd_lock,
+                       cmd_activate, cmd_sync, cmd_lock,
                        env_create, env_delete,
-                       load_config, proj_create, reqs_create)
+                       load_config, proj_create, reqs_create, reqs_add)
 
+logger = logging.getLogger()
 
 def conda_ops(argv: list):
     parser = argparse.ArgumentParser("conda ops")
@@ -31,10 +33,18 @@ def conda_ops(argv: list):
     # add additional parsers for hidden commands
     proj = subparsers.add_parser('proj', help='Accepts create, check and load')
     proj.add_argument('kind', type=str)
-    env = subparsers.add_parser('env', , help='Accepts create, add, remove, check')
+    env = subparsers.add_parser('env', help='Accepts create, sync, clean, delete, dump, activate, deactivate, check')
     env.add_argument('kind', type=str)
-    reqs = subparsers.add_parser('reqs', help='Accepts create, sync, clean, delete, dump, activate, deactivate, check')
-    reqs.add_argument('kind', type=str)
+
+    reqs = subparsers.add_parser('reqs', help='Accepts create, add, remove, check')
+    reqs_subparser = reqs.add_subparsers(dest='reqs_command',metavar='reqs_command')
+    reqs_subparser.add_parser('create')
+    r_add = reqs_subparser.add_parser('add')
+    r_add.add_argument('packages', type=str, nargs='+')
+    r_add.add_argument('-c', '--channel', help="indicate the channel that the packages are coming from, set this to 'pip' if the packages you are adding are to be installed via pip")
+    reqs_subparser.add_parser('remove')
+    reqs_subparser.add_parser('check')
+
     lockfile = subparsers.add_parser('lockfile', help='Accepts create, update, check')
     lockfile.add_argument('kind', type=str)
 
@@ -86,7 +96,7 @@ def conda_ops(argv: list):
         print(f'updating packages {package_str}')
         print('DONE')
     elif args.command == 'add':
-        cmd_add(args.packages, channel=args.channel, config=config)
+        reqs_add(args.packages, channel=args.channel, config=config)
         print('To update the lockfile accordingly:')
         print('>>> conda ops lock')
     elif args.command == 'lock':
@@ -102,15 +112,10 @@ def conda_ops(argv: list):
             print('call proj_check')
         elif args.kind == 'load':
             print('call proj_load')
-    elif args.command == 'reqs':
-        if args.kind == 'create':
-            reqs_create(config)
-        elif args.kind == 'check':
-            print('call reqs_check')
-        elif args.kind == 'add':
-            print('call reqs_remove')
-        elif args.kind == 'add':
-            print('call reqs_remove')
+    elif args.reqs_command == 'create':
+        reqs_create(config)
+    elif args.reqs_command == 'add':
+        reqs_add(args.packages, channel=args.channel, config=config)
     elif args.command == 'lockfile':
         if args.kind == 'create':
             print('call lockfile_create')

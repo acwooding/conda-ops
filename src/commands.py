@@ -51,50 +51,6 @@ def cmd_activate(*, config=None, name=None):
 
     logger.error("Unimplemented: activate")
 
-def cmd_add(packages, channel=None, config=None):
-    """
-    Add packages to the requirements file from a given channel. By default add the channel to the
-    end of the channel order. Treat pip as a special channel.
-    """
-    requirements_file = config['paths']['requirements_path']
-
-    logger.info(f'adding packages {packages} from channel {channel} to the requirements file {requirements_file}')
-
-    with open(requirements_file, 'r') as yamlfile:
-        reqs = yaml.load(yamlfile)
-
-    # pull off the pip section ot keep it at the beginning of the reqs file
-    pip_dict = None
-    for k, dep in enumerate(reqs['dependencies']):
-        if isinstance(dep, dict):  # nested yaml
-            if dep.get('pip', None):
-                pip_dict = reqs['dependencies'].pop(k)
-                break
-
-    if channel is None:
-        reqs['dependencies'] = list(set(reqs['dependencies'] + packages))
-    elif channel=='pip':
-        if pip_dict is None:
-            pip_dict = {'pip': list(set(packages))}
-        else:
-            pip_dict['pip'] = list(set(pip_dict['pip'] + packages))
-        reqs['dependencies'].append(pip_dict)
-    else: # interpret channel as a conda channel
-        package_list = [f'{channel}::{package}' for package in packages]
-        reqs['dependencies'] = list(set(reqs['dependencies'] + package_list))
-        if not channel in reqs['channel-order']:
-            reqs['channel-order'].append(channel)
-
-    # add back the pip section
-    if pip_dict is not None:
-        reqs['dependencies'] = [pip_dict] + reqs['dependencies']
-
-    logger.error("NOT YET IMPLEMENTED: check that the given packages have not already been specified in a different channel. Figure out what to suggest in that case")
-
-    with open(requirements_file, 'w') as yamlfile:
-        yaml.dump(reqs, yamlfile)
-
-    print(f'Added packages {packages} to requirements file.')
 
 def cmd_create(config=None):
     '''
@@ -196,6 +152,51 @@ def proj_create():
 # Requirements Level Functions
 #
 ######################
+
+def reqs_add(packages, channel=None, config=None):
+    """
+    Add packages to the requirements file from a given channel. By default add the channel to the
+    end of the channel order. Treat pip as a special channel.
+    """
+    requirements_file = config['paths']['requirements_path']
+
+    logger.info(f'adding packages {packages} from channel {channel} to the requirements file {requirements_file}')
+
+    with open(requirements_file, 'r') as yamlfile:
+        reqs = yaml.load(yamlfile)
+
+    # pull off the pip section ot keep it at the beginning of the reqs file
+    pip_dict = None
+    for k, dep in enumerate(reqs['dependencies']):
+        if isinstance(dep, dict):  # nested yaml
+            if dep.get('pip', None):
+                pip_dict = reqs['dependencies'].pop(k)
+                break
+
+    if channel is None:
+        reqs['dependencies'] = list(set(reqs['dependencies'] + packages))
+    elif channel=='pip':
+        if pip_dict is None:
+            pip_dict = {'pip': list(set(packages))}
+        else:
+            pip_dict['pip'] = list(set(pip_dict['pip'] + packages))
+        reqs['dependencies'].append(pip_dict)
+    else: # interpret channel as a conda channel
+        package_list = [f'{channel}::{package}' for package in packages]
+        reqs['dependencies'] = list(set(reqs['dependencies'] + package_list))
+        if not channel in reqs['channel-order']:
+            reqs['channel-order'].append(channel)
+
+    # add back the pip section
+    if pip_dict is not None:
+        reqs['dependencies'] = [pip_dict] + reqs['dependencies']
+
+    logger.error("NOT YET IMPLEMENTED: check that the given packages have not already been specified in a different channel. Figure out what to suggest in that case")
+
+    with open(requirements_file, 'w') as yamlfile:
+        yaml.dump(reqs, yamlfile)
+
+    print(f'Added packages {packages} to requirements file.')
 
 def reqs_create(config):
     """
