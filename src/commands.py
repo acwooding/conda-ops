@@ -239,8 +239,15 @@ def consistency_check(config=None):
     """
     Check the consistency of the requirements file vs. lock file vs. conda environment
     """
+    if config is None:
+        logger.error("No managed conda environment found.")
+        logger.info("To place the current directory under conda ops management:")
+        logger.info(">>> conda ops init")
+        logger.info("To change to a managed directory:")
+        logger.info(">>> cd path/to/managed/conda/project")
+        sys.exit(1)
     env_name = config['settings']['env_name']
-    logger.debug(f"Managed Conda Environment name: {env_name}")
+    logger.info(f"Managed Conda Environment: {env_name}")
 
     requirements_file = config['paths']['requirements_path']
     explicit_lock_file = config['paths']['explicit_lockfile_path']
@@ -267,19 +274,18 @@ def consistency_check(config=None):
     active_conda_env = info_dict['active_prefix_name']
     platform = info_dict['platform']
 
-    logger.info(f"Active conda environment: {active_conda_env}")
-    logger.info(f"Platform: {platform}")
+    logger.info(f"Active Conda environment: {active_conda_env}")
+    logger.info(f"Conda platform: {platform}")
     if active_conda_env == env_name:
         pass
     else:
-        logger.warning("Incorrect or missing conda environment.")
         env_exists = check_env_exists(env_name)
         if env_exists:
-            logger.info(f"Environment {env_name} exists.")
+            logger.warning(f"Managed conda environment ('{env_name}') exists but is not active.")
             logger.info("To activate it:")
-            logger.info(f">>> conda ops activate")
+            logger.info(f">>> conda activate {env_name}")
         else:
-            logger.info(f"Environment {env_name} does not yet exist.")
+            logger.warning(f"Managed conda environment ('{env_name}') does not yet exist.")
             logger.info("To create it:")
             logger.info(">>> conda ops create")
         sys.exit(1)
@@ -344,9 +350,16 @@ def find_conda_ops_dir(die_on_error=True):
     logger.debug("Searching for conda_ops dir.")
     ops_dir = find_upwards(Path.cwd(), CONDA_OPS_DIR_NAME)
     if ops_dir is None:
-        logger.warning('No managed "conda ops" environment found (here or in parent directories).')
-        logger.info("To start managing a new conda ops environment")
+        s = "No managed conda environment found (here or in parent directories)."
+        if die_on_error:
+            logger.error(s)
+        else:
+            logger.warning(s)
+        logger.info("To place the current directory under conda ops management:")
         logger.info(">>> conda ops init")
+        logger.info("To change to a managed directory:")
+        logger.info(">>> cd path/to/managed/conda/project")
+
         if die_on_error:
             sys.exit(1)
     return ops_dir
