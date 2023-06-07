@@ -42,7 +42,7 @@ def conda_ops(argv: list):
     args = parser.parse_args(argv)
 
     if not args.command in ['init']:
-        config = load_config(die_on_error=False)
+        config = load_config(die_on_error=True)
 
     if args.command == 'activate':
         cmd_activate(config=config, name=args.name)
