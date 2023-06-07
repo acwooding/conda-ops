@@ -4,7 +4,7 @@ import conda.plugins
 
 from .commands import (cmd_init, cmd_create, consistency_check,
                        cmd_activate, cmd_add, cmd_sync, cmd_lock, cmd_delete,
-                       load_config)
+                       load_config, proj_create, reqs_create)
 
 
 def conda_ops(argv: list):
@@ -28,10 +28,14 @@ def conda_ops(argv: list):
     deactivate = configure_parser_deactivate(subparsers)
 
     # add additional parsers for hidden commands
-    proj = subparsers.add_parser('proj')
+    proj = subparsers.add_parser('proj', help='Accepts create, check and load')
     proj.add_argument('kind', type=str)
     env = subparsers.add_parser('env')
     env.add_argument('kind', type=str)
+    reqs = subparsers.add_parser('reqs', help='Accepts create, add, remove, check')
+    reqs.add_argument('kind', type=str)
+    lockfile = subparsers.add_parser('lockfile')
+    lockfile.add_argument('kind', type=str)
 
 
     args = parser.parse_args(argv)
@@ -92,20 +96,20 @@ def conda_ops(argv: list):
         cmd_deactivate()
     elif args.command == 'proj':
         if args.kind == 'create':
-            print('call proj_create')
+            proj_create()
         elif args.kind == 'check':
             print('call proj_check')
         elif args.kind == 'load':
             print('call proj_load')
     elif args.command == 'reqs':
         if args.kind == 'create':
-            print('call env_create')
+            reqs_create(config)
         elif args.kind == 'check':
-            print('call env_check')
+            print('call reqs_check')
         elif args.kind == 'add':
-            print('call env_remove')
+            print('call reqs_remove')
         elif args.kind == 'add':
-            print('call env_remove')
+            print('call reqs_remove')
     elif args.command == 'lockfile':
         if args.kind == 'create':
             print('call lockfile_create')
@@ -121,7 +125,7 @@ def conda_ops(argv: list):
         elif args.kind == 'clean':
             print('call env_clean')
         elif args.kind == 'delete':
-            print('call env_delete')
+            cmd_delete(config)
         elif args.kind == 'dump':
             print('call env_dump')
         elif args.kind == 'activate':

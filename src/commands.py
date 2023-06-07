@@ -132,7 +132,7 @@ def cmd_sync():
 
 def cmd_delete(config=None):
     """
-    Deleted the cond ops managed conda environment (aka. conda remove -n env_name --all)
+    Deleted the conda ops managed conda environment (aka. conda remove -n env_name --all)
     """
     env_name = config['settings']['env_name']
 
@@ -157,6 +157,35 @@ def cmd_init():
     Initialize the conda ops project by creating a .conda-ops directory including the conda-ops project structure
     '''
 
+    config = proj_create()
+    reqs_create(config)
+
+    ops_dir = config['paths']['ops_dir']
+    logger.info(f'Initialized conda-ops project in {ops_dir}')
+    print('To create the conda ops environment:')
+    print('>>> conda ops create')
+
+def cmd_lock(config=None):
+    """
+    Create a lock file from the requirements file
+    """
+    generate_lock_file(config)
+
+    logger.info("Lock file generated")
+
+
+######################
+#
+# Project Level Functions
+#
+######################
+
+def proj_create():
+    """
+    Initialize the conda ops project by creating a .conda-ops directory and config file.
+
+    Return the config dict
+    """
     conda_ops_path = Path.cwd() / CONDA_OPS_DIR_NAME
 
     if conda_ops_path.exists():
@@ -184,11 +213,27 @@ def cmd_init():
     _config_settings ={
         'env_name': env_name,
     }
-    config = KVStore(_config_settings, config_file=config_file, config_section='OPS_SETTINGS')
-    path_config = PathStore(_config_paths, config_file=config_file, config_section='OPS_PATHS')
+    config = {}
 
-    # create basic requirements file
-    requirements_file = path_config['requirements_path']
+    config['settings'] = KVStore(_config_settings, config_file=config_file, config_section='OPS_SETTINGS')
+    config['paths'] = PathStore(_config_paths, config_file=config_file, config_section='OPS_PATHS')
+
+    return config
+
+
+######################
+#
+# Requirements Level Functions
+#
+######################
+
+def reqs_create(config):
+    """
+    Create the requirements file if it doesn't already exist
+    """
+    requirements_file = config['paths']['requirements_path']
+    env_name = config['settings']['env_name']
+
     if not requirements_file.exists():
         requirements_dict = {'name': env_name,
                              'channels': ['defaults'],
@@ -199,18 +244,6 @@ def cmd_init():
             yaml.dump(requirements_dict, f)
     else:
         logger.info(f'Requirements file {requirements_file} already exists')
-    logger.info(f'Initialized conda-ops project in {conda_ops_path.resolve()}')
-    print('To create the conda ops environment:')
-    print('>>> conda ops create')
-
-def cmd_lock(config=None):
-    """
-    Create a lock file from the requirements file
-    """
-    generate_lock_file(config)
-
-    logger.info("Lock file generated")
-
 
 ######################
 #
