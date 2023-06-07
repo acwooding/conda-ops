@@ -2,8 +2,8 @@ import argparse
 
 import conda.plugins
 
-from .commands import (ops_init, ops_create, consistency_check,
-                       ops_activate, ops_add, ops_sync, ops_lock, ops_delete,
+from .commands import (cmd_init, cmd_create, consistency_check,
+                       cmd_activate, cmd_add, cmd_sync, cmd_lock, cmd_delete,
                        load_config)
 
 
@@ -27,6 +27,12 @@ def conda_ops(argv: list):
     activate = configure_parser_activate(subparsers)
     deactivate = configure_parser_deactivate(subparsers)
 
+    # add additional parsers for hidden commands
+    proj = subparsers.add_parser('proj')
+    proj.add_argument('kind', type=str)
+    env = subparsers.add_parser('env')
+    env.add_argument('kind', type=str)
+
 
     args = parser.parse_args(argv)
 
@@ -34,28 +40,24 @@ def conda_ops(argv: list):
         config = load_config(die_on_error=False)
 
     if args.command == 'activate':
-        ops_activate(config=config, name=args.name)
+        cmd_activate(config=config, name=args.name)
     elif args.command == 'clean':
         consistency_check()
         print('Removing environment')
         print('Recreating environment from the lock file')
     elif args.command == 'create':
-        ops_create(config=config)
+        cmd_create(config=config)
     elif args.command == 'deactivate':
-        ops_deactivate()
+        cmd_deactivate()
     elif args.command == 'delete':
         if input("Are you sure you want to delete your conda environment? (y/n) ").lower() != 'y':
                 exit()
         else:
-            ops_delete(config=config)
+            cmd_delete(config=config)
     elif args.command == 'init':
-        ops_init()
+        cmd_init()
     elif args.command == 'install':
-        consistency_check(config=config)
-        package_str = " ".join(args.packages)
-        print(f'adding {package_str} to requirements')
-        print('creating new lock file')
-        print(f'installing packages {package_str}')
+        logger.error("Unimplemented")
         print('DONE')
     elif args.command in ['status', None]:
         consistency_check(config=config)
@@ -79,13 +81,55 @@ def conda_ops(argv: list):
         print(f'updating packages {package_str}')
         print('DONE')
     elif args.command == 'add':
-        ops_add(args.packages, channel=args.channel, config=config)
+        cmd_add(args.packages, channel=args.channel, config=config)
+        print('To update the lockfile accordingly:')
+        print('>>> conda ops lock')
     elif args.command == 'lock':
-        ops_lock(config=config)
+        cmd_lock(config=config)
     elif args.command == 'activate':
-        ops_activate()
+        cmd_activate()
     elif args.command == 'deactivate':
-        ops_deactivate()
+        cmd_deactivate()
+    elif args.command == 'proj':
+        if args.kind == 'create':
+            print('call proj_create')
+        elif args.kind == 'check':
+            print('call proj_check')
+        elif args.kind == 'load':
+            print('call proj_load')
+    elif args.command == 'reqs':
+        if args.kind == 'create':
+            print('call env_create')
+        elif args.kind == 'check':
+            print('call env_check')
+        elif args.kind == 'add':
+            print('call env_remove')
+        elif args.kind == 'add':
+            print('call env_remove')
+    elif args.command == 'lockfile':
+        if args.kind == 'create':
+            print('call lockfile_create')
+        elif args.kind == 'check':
+            print('call lockfile_check')
+        elif args.kind == 'update':
+            print('call lockfile_update')
+    elif args.command == 'env':
+        if args.kind == 'create':
+            print('call env_create')
+        elif args.kind == 'sync':
+            print('call env_sync')
+        elif args.kind == 'clean':
+            print('call env_clean')
+        elif args.kind == 'delete':
+            print('call env_delete')
+        elif args.kind == 'dump':
+            print('call env_dump')
+        elif args.kind == 'activate':
+            print('call env_activate')
+        elif args.kind == 'deactivate':
+            print('call env_deactivate')
+        elif args.kind == 'check':
+            print('call env_check')
     else:
         logger.error(f"Unhandled conda ops subcommand: '{args.command}'")
 
@@ -171,6 +215,7 @@ def configure_parser_install(subparsers):
     )
 
     p.add_argument('packages', type=str, nargs='+')
+    p.add_argument('-c', '--channel', help="indicate the channel that the packages are coming from, set this to 'pip' if the packages you are adding are to be installed via pip")
     return p
 
 def configure_parser_lock(subparsers):
@@ -220,6 +265,8 @@ def configure_parser_update(subparsers):
     )
     p.add_argument('packages', type=str, nargs='+')
     return p
+
+
 
 
 @conda.plugins.hookimpl

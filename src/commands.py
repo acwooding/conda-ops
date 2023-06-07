@@ -34,7 +34,7 @@ yaml.default_flow_style=False
 yaml.width=4096
 yaml.indent(offset=4)
 
-def ops_activate(*, config=None, name=None):
+def cmd_activate(*, config=None, name=None):
     """Activate the managed environment"""
     env_name = config['settings']['env_name']
     if name is None:
@@ -51,16 +51,7 @@ def ops_activate(*, config=None, name=None):
 
     logger.error("Unimplemented: activate")
 
-def ops_deactivate():
-    """Deactivate managed conda environment"""
-    # check current environment is correct one
-    logger.error("Unimplemented: deactivate")
-
-def ops_sync():
-    """Generate a lockfile from a requirements file, then update the environment from it."""
-    logger.error("Unimplemented: sync")
-
-def ops_add(packages, channel=None, config=None):
+def cmd_add(packages, channel=None, config=None):
     """
     Add packages to the requirements file from a given channel. By default add the channel to the
     end of the channel order. Treat pip as a special channel.
@@ -104,10 +95,42 @@ def ops_add(packages, channel=None, config=None):
         yaml.dump(reqs, yamlfile)
 
     print(f'Added packages {packages} to requirements file.')
-    print('To update the lockfile accordingly:')
-    print('>>> conda ops lock')
 
-def ops_delete(config=None):
+def cmd_create(config=None):
+    '''
+    Create the first lockfile and environment
+    '''
+    logger.info('TODO: check if the environment already exists...')
+
+    ops_dir = config['paths']['ops_dir']
+    env_name = config['settings']['env_name']
+
+    json_reqs = generate_lock_file(config)
+
+    generate_explicit_lock_file(config)
+
+    logger.info(f"Creating the environment {env_name}")
+    create_args = ["-n", env_name, "--file", str(explicit_lock_file)]
+    stdout, stderr, result_code = run_command("create", create_args, use_exception_handler=True)
+    if result_code != 0:
+        logger.info(stdout)
+        logger.info(stderr)
+        sys.exit(result_code)
+    logger.info(stdout)
+
+    logger.info(f'Environment created. To activate the environment:')
+    logger.info(">>> conda ops activate")
+
+def cmd_deactivate():
+    """Deactivate managed conda environment"""
+    # check current environment is correct one
+    logger.error("Unimplemented: deactivate")
+
+def cmd_sync():
+    """Generate a lockfile from a requirements file, then update the environment from it."""
+    logger.error("Unimplemented: sync")
+
+def cmd_delete(config=None):
     """
     Deleted the cond ops managed conda environment (aka. conda remove -n env_name --all)
     """
@@ -129,7 +152,7 @@ def ops_delete(config=None):
         print("To create the environment again:")
         print(">>> conda ops create")
 
-def ops_init():
+def cmd_init():
     '''
     Initialize the conda ops project by creating a .conda-ops directory including the conda-ops project structure
     '''
@@ -180,40 +203,13 @@ def ops_init():
     print('To create the conda ops environment:')
     print('>>> conda ops create')
 
-def ops_create(config=None):
-    '''
-    Create the first lockfile and environment
-    '''
-    logger.info('TODO: check if the environment already exists...')
-
-    ops_dir = config['paths']['ops_dir']
-    env_name = config['settings']['env_name']
-
-    json_reqs = generate_lock_file(config)
-
-    logger.info('creating explicit file for installation')
-    explicit_str = "# This file may be used to create an environment using:\n# $ conda create --name <env> --file <this file>\n@EXPLICIT\n"
-    explicit_str += json_to_explicit(json_reqs['actions']['LINK'])
-
-    explicit_lock_file = config['paths']['explicit_lockfile_path']
-    with open(explicit_lock_file, 'w') as f:
-        f.write(explicit_str)
-
-    logger.info(f"Creating the environment {env_name}")
-    create_args = ["-n", env_name, "--file", str(explicit_lock_file)]
-    stdout, stderr, result_code = run_command("create", create_args, use_exception_handler=True)
-    logger.info(stdout)
-
-    logger.info(f'Environment created. To activate the environment:')
-    logger.info(">>> conda ops activate")
-
-def ops_lock(config=None):
+def cmd_lock(config=None):
     """
     Create a lock file from the requirements file
     """
     generate_lock_file(config)
 
-    logger.info("lock file generated")
+    logger.info("Lock file generated")
 
 
 ######################
@@ -431,7 +427,7 @@ def generate_lock_file(config):
         logger.warning("TODO: Decide what to do when all requested packages are already installed in the environment. Probably need to sync? And check that the lock file and environment are in sync.")
     elif 'actions' in json_reqs:
         with open(lock_file, 'w') as f:
-            json.dump(json_reqs['actions'], f)
+            json.dump(json_reqs, f)
         print(f"Lockfile {lock_file} successfully created.")
     else:
         logger.error(f"Unexpected output:\n {json_reqs}")
@@ -445,6 +441,23 @@ def generate_lock_file(config):
     logger.error('TODO: Implement the pip installation step here')
     logger.error("NOT IMPLEMENTED YET: lock files currently only contain packages from the defaults channel and do not include any other channels")
     return json_reqs
+
+def generate_explicit_lock_file(config):
+    """
+    Generate an explicit lock file from the usual one (aka. of the format generated by `conda list --explicit`
+    """
+    logger.info('creating explicit file for installation')
+    lock_file = config['paths']['lockfile_path']
+
+    with open(lock_file, 'r') as f:
+        json_reqs = json.load(f)
+
+    explicit_str = "# This file may be used to create an environment using:\n# $ conda create --name <env> --file <this file>\n@EXPLICIT\n"
+    explicit_str += json_to_explicit(json_reqs['actions']['LINK'])
+
+    explicit_lock_file = config['paths']['explicit_lockfile_path']
+    with open(explicit_lock_file, 'w') as f:
+        f.write(explicit_str)
 
 def check_env_exists(env_name):
     """
