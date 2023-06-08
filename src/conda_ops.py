@@ -138,7 +138,7 @@ def conda_ops(argv: list):
         elif args.kind == 'dump':
             print('call env_dump')
         elif args.kind == 'activate':
-            env_activate(config)
+            env_activate(config=config)
         elif args.kind == 'deactivate':
             env_deactivate(config)
         elif args.kind == 'check':
