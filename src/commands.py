@@ -5,7 +5,7 @@ import sys
 import configparser
 import json
 from ruamel.yaml import YAML
-from .split_requirements import create_split_files
+from .split_requirements import create_split_files, env_split, get_channel_order
 from .python_api import run_command
 from .kvstore import KVStore
 from ._paths import PathStore
@@ -63,9 +63,17 @@ def cmd_create(config=None):
 
     env_create(config)
 
-def cmd_sync():
+def cmd_sync(config):
     """Generate a lockfile from a requirements file, then update the environment from it."""
-    logger.error("Unimplemented: sync")
+    lockfile_generate(config)
+    env_sync(config)
+
+def cmd_clean(config):
+    """
+    Deleted and regenerate the environment from the requirements file.
+    """
+    env_delete(config)
+    cmd_sync(config)
 
 def cmd_init():
     '''
@@ -184,8 +192,11 @@ def reqs_add(packages, channel=None, config=None):
     """
     Add packages to the requirements file from a given channel. By default add the channel to the
     end of the channel order. Treat pip as a special channel.
+
+    TODO: Handle version strings properly
     """
     requirements_file = config['paths']['requirements']
+    logger.debug(packages)
     package_str= ' '.join(packages)
     logger.info(f'adding packages {package_str} from channel {channel} to the requirements file {requirements_file}')
 
@@ -220,12 +231,73 @@ def reqs_add(packages, channel=None, config=None):
     if pip_dict is not None:
         reqs['dependencies'] = [pip_dict] + reqs['dependencies']
 
-    logger.error("NOT YET IMPLEMENTED: check that the given packages have not already been specified in a different channel. Figure out what to suggest in that case")
+    logger.error("NOT YET IMPLEMENTED: check that the given packages have not already been specified in a different channel or version. Override with the new option and possilby warn")
 
     with open(requirements_file, 'w') as yamlfile:
         yaml.dump(reqs, yamlfile)
 
     print(f'Added packages {package_str} to requirements file.')
+
+def reqs_remove(packages, config=None):
+    """
+    Remove packages from the requirements file. Treat pip as a special channel.
+
+    TODO: Handle version strings properly
+    TODO: Remove extraneous channels
+    """
+    requirements_file = config['paths']['requirements']
+    logger.debug(packages)
+    package_str= ' '.join(packages)
+    logger.info(f'Removing packages {package_str} from the requirements file {requirements_file}')
+
+    packages = [x.strip() for x in packages]
+
+    with open(requirements_file, 'r') as yamlfile:
+        reqs = yaml.load(yamlfile)
+
+    # pull off the pip section ot keep it at the beginning of the reqs file
+    pip_dict = None
+    for k, dep in enumerate(reqs['dependencies']):
+        if isinstance(dep, dict):  # nested yaml
+            if dep.get('pip', None):
+                pip_dict = reqs['dependencies'].pop(k)
+                break
+
+    # first remove non-pip dependencies
+    deps = list(set(reqs['dependencies']))
+    for package in packages:
+        for dep in deps:
+            if '::' in dep:
+                dep_check = dep.split('::')[-1].strip()
+            else:
+                dep_check = dep.strip()
+            if dep_check.startswith(package): # probably need a regex match to get this right
+                if dep_check != package:
+                    logger.warning(f'Removing {dep} from requirements')
+                deps.remove(dep)
+    reqs['dependencies'] = deps
+
+    # now remove pip dependencies is the section exists
+    if pip_dict is not None:
+        pip_dict['pip'] = list(set(pip_dict['pip'] + packages))
+        deps =  list(set(pip_dict['pip']))
+        for package in packages:
+            for dep in deps:
+                if dep.startswith(package):
+                    if dep_check != package: # probably need a proper reges match to get this right
+                        logger.warning(f'Removing {dep} from requirements')
+                    deps.remove(dep)
+        pip_dict['pip'] = deps
+
+    # add back the pip section
+    if pip_dict is not None:
+        reqs['dependencies'] = [pip_dict] + reqs['dependencies']
+
+    with open(requirements_file, 'w') as yamlfile:
+        yaml.dump(reqs, yamlfile)
+
+    print(f'Removed packages {package_str} to requirements file.')
+    logger.error("Unimplemented: Remove channels that are no longer in use")
 
 def reqs_create(config):
     """
@@ -289,7 +361,7 @@ def reqs_check(config, die_on_error=True):
 #
 ##################################################################
 
-def lockfile_generate(config, rollback_on_fail=False):
+def lockfile_generate(config, rollback_on_fail=True):
     """
     Generate a lock file from the requirements file.
 
@@ -309,6 +381,8 @@ def lockfile_generate(config, rollback_on_fail=False):
 
     if rollback_on_fail:
         # clone so we can rollback if needed
+        logger.error("Unimplemented: rollback requires a deactivated environment. Do it as a separate step")
+        '''
         logger.debug("Setting up rollback environment")
         clone_env_name = env_name+"-clone"
 
@@ -319,7 +393,7 @@ def lockfile_generate(config, rollback_on_fail=False):
             logger.info(stdout)
             logger.info(stderr)
             return None
-
+        '''
     for i, channel in enumerate(order_list):
         if channel != 'pip':
             json_reqs = conda_step_env_lock(channel, config)
@@ -328,6 +402,10 @@ def lockfile_generate(config, rollback_on_fail=False):
             # json_reqs = pip_step_env_lock()
         if json_reqs is None:
             if rollback_on_fail:
+                logger.error("To rollback the environment:")
+                logger.info(">>> conda deactivate")
+                logger.info(">>> conda ops clean")
+                """
                 env_delete(config=config)
                 conda_args = ["-n", env_name, "--clone", clone_env_name]
                 stdout, stderr, result_code = run_command("create", conda_args, use_exception_handler=True)
@@ -336,6 +414,7 @@ def lockfile_generate(config, rollback_on_fail=False):
                     logger.info(stdout)
                     logger.info(stderr)
                     return None
+                """
             else:
                 if i > 0:
                     logger.warning(f"Last successful channel was {order_list[i-1]}")
@@ -353,8 +432,9 @@ def lockfile_generate(config, rollback_on_fail=False):
     shutil.copy(ops_dir / (ops_dir / f'.ops.lock.{last_good_channel}'), lock_file)
 
     if rollback_on_fail:
+        pass
         # delete the clone environment
-        env_delete(env_name=clone_env_name)
+        #env_delete(env_name=clone_env_name)
 
 
 def conda_step_env_lock(channel, config):
@@ -369,6 +449,9 @@ def conda_step_env_lock(channel, config):
     with open(ops_dir / f'.ops.{channel}-environment.txt') as f:
         package_list = f.read().split()
 
+    if len(package_list) == 0:
+        logger.warning("No packages to be installed at this step")
+        return {}
     if check_env_exists(env_name):
         conda_args = ["-n", env_name, "-c", channel] + package_list
         stdout, stderr, result_code = run_command("install", conda_args, use_exception_handler=True)
@@ -387,8 +470,6 @@ def conda_step_env_lock(channel, config):
 
     channel_lockfile = (ops_dir / f'.ops.lock.{channel}')
     json_reqs = env_lock(config, lock_file=channel_lockfile)
-
-
 
     return json_reqs
 
@@ -448,12 +529,23 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
     if lockfile_consistent and reqs_consistent:
         if requirements_file.stat().st_mtime < lock_file.stat().st_mtime:
             logger.debug("Lock file is newer than the requirements file")
-            logger.error("Unimplemented: Check that the packages in the requirements are in the lock file")
         else:
             check = False
             logger.warning("The requirements file is newer than the lock file.")
             logger.info("To update the lock file:")
             logger.info(">>> conda ops lock")
+        with open(requirements_file, 'r') as yamlfile:
+            reqs_env = yaml.load(yamlfile)
+        channel_order = get_channel_order(reqs_env)
+        _ , channel_dict = env_split(reqs_env, channel_order)
+        with open(lock_file, 'r') as lf:
+            lock_dict = json.load(lf)
+        lock_names = [package['name'] for package in lock_dict]
+        for channel in channel_order:
+            for package in channel_dict['kind']:
+                if package not in lock_names:
+                    logger.error(package)
+
     else:
         if not reqs_consistent:
             logger.error(f"Cannot check lockfile against requirements as the requirements file is missing or inconsistent.")

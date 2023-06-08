@@ -3,11 +3,11 @@ import logging
 
 import conda.plugins
 
-from .commands import (cmd_init, cmd_create, consistency_check,
+from .commands import (cmd_init, cmd_create, consistency_check, cmd_clean,
                        env_activate, cmd_sync, proj_load, env_deactivate,
                        env_create, env_delete, env_check, env_lockfile_check,
                        env_sync, env_lock, lockfile_generate, proj_create, proj_check,
-                       reqs_create, reqs_add, reqs_check,
+                       reqs_create, reqs_add, reqs_check, reqs_remove,
                        lockfile_check, lockfile_reqs_check)
 
 logger = logging.getLogger()
@@ -44,7 +44,8 @@ def conda_ops(argv: list):
     r_add = reqs_subparser.add_parser('add')
     r_add.add_argument('packages', type=str, nargs='+')
     r_add.add_argument('-c', '--channel', help="indicate the channel that the packages are coming from, set this to 'pip' if the packages you are adding are to be installed via pip")
-    reqs_subparser.add_parser('remove')
+    r_remove = reqs_subparser.add_parser('remove')
+    r_remove.add_argument('packages', type=str, nargs='+')
     reqs_subparser.add_parser('check')
 
     lockfile = subparsers.add_parser('lockfile', help='Accepts generate, update, check, reqs-check')
@@ -59,9 +60,7 @@ def conda_ops(argv: list):
     if args.command == 'activate':
         env_activate(config=config, name=args.name)
     elif args.command == 'clean':
-        consistency_check()
-        print('Removing environment')
-        print('Recreating environment from the lock file')
+        cmd_clean(config)
     elif args.command == 'create':
         cmd_create(config=config)
     elif args.command == 'deactivate':
@@ -86,9 +85,7 @@ def conda_ops(argv: list):
         print(f'uninstalling packages {package_str}')
         print('DONE')
     elif args.command == 'sync':
-        consistency_check(config=config)
-        print('updating lock file from requirements')
-        print('updating environment')
+        cmd_sync(config)
         print('DONE')
     elif args.command == 'update':
         package_str = " ".join(args.packages)
@@ -115,7 +112,7 @@ def conda_ops(argv: list):
             proj_load()
     elif args.command == 'lockfile':
         if args.kind == 'generate':
-            lockfile_generate()
+            lockfile_generate(config)
         elif args.kind == 'check':
             check = lockfile_check(config)
             if check:
@@ -149,6 +146,8 @@ def conda_ops(argv: list):
         reqs_create(config)
     elif args.reqs_command == 'add':
         reqs_add(args.packages, channel=args.channel, config=config)
+    elif args.reqs_command == 'remove':
+        reqs_remove(args.packages, config=config)
     elif args.reqs_command == 'check':
         check = reqs_check(config)
         if check:
