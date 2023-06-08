@@ -153,7 +153,7 @@ def proj_load(die_on_error=True):
     ops_dir = find_conda_ops_dir(die_on_error=die_on_error)
 
     if ops_dir is not None:
-        logger.debug('Checking config.ini constistency')
+        logger.debug('Loading project config')
         path_config = PathStore(config_file=(ops_dir / CONFIG_FILENAME), config_section='OPS_PATHS')
         ops_config = KVStore(config_file=(ops_dir / CONFIG_FILENAME), config_section='OPS_SETTINGS')
         config = {'paths': path_config, 'settings': ops_config}
@@ -206,8 +206,10 @@ def reqs_add(packages, channel=None, config=None):
     end of the channel order. Treat pip as a special channel.
     """
     requirements_file = config['paths']['requirements_path']
+    package_str= ' '.join(packages)
+    logger.info(f'adding packages {package_str} from channel {channel} to the requirements file {requirements_file}')
 
-    logger.info(f'adding packages {packages} from channel {channel} to the requirements file {requirements_file}')
+    packages = [x.strip() for x in packages]
 
     with open(requirements_file, 'r') as yamlfile:
         reqs = yaml.load(yamlfile)
@@ -243,7 +245,7 @@ def reqs_add(packages, channel=None, config=None):
     with open(requirements_file, 'w') as yamlfile:
         yaml.dump(reqs, yamlfile)
 
-    print(f'Added packages {packages} to requirements file.')
+    print(f'Added packages {package_str} to requirements file.')
 
 def reqs_create(config):
     """
