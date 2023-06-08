@@ -42,22 +42,6 @@ yaml.indent(offset=4)
 #
 ############################################
 
-def cmd_activate(*, config=None, name=None):
-    """Activate the managed environment"""
-    env_name = config['settings']['env_name']
-    if name is None:
-        name = env_name
-    if name != env_name:
-        logger.warning(f'Activating environment {name} which does not match the conda ops managed environment {env_name}')
-    ## Note: this is tricky as activate balks
-    logger.error("XXX: figuring this out")
-    stdout, stderr, result_code = run_command('activate', name, use_exception_handler=True)
-    if result_code != 0:
-        logger.info(stdout)
-        logger.info(stderr)
-        sys.exit(result_code)
-
-    logger.error("Unimplemented: activate")
 
 
 def cmd_create(config=None):
@@ -77,12 +61,6 @@ def cmd_create(config=None):
         json_reqs = lockfile_generate(config)
 
     env_create(config)
-
-
-def cmd_deactivate():
-    """Deactivate managed conda environment"""
-    # check current environment is correct one
-    logger.error("Unimplemented: deactivate")
 
 def cmd_sync():
     """Generate a lockfile from a requirements file, then update the environment from it."""
@@ -446,6 +424,37 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
 # Environment Level Functions
 #
 ##################################################################
+
+def env_activate(*, config=None, name=None):
+    """Activate the managed environment"""
+    env_name = config['settings']['env_name']
+    if name is None:
+        name = env_name
+    if name != env_name:
+        logger.warning(f'Requested environment {name} which does not match the conda ops managed environment {env_name}')
+    conda_info = get_conda_info()
+    active_env = conda_info['active_prefix_name']
+
+    if active_env == env_name:
+        logger.warning(f"The conda ops environment {env_name} is already active.")
+    else:
+        logger.info("To activate the conda ops environment:")
+        logger.info(f">>> conda activate {env_name}")
+
+
+
+def env_deactivate(config):
+    """Deactivate managed conda environment"""
+
+    env_name = config['settings']['env_name']
+    conda_info = get_conda_info()
+    active_env = conda_info['active_prefix_name']
+
+    if env_name != active_env:
+        logger.warning("The active environment is {active_env}, not the conda ops managed environment {env_name}")
+
+    logger.info(f"To deactivate the environment {active_env}:")
+    logger.info(">>> conda deactivate")
 
 def env_create(config):
     """

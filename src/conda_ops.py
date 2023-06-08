@@ -4,7 +4,7 @@ import logging
 import conda.plugins
 
 from .commands import (cmd_init, cmd_create, consistency_check,
-                       cmd_activate, cmd_sync, proj_load,
+                       env_activate, cmd_sync, proj_load, env_deactivate,
                        env_create, env_delete, env_check, env_lockfile_check,
                        env_sync, lockfile_generate, proj_create, proj_check,
                        reqs_create, reqs_add, reqs_check,
@@ -57,7 +57,7 @@ def conda_ops(argv: list):
         config = proj_load(die_on_error=True)
 
     if args.command == 'activate':
-        cmd_activate(config=config, name=args.name)
+        env_activate(config=config, name=args.name)
     elif args.command == 'clean':
         consistency_check()
         print('Removing environment')
@@ -65,7 +65,7 @@ def conda_ops(argv: list):
     elif args.command == 'create':
         cmd_create(config=config)
     elif args.command == 'deactivate':
-        cmd_deactivate()
+        env_deactivate(config)
     elif args.command == 'delete':
         if input("Are you sure you want to delete your conda environment? (y/n) ").lower() != 'y':
                 exit()
@@ -106,8 +106,6 @@ def conda_ops(argv: list):
         logger.info("Lock file genereated")
     elif args.command == 'activate':
         cmd_activate()
-    elif args.command == 'deactivate':
-        cmd_deactivate()
     elif args.command == 'proj':
         if args.kind == 'create':
             proj_create()
@@ -142,7 +140,7 @@ def conda_ops(argv: list):
         elif args.kind == 'activate':
             print('call env_activate')
         elif args.kind == 'deactivate':
-            print('call env_deactivate')
+            env_deactivate(config)
         elif args.kind == 'check':
             env_check(config)
         elif args.kind == 'lockfile-check':
