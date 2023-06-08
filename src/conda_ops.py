@@ -5,7 +5,7 @@ import conda.plugins
 
 from .commands import (cmd_init, cmd_create, consistency_check,
                        cmd_activate, cmd_sync, proj_load,
-                       env_create, env_delete,
+                       env_create, env_delete, env_check, env_lockfile_check,
                        lockfile_generate, proj_create, proj_check,
                        reqs_create, reqs_add, reqs_check,
                        lockfile_check, lockfile_reqs_check)
@@ -35,7 +35,7 @@ def conda_ops(argv: list):
     # add additional parsers for hidden commands
     proj = subparsers.add_parser('proj', help='Accepts create, check and load')
     proj.add_argument('kind', type=str)
-    env = subparsers.add_parser('env', help='Accepts create, sync, clean, delete, dump, activate, deactivate, check')
+    env = subparsers.add_parser('env', help='Accepts create, sync, clean, delete, dump, activate, deactivate, check, lockfile-check')
     env.add_argument('kind', type=str)
 
     reqs = subparsers.add_parser('reqs', help='Accepts create, add, remove, check')
@@ -144,7 +144,9 @@ def conda_ops(argv: list):
         elif args.kind == 'deactivate':
             print('call env_deactivate')
         elif args.kind == 'check':
-            print('call env_check')
+            env_check(config)
+        elif args.kind == 'lockfile-check':
+            env_lockfile_check(config)
     elif args.reqs_command == 'create':
         reqs_create(config)
     elif args.reqs_command == 'add':
