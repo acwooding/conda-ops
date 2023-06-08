@@ -6,7 +6,7 @@ import conda.plugins
 from .commands import (cmd_init, cmd_create, consistency_check,
                        cmd_activate, cmd_sync, proj_load,
                        env_create, env_delete, env_check, env_lockfile_check,
-                       lockfile_generate, proj_create, proj_check,
+                       env_sync, lockfile_generate, proj_create, proj_check,
                        reqs_create, reqs_add, reqs_check,
                        lockfile_check, lockfile_reqs_check)
 
@@ -132,7 +132,7 @@ def conda_ops(argv: list):
         if args.kind == 'create':
             env_create(config)
         elif args.kind == 'sync':
-            print('call env_sync')
+            env_sync(config)
         elif args.kind == 'clean':
             print('call env_clean')
         elif args.kind == 'delete':

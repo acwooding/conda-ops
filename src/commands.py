@@ -11,6 +11,7 @@ from .kvstore import KVStore
 from ._paths import PathStore
 import conda.cli.python_api
 from conda.cli.main_info import get_info_dict
+import urllib
 
 import logging
 
@@ -314,6 +315,8 @@ def lockfile_generate(config):
     Generate a lock file from the requirements file.
 
     Currently always overwrites any existing files.
+
+    XXX TODO: Update the lockfile.json at the time of generation to get extensions and md5 entries for the urls
     """
     ops_dir = config['paths']['ops_dir']
     requirements_file = config['paths']['requirements_path']
@@ -333,16 +336,16 @@ def lockfile_generate(config):
     with open(ops_dir / f'.ops.{order_list[0]}-environment.txt') as f:
         package_list = f.read().split()
 
-    create_args = ["-n", env_name] + package_list + ['--dry-run', '--json']
+    conda_args = ["-n", env_name] + package_list + ['--dry-run', '--json', '--show-channel-urls']
 
     if check_env_exists(env_name):
-        stdout, stderr, result_code = run_command("install", create_args, use_exception_handler=True)
+        stdout, stderr, result_code = run_command("install", conda_args, use_exception_handler=True)
         if result_code != 0:
             logger.info(stdout)
             logger.info(stderr)
             sys.exit()
     else:
-        stdout, stderr, result_code = run_command("create", create_args, use_exception_handler=True)
+        stdout, stderr, result_code = run_command("create", conda_args, use_exception_handler=True)
         if result_code != 0:
             logger.info(stdout)
             logger.info(stderr)
@@ -458,8 +461,8 @@ def env_create(config):
     generate_explicit_lock_file(config)
 
     logger.info(f"Creating the environment {env_name}")
-    create_args = ["-n", env_name, "--file", str(explicit_lock_file)]
-    stdout, stderr, result_code = run_command("create", create_args, use_exception_handler=True)
+    conda_args = ["-n", env_name, "--file", str(explicit_lock_file)]
+    stdout, stderr, result_code = run_command("create", conda_args, use_exception_handler=True)
     if result_code != 0:
         logger.info(stdout)
         logger.info(stderr)
@@ -585,6 +588,29 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
         sys.exit(1)
     return check
 
+def env_sync(config=None):
+    """
+    Install the lockfile contents into the environment.
+
+    By default this *should* make the environment match the lockfile contents exactly.
+    """
+    if config is None:
+        config = proj_load()
+
+    env_name = config['settings']['env_name']
+    explicit_lock_file = config['paths']['explicit_lockfile_path']
+    generate_explicit_lock_file(config)
+
+    logger.info(f"Syncing the environment {env_name}")
+    conda_args = ["-n", env_name, "--file", str(explicit_lock_file)]
+    stdout, stderr, result_code = run_command("install", conda_args, use_exception_handler=True)
+    if result_code != 0:
+        logger.info(stdout)
+        logger.info(stderr)
+        sys.exit(result_code)
+    logger.info(stdout)
+
+
 def env_delete(config=None):
     """
     Deleted the conda ops managed conda environment (aka. conda remove -n env_name --all)
@@ -707,8 +733,24 @@ def json_to_explicit(json_list):
     """
     explicit_str = ''
     for package in json_list:
-        package_str = '/'.join([package['base_url'], package['platform'], (package['dist_name'] + '.conda')]).strip()
-        explicit_str += package_str+"\n"
+        # can also use the json['actions']['FETCH'] section when entries exist
+        for extension in ['.conda', '.tar.bz2']:
+            # in the future, update the lockfile format to include the md5 and extension information so it
+            # does not have to get generated here
+            package_url = '/'.join([package['base_url'], package['platform'], (package['dist_name'] + extension)]).strip()
+            try:
+                ret = urllib.request.urlopen(package_url).status
+            except:
+                ret = None
+                logger.debug(package_url)
+            if ret == 200:
+                break
+        if ret != 200:
+            logger.error(f"Cannot find an appropriate URL for package {package} to create an explicit entry. Please make sure you have the internet accessible.")
+            logger.error("Unimplemented: Update the lockfile.json at the time of generation to get extensions and md5 entries")
+            sys.exit(1)
+
+        explicit_str += package_url+"\n"
     return explicit_str
 
 
