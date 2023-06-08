@@ -74,7 +74,8 @@ def cmd_clean(config):
     all dependencies of removed requirments are gone.
     """
     env_delete(config)
-    cmd_create(config)
+    lockfile_generate(config)
+    env_sync(config)
 
 def cmd_init():
     '''
@@ -431,6 +432,11 @@ def lockfile_generate(config, rollback_on_fail=False):
 
     logger.debug("Updating lock file")
     shutil.copy(ops_dir / (ops_dir / f'.ops.lock.{last_good_channel}'), lock_file)
+
+    # clean up
+    for channel in order_list:
+        Path(ops_dir / f'.ops.{channel}-environment.txt').unlink()
+    Path(ops_dir / '.ops.channel-order.include').unlink()
 
     if rollback_on_fail:
         pass
