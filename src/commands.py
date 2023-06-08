@@ -12,6 +12,7 @@ from ._paths import PathStore
 import conda.cli.python_api
 from conda.cli.main_info import get_info_dict
 import urllib
+import shutil
 
 import logging
 
@@ -293,8 +294,6 @@ def lockfile_generate(config):
     Generate a lock file from the requirements file.
 
     Currently always overwrites any existing files.
-
-    XXX TODO: Update the lockfile.json at the time of generation to get extensions and md5 entries for the urls
     """
     ops_dir = config['paths']['ops_dir']
     requirements_file = config['paths']['requirements']
@@ -309,45 +308,65 @@ def lockfile_generate(config):
     with open(ops_dir / '.ops.channel-order.include', 'r') as f:
         order_list = f.read().split()
 
-    logger.info('generating the lock file')
-    # creating the environment with the first stage
-    with open(ops_dir / f'.ops.{order_list[0]}-environment.txt') as f:
+    for i, channel in enumerate(order_list):
+        if channel != 'pip':
+            json_reqs = conda_step_env_lock(channel, config)
+        else:
+            logger.error("Unimplemented: pip lock step")
+            # json_reqs = pip_step_env_lock()
+        if json_reqs is None:
+            logger.error("Unimplemented: Rollback to the last good lock file, currently not overwriting existing one, but also not rolling back the environment")
+            if i > 0:
+                logger.warning(f"Last successful channel was {order_list[i-1]}")
+                logger.error(f"Unimplemented: Decide what to do about rolling back the environment here")
+                last_good_channel = order_list[i-1]
+                sys.exit(1)
+            else:
+                logger.error("No successful channels were installed")
+                sys.exit(1)
+            break
+        else:
+            last_good_channel = order_list[i]
+
+    logger.debug("Updating lock file")
+    shutil.copy(ops_dir / (ops_dir / f'.ops.lock.{last_good_channel}'), lock_file)
+
+    return json_reqs
+
+
+def conda_step_env_lock(channel, config):
+    """
+    Given a conda channel from the channel order list, update the environment and generate a new lock file.
+    """
+    env_name = config['settings']['env_name']
+    ops_dir = config['paths']['ops_dir']
+
+    logger.info(f'Generating the intermediate lock file for channel {channel}')
+
+    with open(ops_dir / f'.ops.{channel}-environment.txt') as f:
         package_list = f.read().split()
 
-    conda_args = ["-n", env_name] + package_list + ['--dry-run', '--json', '--show-channel-urls']
+    conda_args = ["-n", env_name, "-c", channel] + package_list
 
     if check_env_exists(env_name):
         stdout, stderr, result_code = run_command("install", conda_args, use_exception_handler=True)
         if result_code != 0:
             logger.info(stdout)
             logger.info(stderr)
-            sys.exit()
+            return None
     else:
         stdout, stderr, result_code = run_command("create", conda_args, use_exception_handler=True)
         if result_code != 0:
             logger.info(stdout)
             logger.info(stderr)
-            sys.exit()
-    json_reqs = json.loads(stdout)
-    if json_reqs.get('message', None) == 'All requested packages already installed.':
-        logger.error("All requested packages are already installed. Cannot generate lock file")
-        logger.warning("TODO: Decide what to do when all requested packages are already installed in the environment. Probably need to sync? And check that the lock file and environment are in sync.")
-    elif 'actions' in json_reqs:
-        with open(lock_file, 'w') as f:
-            json.dump(json_reqs, f)
-        print(f"Lockfile {lock_file} successfully created.")
-    else:
-        logger.error(f"Unexpected output:\n {json_reqs}")
-        sys.exit()
+            return None
 
-    if len(order_list) > 1:
-        ## XXX implement the next steps here
-        logger.error(f"TODO: Implement multi-stage install here...currently ignorning channels other than {order_list[0]}")
+    json_reqs = env_lock(config, lock_file=(ops_dir / f'.ops.lock.{channel}'))
 
-    ## XXX Implement the pip step here
-    logger.error('TODO: Implement the pip installation step here')
-    logger.error("NOT IMPLEMENTED YET: lock files currently only contain packages from the defaults channel and do not include any other channels")
     return json_reqs
+
+def pip_step_env_lock():
+    logger.error('TODO: Implement the pip installation step here')
 
 def lockfile_check(config, die_on_error=True):
     """
@@ -360,13 +379,15 @@ def lockfile_check(config, die_on_error=True):
         with open(lock_file, 'r') as f:
             try:
                 json_reqs = json.load(f)
-                try:
-                    actions = json_reqs['actions']['LINK']
-                except:
-                    check = False
-                    logger.error(f"Lockfile {lock_file} is missing the necessary sections")
-                    logger.info("To regenerate the lock file:")
-                    logger.info(">>> conda ops lock")
+                for package in json_reqs:
+                    package_url = '/'.join([package['base_url'], package['platform'],
+                                            (package['dist_name']+package['extension'])]).strip()+f"#{package['md5']}"
+                    if package['url'].strip() != package_url.strip():
+                        check = False
+                        logger.warning(f"package information for {package['name']} is inconsistent")
+                        logger.debug(f"{package_url}, \n{package['url']}")
+                        logger.info("To regenerate the lock file:")
+                        logger.info(">>> conda ops lock")
             except Exception as e:
                 check = False
                 logger.error(f"Unable to load lockfile {lock_file}")
@@ -481,6 +502,50 @@ def env_create(config):
     logger.info(f'Environment created. To activate the environment:')
     logger.info(f">>> conda activate {env_name}")
 
+
+def env_lock(config, lock_file=None):
+    """
+    Generate a lockfile from the contents of the environment.
+    """
+    env_name = config['settings']['env_name']
+    if lock_file is None:
+        lock_file = config['paths']['lockfile']
+
+    if check_env_exists(env_name):
+        # json requirments
+        conda_args = ["-n", env_name, '--json']
+        stdout, stderr, result_code = run_command("list", conda_args, use_exception_handler=True)
+        if result_code != 0:
+            logger.info(stdout)
+            logger.info(stderr)
+            sys.exit(1)
+        json_reqs = json.loads(stdout)
+
+        # explicit requirements to get full urls and md5
+        conda_args = ["-n", env_name, '--explicit', '--md5']
+        stdout, stderr, result_code = run_command("list", conda_args, use_exception_handler=True)
+        if result_code != 0:
+            logger.info(stdout)
+            logger.info(stderr)
+            sys.exit(1)
+        explicit = [x for x in stdout.split("\n") if ('https' in x)]
+
+        for package in json_reqs:
+            starter_str = '/'.join([package['base_url'], package['platform'], package['dist_name']])
+            for line in explicit:
+                if starter_str in line:
+                    break
+            md5_split = line.split('#')
+            package['md5'] = md5_split[-1]
+            package['extension'] = md5_split[0].split(f"{package['dist_name']}")[-1]
+            package['url'] = line
+        with open(lock_file, 'w') as f:
+            json.dump(json_reqs, f)
+    else:
+        logger.error(f"No environment {env_name} exists")
+
+    return json_reqs
+
 def env_check(config=None, die_on_error=True):
     """
     Check that the conda ops environment exists and is active.
@@ -552,7 +617,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
     check = True
 
     logger.debug(f"Enumerating packages from the conda ops environment {env_name}")
-    conda_args = ["-n", env_name, "--explicit"]
+    conda_args = ["-n", env_name, "--explicit", "--md5"]
     stdout, stderr, result_code = run_command("list", conda_args, use_exception_handler=True)
     if result_code != 0:
         logger.error("Could not get packages from the environment")
@@ -742,6 +807,8 @@ def json_to_explicit(json_list):
     """
     explicit_str = ''
     for package in json_list:
+        '''
+        # From old version of lock file
         # can also use the json['actions']['FETCH'] section when entries exist
         for extension in ['.conda', '.tar.bz2']:
             # in the future, update the lockfile format to include the md5 and extension information so it
@@ -758,8 +825,8 @@ def json_to_explicit(json_list):
             logger.error(f"Cannot find an appropriate URL for package {package} to create an explicit entry. Please make sure you have the internet accessible.")
             logger.error("Unimplemented: Update the lockfile.json at the time of generation to get extensions and md5 entries")
             sys.exit(1)
-
-        explicit_str += package_url+"\n"
+        '''
+        explicit_str += package['url']+'\n'
     return explicit_str
 
 
@@ -774,7 +841,7 @@ def generate_explicit_lock_file(config):
         json_reqs = json.load(f)
 
     explicit_str = "# This file may be used to create an environment using:\n# $ conda create --name <env> --file <this file>\n@EXPLICIT\n"
-    explicit_str += json_to_explicit(json_reqs['actions']['LINK'])
+    explicit_str += json_to_explicit(json_reqs)
 
     explicit_lock_file = config['paths']['explicit_lockfile']
     with open(explicit_lock_file, 'w') as f:
