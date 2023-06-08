@@ -6,7 +6,8 @@ import conda.plugins
 from .commands import (cmd_init, cmd_create, consistency_check,
                        cmd_activate, cmd_sync, load_config,
                        env_create, env_delete,
-                       lockfile_generate, proj_create, reqs_create, reqs_add)
+                       lockfile_generate, proj_create, reqs_create, reqs_add,
+                       reqs_check, lockfile_check)
 
 logger = logging.getLogger()
 
@@ -37,7 +38,7 @@ def conda_ops(argv: list):
     env.add_argument('kind', type=str)
 
     reqs = subparsers.add_parser('reqs', help='Accepts create, add, remove, check')
-    reqs_subparser = reqs.add_subparsers(dest='reqs_command',metavar='reqs_command')
+    reqs_subparser = reqs.add_subparsers(dest='reqs_command', metavar='reqs_command')
     reqs_subparser.add_parser('create')
     r_add = reqs_subparser.add_parser('add')
     r_add.add_argument('packages', type=str, nargs='+')
@@ -113,15 +114,13 @@ def conda_ops(argv: list):
             print('call proj_check')
         elif args.kind == 'load':
             print('call proj_load')
-    elif args.reqs_command == 'create':
-        reqs_create(config)
-    elif args.reqs_command == 'add':
-        reqs_add(args.packages, channel=args.channel, config=config)
     elif args.command == 'lockfile':
         if args.kind == 'generate':
             lockfile_generate()
         elif args.kind == 'check':
-            print('call lockfile_check')
+            check = lockfile_check(config)
+            if check:
+                logger.info("Lockfile is consistent")
         elif args.kind == 'update':
             print('call lockfile_update')
     elif args.command == 'env':
@@ -141,6 +140,14 @@ def conda_ops(argv: list):
             print('call env_deactivate')
         elif args.kind == 'check':
             print('call env_check')
+    elif args.reqs_command == 'create':
+        reqs_create(config)
+    elif args.reqs_command == 'add':
+        reqs_add(args.packages, channel=args.channel, config=config)
+    elif args.reqs_command == 'check':
+        check = reqs_check(config)
+        if check:
+            logger.info("Requirements file is consistent")
     else:
         logger.error(f"Unhandled conda ops subcommand: '{args.command}'")
 

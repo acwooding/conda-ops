@@ -215,6 +215,44 @@ def reqs_create(config):
     else:
         logger.info(f'Requirements file {requirements_file} already exists')
 
+def reqs_check(config, die_on_error=True):
+    """
+    Check for the existence and consistency of the requirements file.
+
+    Return True if the requirements pass all checks and False otherwise
+    """
+    requirements_file = config['paths']['requirements_path']
+    env_name = config['settings']['env_name']
+
+    check = True
+    if requirements_file.exists():
+        logger.debug("Requirements file present")
+
+        with open(requirements_file, 'r') as f:
+            requirements = yaml.load(requirements_file)
+        if not (requirements['name'] == env_name):
+            logger.error(f"The name in the requirements file {requirements['name']} does not match the name of the managed conda environment {env_name}")
+            if input("Would you like to update the environment name in your requirements file (y/n) ").lower() == 'y':
+                requirements['name'] = env_name
+                with open(requirements_file, 'w') as f:
+                    yaml.dump(requirements, f)
+            else:
+                logger.warning(f"Please check the consistency of your requirements file {requirements_file} manually.")
+                check = False
+        deps = requirements.get('dependencies', None)
+        if deps is None:
+            logger.warning(f"No dependencies found in the requirements file.")
+            logger.error(f"Unimplemented: what to do in this case.")
+            check = False
+    else:
+        check = False
+        logger.warning("No requirements file present")
+        logger.info("To add requirements to the environment:")
+        logger.info(">>> conda ops add <package>")
+    if die_on_error and not check:
+        sys.exit(1)
+    return check
+
 ######################
 #
 # Lockfile Level Functions
@@ -224,6 +262,8 @@ def reqs_create(config):
 def lockfile_generate(config):
     """
     Generate a lock file from the requirements file.
+
+    Currently always overwrites any existing files.
     """
     ops_dir = config['paths']['ops_dir']
     requirements_file = config['paths']['requirements_path']
@@ -277,6 +317,76 @@ def lockfile_generate(config):
     logger.error('TODO: Implement the pip installation step here')
     logger.error("NOT IMPLEMENTED YET: lock files currently only contain packages from the defaults channel and do not include any other channels")
     return json_reqs
+
+def lockfile_check(config, die_on_error=True):
+    """
+    Check for the consistency of the lockfile.
+    """
+    lock_file = config['paths']['lockfile_path']
+
+    check = True
+    if lock_file.exists():
+        with open(lock_file, 'r') as f:
+            try:
+                json_reqs = json.load(f)
+                try:
+                    actions = json_reqs['actions']['LINK']
+                except:
+                    check = False
+                    logger.error(f"Lockfile {lock_file} is missing the necessary sections")
+                    logger.info("To regenerate the lock file:")
+                    logger.info(">>> conda ops lock")
+            except Exception as e:
+                check = False
+                logger.error(f"Unable to load lockfile {lock_file}")
+                logger.debug(e)
+                logger.info("To regenerate the lock file:")
+                logger.info(">>> conda ops lock")
+    else:
+        check = False
+        logger.error("There is no lock file.")
+        logger.info("To create the lock file:")
+        logger.info(">>> conda ops lock")
+
+    if die_on_error and not check:
+        sys.exit(1)
+    return check
+
+def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, die_on_error=True):
+    """
+    Check the consistency of the lockfile against the requirements file.
+    """
+    requirements_file = config['paths']['requirements_path']
+    lock_file = config['paths']['lockfile_path']
+
+    check = True
+    if reqs_consistent is None:
+        reqs_consistent = reqs_check(config, die_on_error=die_on_error)
+
+    if lockfile_consistent is None:
+        lockfile_consistent = lockfile_check(config, die_on_error=die_on_error)
+
+    if lockfile_consistent and reqs_consistent:
+        if requirements_file.stat().st_mtime < lock_file.stat().st_mtime:
+            logger.debug("Lock file is newer than the requirements file")
+            logger.error("Unimplemented: Check that the names in the requirements are in the lock file")
+        else:
+            check = False
+            logger.warning("The requirements file is newer than the lock file.")
+            logger.info("To update the lock file:")
+            logger.info(">>> conda ops lock")
+    else:
+        if not reqs_consistent:
+            logger.error(f"Cannot check lockfile against requirements as the requirements file is inconsistent.")
+            check = False
+        elif not lockfile_consistent:
+            logger.error(f"Cannot check lockfile against requirements as the lock file is inconsistent.")
+            check = False
+
+
+    if die_on_error and not check:
+        sys.exit(1)
+    return check
 
 ######################
 #
@@ -350,7 +460,7 @@ def load_config(die_on_error=True):
         config = None
     return config
 
-def consistency_check(config=None):
+def consistency_check(config=None, die_on_error=False):
     """
     Check the consistency of the requirements file vs. lock file vs. conda environment
     """
@@ -361,29 +471,17 @@ def consistency_check(config=None):
         logger.info("To change to a managed directory:")
         logger.info(">>> cd path/to/managed/conda/project")
         sys.exit(1)
+
     env_name = config['settings']['env_name']
     logger.info(f"Managed Conda Environment: {env_name}")
 
-    requirements_file = config['paths']['requirements_path']
     explicit_lock_file = config['paths']['explicit_lockfile_path']
     lock_file = config['paths']['lockfile_path']
 
-    if requirements_file.exists():
-        logger.debug("Requirements file present")
-        if lock_file.exists():
-            logger.debug("Checking requirements and lock file sync")
-            if requirements_file.stat().st_mtime < lock_file.stat().st_mtime:
-                logger.debug("Lock file is newer than the requirements file")
-            else:
-                logger.warning("The requirements file is newer than the lock file.")
-                logger.info("To update the lock file:")
-                logger.info(">>> conda ops sync")  # XXX want this to be conda ops lock
-                sys.exit(0)
-    else:
-        logger.warning("No requirements file present")
-        logger.info("To add requirements to the environment:")
-        logger.info(">>> conda ops add <package>")
-        sys.exit(0)
+    reqs_consistent = reqs_check(config, die_on_error=die_on_error)
+    lockfile_consistent = lockfile_check(config, die_on_error=die_on_error)
+
+    lockfile_reqs_consistent = lockfile_reqs_check(config, reqs_consistent=reqs_consistent, lockfile_consistent=lockfile_consistent, die_on_error=die_on_error)
 
     info_dict = get_conda_info()
     active_conda_env = info_dict['active_prefix_name']
