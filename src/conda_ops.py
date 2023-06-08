@@ -7,7 +7,7 @@ from .commands import (cmd_init, cmd_create, consistency_check,
                        cmd_activate, cmd_sync, load_config,
                        env_create, env_delete,
                        lockfile_generate, proj_create, reqs_create, reqs_add,
-                       reqs_check, lockfile_check)
+                       reqs_check, lockfile_check, lockfile_reqs_check)
 
 logger = logging.getLogger()
 
@@ -46,7 +46,7 @@ def conda_ops(argv: list):
     reqs_subparser.add_parser('remove')
     reqs_subparser.add_parser('check')
 
-    lockfile = subparsers.add_parser('lockfile', help='Accepts generate, update, check')
+    lockfile = subparsers.add_parser('lockfile', help='Accepts generate, update, check, reqs-check')
     lockfile.add_argument('kind', type=str)
 
 
@@ -123,6 +123,10 @@ def conda_ops(argv: list):
                 logger.info("Lockfile is consistent")
         elif args.kind == 'update':
             print('call lockfile_update')
+        elif args.kind == 'reqs-check':
+            check = lockfile_reqs_check(config)
+            if check:
+                logger.info("Lockfile and requirements are consistent")
     elif args.command == 'env':
         if args.kind == 'create':
             env_create(config)

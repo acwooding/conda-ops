@@ -369,7 +369,7 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
     if lockfile_consistent and reqs_consistent:
         if requirements_file.stat().st_mtime < lock_file.stat().st_mtime:
             logger.debug("Lock file is newer than the requirements file")
-            logger.error("Unimplemented: Check that the names in the requirements are in the lock file")
+            logger.error("Unimplemented: Check that the packages in the requirements are in the lock file")
         else:
             check = False
             logger.warning("The requirements file is newer than the lock file.")
