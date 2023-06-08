@@ -59,7 +59,7 @@ def cmd_create(config=None):
         sys.exit(1)
 
     if not lockfile_reqs_check(config, die_on_error=False):
-        json_reqs = lockfile_generate(config)
+        lockfile_generate(config)
 
     env_create(config)
 
@@ -289,7 +289,7 @@ def reqs_check(config, die_on_error=True):
 #
 ##################################################################
 
-def lockfile_generate(config):
+def lockfile_generate(config, rollback_on_fail=False):
     """
     Generate a lock file from the requirements file.
 
@@ -300,13 +300,25 @@ def lockfile_generate(config):
     lock_file = config['paths']['lockfile']
     requirements = yaml.load(requirements_file)
     env_name = config['settings']['env_name']
-    logger.debug(env_name)
 
-    logger.info('generating multi-step requirements files')
+    logger.info('Generating multi-step requirements files')
     create_split_files(requirements_file, ops_dir)
 
     with open(ops_dir / '.ops.channel-order.include', 'r') as f:
         order_list = f.read().split()
+
+    if rollback_on_fail:
+        # clone so we can rollback if needed
+        logger.debug("Setting up rollback environment")
+        clone_env_name = env_name+"-clone"
+
+        conda_args = ["-n", clone_env_name, "--clone", env_name]
+        stdout, stderr, result_code = run_command("create", conda_args, use_exception_handler=True)
+        if result_code != 0:
+            logger.error("Failed to create clone environment")
+            logger.info(stdout)
+            logger.info(stderr)
+            return None
 
     for i, channel in enumerate(order_list):
         if channel != 'pip':
@@ -315,23 +327,34 @@ def lockfile_generate(config):
             logger.error("Unimplemented: pip lock step")
             # json_reqs = pip_step_env_lock()
         if json_reqs is None:
-            logger.error("Unimplemented: Rollback to the last good lock file, currently not overwriting existing one, but also not rolling back the environment")
-            if i > 0:
-                logger.warning(f"Last successful channel was {order_list[i-1]}")
-                logger.error(f"Unimplemented: Decide what to do about rolling back the environment here")
-                last_good_channel = order_list[i-1]
-                sys.exit(1)
+            if rollback_on_fail:
+                env_delete(config=config)
+                conda_args = ["-n", env_name, "--clone", clone_env_name]
+                stdout, stderr, result_code = run_command("create", conda_args, use_exception_handler=True)
+                if result_code != 0:
+                    logger.error("Failed to create clone environment")
+                    logger.info(stdout)
+                    logger.info(stderr)
+                    return None
             else:
-                logger.error("No successful channels were installed")
-                sys.exit(1)
-            break
+                if i > 0:
+                    logger.warning(f"Last successful channel was {order_list[i-1]}")
+                    logger.error(f"Unimplemented: Decide what to do when not rolling back the environment here")
+                    last_good_channel = order_list[i-1]
+                    sys.exit(1)
+                else:
+                    logger.error("No successful channels were installed")
+                    sys.exit(1)
+                break
         else:
             last_good_channel = order_list[i]
 
     logger.debug("Updating lock file")
     shutil.copy(ops_dir / (ops_dir / f'.ops.lock.{last_good_channel}'), lock_file)
 
-    return json_reqs
+    if rollback_on_fail:
+        # delete the clone environment
+        env_delete(env_name=clone_env_name)
 
 
 def conda_step_env_lock(channel, config):
@@ -346,22 +369,26 @@ def conda_step_env_lock(channel, config):
     with open(ops_dir / f'.ops.{channel}-environment.txt') as f:
         package_list = f.read().split()
 
-    conda_args = ["-n", env_name, "-c", channel] + package_list
-
     if check_env_exists(env_name):
+        conda_args = ["-n", env_name, "-c", channel] + package_list
         stdout, stderr, result_code = run_command("install", conda_args, use_exception_handler=True)
         if result_code != 0:
             logger.info(stdout)
             logger.info(stderr)
             return None
     else:
+        # create the environment directly
+        conda_args = ["-n", env_name, "-c", channel] + package_list
         stdout, stderr, result_code = run_command("create", conda_args, use_exception_handler=True)
         if result_code != 0:
             logger.info(stdout)
             logger.info(stderr)
             return None
 
-    json_reqs = env_lock(config, lock_file=(ops_dir / f'.ops.lock.{channel}'))
+    channel_lockfile = (ops_dir / f'.ops.lock.{channel}')
+    json_reqs = env_lock(config, lock_file=channel_lockfile)
+
+
 
     return json_reqs
 
@@ -503,16 +530,17 @@ def env_create(config):
     logger.info(f">>> conda activate {env_name}")
 
 
-def env_lock(config, lock_file=None):
+def env_lock(config, lock_file=None, env_name=None):
     """
     Generate a lockfile from the contents of the environment.
     """
-    env_name = config['settings']['env_name']
+    if env_name is None:
+        env_name = config['settings']['env_name']
     if lock_file is None:
         lock_file = config['paths']['lockfile']
 
     if check_env_exists(env_name):
-        # json requirments
+        # json requirements
         conda_args = ["-n", env_name, '--json']
         stdout, stderr, result_code = run_command("list", conda_args, use_exception_handler=True)
         if result_code != 0:
@@ -685,11 +713,12 @@ def env_sync(config=None):
     logger.info(stdout)
 
 
-def env_delete(config=None):
+def env_delete(config=None, env_name=None):
     """
     Deleted the conda ops managed conda environment (aka. conda remove -n env_name --all)
     """
-    env_name = config['settings']['env_name']
+    if env_name is None:
+        env_name = config['settings']['env_name']
 
     env_exists = check_env_exists(env_name)
     if not env_exists:
