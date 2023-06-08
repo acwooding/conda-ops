@@ -70,6 +70,9 @@ def conda_ops(argv: list):
                 exit()
         else:
             env_delete(config=config)
+            print("To create the environment again:")
+            print(">>> conda ops create")
+
     elif args.command == 'init':
         cmd_init()
     elif args.command == 'install':

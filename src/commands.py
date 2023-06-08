@@ -70,10 +70,11 @@ def cmd_sync(config):
 
 def cmd_clean(config):
     """
-    Deleted and regenerate the environment from the requirements file.
+    Deleted and regenerate the environment from the requirements file. This is the only way to ensure that
+    all dependencies of removed requirments are gone.
     """
     env_delete(config)
-    cmd_sync(config)
+    cmd_create(config)
 
 def cmd_init():
     '''
@@ -361,7 +362,7 @@ def reqs_check(config, die_on_error=True):
 #
 ##################################################################
 
-def lockfile_generate(config, rollback_on_fail=True):
+def lockfile_generate(config, rollback_on_fail=False):
     """
     Generate a lock file from the requirements file.
 
@@ -824,9 +825,7 @@ def env_delete(config=None, env_name=None):
             logger.info(stdout)
             logger.info(stderr)
             sys.exit(result_code)
-        print("Environment deleted.")
-        print("To create the environment again:")
-        print(">>> conda ops create")
+        logger.info("Environment deleted.")
 
 ############################################
 #
