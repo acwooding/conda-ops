@@ -4,10 +4,11 @@ import logging
 import conda.plugins
 
 from .commands import (cmd_init, cmd_create, consistency_check,
-                       cmd_activate, cmd_sync, load_config,
+                       cmd_activate, cmd_sync, proj_load,
                        env_create, env_delete,
-                       lockfile_generate, proj_create, reqs_create, reqs_add,
-                       reqs_check, lockfile_check, lockfile_reqs_check)
+                       lockfile_generate, proj_create, proj_check,
+                       reqs_create, reqs_add, reqs_check,
+                       lockfile_check, lockfile_reqs_check)
 
 logger = logging.getLogger()
 
@@ -52,8 +53,8 @@ def conda_ops(argv: list):
 
     args = parser.parse_args(argv)
 
-    if not args.command in ['init']:
-        config = load_config(die_on_error=True)
+    if not args.command in ['init', 'proj']:
+        config = proj_load(die_on_error=True)
 
     if args.command == 'activate':
         cmd_activate(config=config, name=args.name)
@@ -111,9 +112,9 @@ def conda_ops(argv: list):
         if args.kind == 'create':
             proj_create()
         elif args.kind == 'check':
-            print('call proj_check')
+            proj_check()
         elif args.kind == 'load':
-            print('call proj_load')
+            proj_load()
     elif args.command == 'lockfile':
         if args.kind == 'generate':
             lockfile_generate()

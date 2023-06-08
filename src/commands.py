@@ -35,11 +35,11 @@ yaml.width=4096
 yaml.indent(offset=4)
 
 
-######################
+############################################
 #
 # Compound Functions
 #
-######################
+############################################
 
 def cmd_activate(*, config=None, name=None):
     """Activate the managed environment"""
@@ -71,7 +71,9 @@ def cmd_create(config=None):
         logger.info("To activate it:")
         logger.info(f">>> conda activate {env_name}")
         sys.exit(1)
-    json_reqs = lockfile_generate(config)
+
+    if not lockfile_reqs_check(config, die_on_error=False):
+        json_reqs = lockfile_generate(config)
 
     env_create(config)
 
@@ -99,11 +101,11 @@ def cmd_init():
     print('>>> conda ops create')
 
 
-######################
+##################################################################
 #
 # Project Level Functions
 #
-######################
+##################################################################
 
 def proj_create():
     """
@@ -146,11 +148,57 @@ def proj_create():
     return config
 
 
-######################
+def proj_load(die_on_error=True):
+    """Load the conda ops configuration file."""
+    ops_dir = find_conda_ops_dir(die_on_error=die_on_error)
+
+    if ops_dir is not None:
+        logger.debug('Checking config.ini constistency')
+        path_config = PathStore(config_file=(ops_dir / CONFIG_FILENAME), config_section='OPS_PATHS')
+        ops_config = KVStore(config_file=(ops_dir / CONFIG_FILENAME), config_section='OPS_SETTINGS')
+        config = {'paths': path_config, 'settings': ops_config}
+    else:
+        config = None
+    return config
+
+def proj_check(config=None, die_on_error=True):
+    """
+    Check the existence and consistency of the project and config object
+    """
+    check = True
+    if config is None:
+        config = proj_load(die_on_error=die_on_error)
+    if config is None:
+        check = False
+        logger.error("No managed conda environment found.")
+        logger.info("To place the current directory under conda ops management:")
+        logger.info(">>> conda ops init")
+        logger.info("To change to a managed directory:")
+        logger.info(">>> cd path/to/managed/conda/project")
+    else:
+        env_name = config['settings'].get('env_name', None)
+        if env_name is None:
+            check = False
+            logger.error("Config is missing an environment name")
+            logger.info("To reinitialize your conda ops project:")
+            logger.info(">>> conda ops init")
+        paths = config['paths']
+        if len(paths) < 4:
+            check = False
+            logger.error("Config is missing paths")
+            logger.info("To reinitialize your conda ops project:")
+            logger.info(">>> conda ops init")
+
+    if die_on_error and not check:
+        sys.exit(1)
+    return check
+
+
+##################################################################
 #
 # Requirements Level Functions
 #
-######################
+##################################################################
 
 def reqs_add(packages, channel=None, config=None):
     """
@@ -253,11 +301,11 @@ def reqs_check(config, die_on_error=True):
         sys.exit(1)
     return check
 
-######################
+##################################################################
 #
 # Lockfile Level Functions
 #
-######################
+##################################################################
 
 def lockfile_generate(config):
     """
@@ -377,10 +425,10 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
             logger.info(">>> conda ops lock")
     else:
         if not reqs_consistent:
-            logger.error(f"Cannot check lockfile against requirements as the requirements file is inconsistent.")
+            logger.error(f"Cannot check lockfile against requirements as the requirements file is missing or inconsistent.")
             check = False
         elif not lockfile_consistent:
-            logger.error(f"Cannot check lockfile against requirements as the lock file is inconsistent.")
+            logger.error(f"Cannot check lockfile against requirements as the lock file is missing or inconsistent.")
             check = False
 
 
@@ -388,11 +436,11 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
         sys.exit(1)
     return check
 
-######################
+##################################################################
 #
 # Environment Level Functions
 #
-######################
+##################################################################
 
 def env_create(config):
     """
@@ -417,7 +465,7 @@ def env_create(config):
     logger.info(stdout)
 
     logger.info(f'Environment created. To activate the environment:')
-    logger.info(">>> conda activate {env_name}")
+    logger.info(f">>> conda activate {env_name}")
 
 def env_delete(config=None):
     """
@@ -441,36 +489,19 @@ def env_delete(config=None):
         print("To create the environment again:")
         print(">>> conda ops create")
 
-######################
+############################################
 #
 # Helper Functions
 #
-######################
+############################################
 
-def load_config(die_on_error=True):
-    """Load the conda ops configuration file."""
-    ops_dir = find_conda_ops_dir(die_on_error=die_on_error)
-
-    if ops_dir is not None:
-        logger.debug('Checking config.ini constistency')
-        path_config = PathStore(config_file=(ops_dir / CONFIG_FILENAME), config_section='OPS_PATHS')
-        ops_config = KVStore(config_file=(ops_dir / CONFIG_FILENAME), config_section='OPS_SETTINGS')
-        config = {'paths': path_config, 'settings': ops_config}
-    else:
-        config = None
-    return config
 
 def consistency_check(config=None, die_on_error=False):
     """
     Check the consistency of the requirements file vs. lock file vs. conda environment
     """
-    if config is None:
-        logger.error("No managed conda environment found.")
-        logger.info("To place the current directory under conda ops management:")
-        logger.info(">>> conda ops init")
-        logger.info("To change to a managed directory:")
-        logger.info(">>> cd path/to/managed/conda/project")
-        sys.exit(1)
+    proj_consistent = proj_check(config, die_on_error=True) # needed to continue
+    logger.info("Configuration is consistent")
 
     env_name = config['settings']['env_name']
     logger.info(f"Managed Conda Environment: {env_name}")
