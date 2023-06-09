@@ -59,9 +59,11 @@ def get_channel_order(conda_env):
     return channel_order
 
 
-def create_split_files(file_to_split, base_path):
+def create_split_files(file_to_split, base_path, split_pip=True):
     """
     Given an environment.yml file to split, output the split files to the base_path.
+
+    If split_pip, separate normal pypi packages from sdists and -e . packages.
     """
     with open(file_to_split, 'r') as yamlfile:
         conda_env = yaml.load(yamlfile)
@@ -78,10 +80,25 @@ def create_split_files(file_to_split, base_path):
 
     for kind in channel_order:
         if kind == "pip":
-            filename = '.ops.pip-requirements.txt'
             if type(channel_dict['pip']) is dict:
-                with open(base_path / filename, 'w') as f:
-                    f.write("\n".join(channel_dict['pip']['pip']))
+                if split_pip:
+                    sdist_list = []
+                    pypi_list = []
+                    for package in channel_dict['pip']['pip']:
+                        if package.startswith('-e') or ('/' in package):
+                            sdist_list.append(package)
+                        else:
+                            pypi_list.append(package)
+                    filename = '.ops.pypi-requirements.txt'
+                    with open(base_path / filename, 'w') as f:
+                        f.write("\n".join(pypi_list))
+                    filename = '.ops.sdist-requirements.txt'
+                    with open(base_path / filename, 'w') as f:
+                        f.write("\n".join(sdist_list))
+                else:
+                    filename = '.ops.pip-requirements.txt'
+                    with open(base_path / filename, 'w') as f:
+                        f.write("\n".join(channel_dict['pip']['pip']))
         else:
             filename = f'.ops.{kind}-environment.txt'
             with open(base_path / filename, 'w') as f:

@@ -200,3 +200,58 @@ def configure_parser_update(subparsers):
     )
     p.add_argument('packages', type=str, nargs='+')
     return p
+
+
+
+############################################
+#
+# Compound Functions
+#
+############################################
+
+
+
+def cmd_create(config=None):
+    '''
+    Create the first lockfile and environment.
+
+    XXX Possibily init if that hasn't been done yet
+    '''
+    env_name = config['settings']['env_name']
+    if check_env_exists(env_name):
+        logger.error(f"Environment {env_name} exists.")
+        logger.info("To activate it:")
+        logger.info(f">>> conda activate {env_name}")
+        sys.exit(1)
+
+    if not lockfile_reqs_check(config, die_on_error=False):
+        lockfile_generate(config)
+
+    env_create(config)
+
+def cmd_sync(config):
+    """Generate a lockfile from a requirements file, then update the environment from it."""
+    lockfile_generate(config)
+    env_sync(config)
+
+def cmd_clean(config):
+    """
+    Deleted and regenerate the environment from the requirements file. This is the only way to ensure that
+    all dependencies of removed requirments are gone.
+    """
+    env_delete(config)
+    lockfile_generate(config)
+    env_sync(config)
+
+def cmd_init():
+    '''
+    Initialize the conda ops project by creating a .conda-ops directory including the conda-ops project structure
+    '''
+
+    config = proj_create()
+    reqs_create(config)
+
+    ops_dir = config['paths']['ops_dir']
+    logger.info(f'Initialized conda-ops project in {ops_dir}')
+    print('To create the conda ops environment:')
+    print('>>> conda ops create')

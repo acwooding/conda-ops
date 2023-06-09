@@ -3,10 +3,10 @@ import logging
 
 import conda.plugins
 
-from .commands import (consistency_check,
+from .commands import (consistency_check,  pip_step_env_lock,
                        env_activate, proj_load, env_deactivate, env_regenerate,
                        env_create, env_delete, env_check, env_lockfile_check,
-                       env_install, env_lock, lockfile_generate, lockfile_regenerate, proj_create, proj_check,
+                       env_install, env_lock, lockfile_generate, proj_create, proj_check,
                        reqs_create, reqs_add, reqs_check, reqs_remove,
                        lockfile_check, lockfile_reqs_check)
 
@@ -35,6 +35,8 @@ def conda_ops(argv: list):
     lockfile = subparsers.add_parser('lockfile', help='Accepts generate, regenerate, update, check, reqs-check')
     lockfile.add_argument('kind', type=str)
 
+    test = subparsers.add_parser('test')
+
 
     args = parser.parse_args(argv)
 
@@ -52,9 +54,9 @@ def conda_ops(argv: list):
             proj_load()
     elif args.command == 'lockfile':
         if args.kind == 'generate':
-            lockfile_generate(config)
+            lockfile_generate(config, renegerate=False)
         elif args.kind == 'regenerate':
-            lockfile_regenerate(config)
+            lockfile_generate(config, regenerate=True)
         elif args.kind == 'check':
             check = lockfile_check(config)
             if check:
@@ -69,7 +71,7 @@ def conda_ops(argv: list):
         if args.kind == 'create':
             env_create(config)
         if args.kind == 'regenerate':
-            env_regenerate(config=config)
+            env_generate(config=config, regenerate=True)
         elif args.kind == 'install':
             env_install(config)
         elif args.kind == 'clean':
@@ -86,6 +88,8 @@ def conda_ops(argv: list):
             env_check(config)
         elif args.kind == 'lockfile-check':
             env_lockfile_check(config)
+    elif args.command == 'test':
+        pip_step_env_lock(config)
     elif args.reqs_command == 'create':
         reqs_create(config)
     elif args.reqs_command == 'add':
@@ -120,58 +124,3 @@ def conda_subcommands():
         summary="A conda subcommand that manages your conda environment ops",
         action=conda_ops,
     )
-
-
-
-############################################
-#
-# Compound Functions
-#
-############################################
-
-
-
-def cmd_create(config=None):
-    '''
-    Create the first lockfile and environment.
-
-    XXX Possibily init if that hasn't been done yet
-    '''
-    env_name = config['settings']['env_name']
-    if check_env_exists(env_name):
-        logger.error(f"Environment {env_name} exists.")
-        logger.info("To activate it:")
-        logger.info(f">>> conda activate {env_name}")
-        sys.exit(1)
-
-    if not lockfile_reqs_check(config, die_on_error=False):
-        lockfile_generate(config)
-
-    env_create(config)
-
-def cmd_sync(config):
-    """Generate a lockfile from a requirements file, then update the environment from it."""
-    lockfile_generate(config)
-    env_sync(config)
-
-def cmd_clean(config):
-    """
-    Deleted and regenerate the environment from the requirements file. This is the only way to ensure that
-    all dependencies of removed requirments are gone.
-    """
-    env_delete(config)
-    lockfile_generate(config)
-    env_sync(config)
-
-def cmd_init():
-    '''
-    Initialize the conda ops project by creating a .conda-ops directory including the conda-ops project structure
-    '''
-
-    config = proj_create()
-    reqs_create(config)
-
-    ops_dir = config['paths']['ops_dir']
-    logger.info(f'Initialized conda-ops project in {ops_dir}')
-    print('To create the conda ops environment:')
-    print('>>> conda ops create')

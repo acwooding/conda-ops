@@ -322,56 +322,13 @@ def reqs_check(config, die_on_error=True):
 #
 ##################################################################
 
-def lockfile_generate(config):
+def lockfile_generate(config, regenerate=False):
     """
     Generate a lock file from the requirements file.
 
     Currently always overwrites the existing lock file when complete.
-    """
-    ops_dir = config['paths']['ops_dir']
-    requirements_file = config['paths']['requirements']
-    lock_file = config['paths']['lockfile']
-    requirements = yaml.load(requirements_file)
-    env_name = config['settings']['env_name']
 
-    logger.info('Generating multi-step requirements files')
-    create_split_files(requirements_file, ops_dir)
-
-    with open(ops_dir / '.ops.channel-order.include', 'r') as f:
-        order_list = f.read().split()
-
-    for i, channel in enumerate(order_list):
-        if channel != 'pip':
-            json_reqs = conda_step_env_lock(channel, config)
-        else:
-            logger.error("Unimplemented: pip lock step")
-            # json_reqs = pip_step_env_lock()
-        if json_reqs is None:
-                if i > 0:
-                    logger.warning(f"Last successful channel was {order_list[i-1]}")
-                    logger.error(f"Unimplemented: Decide what to do when not rolling back the environment here")
-                    last_good_channel = order_list[i-1]
-                    sys.exit(1)
-                else:
-                    logger.error("No successful channels were installed")
-                    sys.exit(1)
-                break
-        else:
-            last_good_channel = order_list[i]
-
-    logger.debug("Updating lock file")
-    shutil.copy(ops_dir / (ops_dir / f'.ops.lock.{last_good_channel}'), lock_file)
-
-    # clean up
-    for channel in order_list:
-        Path(ops_dir / f'.ops.{channel}-environment.txt').unlink()
-    Path(ops_dir / '.ops.channel-order.include').unlink()
-
-def lockfile_regenerate(config):
-    """
-    Generate a lock file from a clean environment from the requirements file.
-
-    Currently always overwrites the existing lock file when complete.
+    If regenenerate=True, use a clean environment to generate the lock file.
     """
     ops_dir = config['paths']['ops_dir']
     requirements_file = config['paths']['requirements']
@@ -382,12 +339,15 @@ def lockfile_regenerate(config):
     conda_info = get_conda_info()
     active_env = conda_info['active_prefix_name']
 
-    # create a blank environment name to create the lockfile from scratch
-    raw_test_env = env_name+'-test'
-    for i in range(100):
-        test_env = raw_test_env+f'-{i}'
-        if not check_env_exists(test_env):
-            break
+    if regenerate:
+        # create a blank environment name to create the lockfile from scratch
+        raw_test_env = env_name+'-test'
+        for i in range(100):
+            test_env = raw_test_env+f'-{i}'
+            if not check_env_exists(test_env):
+                break
+    else:
+        test_env = env_name
 
     logger.info('Generating multi-step requirements files')
     create_split_files(requirements_file, ops_dir)
@@ -395,6 +355,7 @@ def lockfile_regenerate(config):
     with open(ops_dir / '.ops.channel-order.include', 'r') as f:
         order_list = f.read().split()
 
+    order_list += ['pip']
     for i, channel in enumerate(order_list):
         logger.debug(f'Installing from channel {channel}')
         if channel != 'pip':
@@ -413,7 +374,7 @@ def lockfile_regenerate(config):
                     sys.exit(1)
                 break
         else:
-            last_good_channel = order_list[i]
+            last_good_channel = order_list[i-1] # skip pip for now
 
     last_good_lockfile = f'.ops.lock.{last_good_channel}'
     logger.debug(f"Updating lock file from {last_good_lockfile}")
@@ -421,9 +382,12 @@ def lockfile_regenerate(config):
 
     # clean up
     for channel in order_list:
-        Path(ops_dir / f'.ops.{channel}-environment.txt').unlink()
+        pass
+        #Path(ops_dir / f'.ops.{channel}-environment.txt').unlink()
+        #Path(ops_dir / f'.ops.lock.{channel}').unlink()
     Path(ops_dir / '.ops.channel-order.include').unlink()
-    env_delete(env_name=test_env)
+    if regenerate:
+        env_delete(env_name=test_env)
 
 def conda_step_env_lock(channel, config, env_name=None):
     """
@@ -462,8 +426,49 @@ def conda_step_env_lock(channel, config, env_name=None):
 
     return json_reqs
 
-def pip_step_env_lock():
-    logger.error('TODO: Implement the pip installation step here')
+def pip_step_env_lock(config):
+    # set the pip interop flag to True as soon as pip packages are to be installed so conda remain aware of it
+    # possibly set this at the first creation of the environment so it's always True
+    env_pip_interop(config, flag=True)
+
+    ops_dir = config['paths']['ops_dir']
+    logger.info(f'Generating the intermediate lock file for pip')
+
+    with open(ops_dir / f'.ops.pypi-requirements.txt') as f:
+        pypi_list = f.read().split('\n')
+
+    print(pypi_list)
+
+    logger.error('TODO: Implement the pip step for sdists and editable modules here')
+    with open(ops_dir / f'.ops.sdist-requirements.txt') as f:
+        sdist_list = f.read().split('\n')
+    print(sdist_list)
+
+def env_pip_interop(config, flag=True):
+    """
+    Set the flag pip_interop_enabled to the value of flag locally for the conda ops managed env_activate
+    """
+    env_name = config['settings']['env_name']
+
+    if not check_env_exists(env_name):
+        logger.error(f"Cannot set pip_interop_enabled flag locally in environment {env_name} as it does not exist.")
+        logger.info(">>> conda ops env create")
+        sys.exit(1)
+
+    conda_info = get_conda_info()
+    for env_path in conda_info['envs']:
+        if Path(env_path).name == env_name:
+            break
+
+    condarc_path = Path(env_path) / '.condarc'
+    conda_args = ["--set", 'pip_interop_enabled', str(flag), '--file', str(condarc_path)]
+
+    stdout, stderr, result_code = run_command("config", conda_args, use_exception_handler=True)
+    if result_code != 0:
+        logger.info(stdout)
+        logger.info(stderr)
+        sys.exit(1)
+    return True
 
 def lockfile_check(config, die_on_error=True):
     """
@@ -564,10 +569,7 @@ def env_activate(*, config=None, name=None):
         name = env_name
     if name != env_name:
         logger.warning(f'Requested environment {name} which does not match the conda ops managed environment {env_name}')
-    conda_info = get_conda_info()
-    active_env = conda_info['active_prefix_name']
-
-    if active_env == env_name:
+    if check_active_env(env_name):
         logger.warning(f"The conda ops environment {env_name} is already active.")
     else:
         logger.info("To activate the conda ops environment:")
@@ -580,7 +582,7 @@ def env_deactivate(config):
     conda_info = get_conda_info()
     active_env = conda_info['active_prefix_name']
 
-    if env_name != active_env:
+    if active_env != env_name:
         logger.warning("The active environment is {active_env}, not the conda ops managed environment {env_name}")
 
     logger.info(f"To deactivate the environment {active_env}:")
@@ -835,9 +837,7 @@ def env_regenerate(config=None, env_name=None, lock_file=None):
     if env_name is None:
         env_name = config['settings']['env_name']
 
-    info_dict = get_conda_info()
-    active_conda_env = info_dict['active_prefix_name']
-    if env_name == active_conda_env:
+    if check_env_active(env_name):
         logger.error(f"The environment {env_name} to be regenerated is active. Deactivate and try again.")
         logger.info(">>> conda deactivate")
         sys.exit(1)
@@ -879,8 +879,14 @@ def get_conda_info():
 
     This currently peeks into the conda internals.
     XXX Should this maybe be a conda info API call instead?
+    XXX previous get_info_dict, but this does not contain the envs
     """
-    return get_info_dict()
+    stdout, stderr, result_code = run_command('info', '--json', use_exception_handler=True)
+    if result_code != 0:
+        logger.info(stdout)
+        logger.info(stderr)
+        sys.exit(result_code)
+    return json.loads(stdout)
 
 
 def find_conda_ops_dir(die_on_error=True):
@@ -991,15 +997,22 @@ def check_env_exists(env_name):
     """
     Given the name of a conda environment, check if it exists
     """
-    stdout, stderr, result_code = run_command('info', '--envs', '--json', use_exception_handler=True)
-    if result_code != 0:
-        logger.info(stdout)
-        logger.info(stderr)
-        sys.exit()
-    json_output = json.loads(stdout)
+    json_output = get_conda_info()
 
     env_list = [Path(x).name for x in json_output['envs']]
     if env_name in env_list:
+        return True
+    else:
+        return False
+
+def check_env_active(env_name):
+    """
+    Given the name of a conda environment, check if it is active
+    """
+    conda_info = get_conda_info()
+    active_env = conda_info['active_prefix_name']
+
+    if active_env == env_name:
         return True
     else:
         return False
