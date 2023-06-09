@@ -37,59 +37,6 @@ yaml.width=4096
 yaml.indent(offset=4)
 
 
-############################################
-#
-# Compound Functions
-#
-############################################
-
-
-
-def cmd_create(config=None):
-    '''
-    Create the first lockfile and environment.
-
-    XXX Possibily init if that hasn't been done yet
-    '''
-    env_name = config['settings']['env_name']
-    if check_env_exists(env_name):
-        logger.error(f"Environment {env_name} exists.")
-        logger.info("To activate it:")
-        logger.info(f">>> conda activate {env_name}")
-        sys.exit(1)
-
-    if not lockfile_reqs_check(config, die_on_error=False):
-        lockfile_generate(config)
-
-    env_create(config)
-
-def cmd_sync(config):
-    """Generate a lockfile from a requirements file, then update the environment from it."""
-    lockfile_generate(config)
-    env_sync(config)
-
-def cmd_clean(config):
-    """
-    Deleted and regenerate the environment from the requirements file. This is the only way to ensure that
-    all dependencies of removed requirments are gone.
-    """
-    env_delete(config)
-    lockfile_generate(config)
-    env_sync(config)
-
-def cmd_init():
-    '''
-    Initialize the conda ops project by creating a .conda-ops directory including the conda-ops project structure
-    '''
-
-    config = proj_create()
-    reqs_create(config)
-
-    ops_dir = config['paths']['ops_dir']
-    logger.info(f'Initialized conda-ops project in {ops_dir}')
-    print('To create the conda ops environment:')
-    print('>>> conda ops create')
-
 
 ##################################################################
 #
@@ -166,7 +113,8 @@ def proj_check(config=None, die_on_error=True):
         check = False
         logger.error("No managed conda environment found.")
         logger.info("To place the current directory under conda ops management:")
-        logger.info(">>> conda ops init")
+        logger.info(">>> conda ops proj create")
+        #logger.info(">>> conda ops init")
         logger.info("To change to a managed directory:")
         logger.info(">>> cd path/to/managed/conda/project")
     else:
@@ -175,13 +123,15 @@ def proj_check(config=None, die_on_error=True):
             check = False
             logger.error("Config is missing an environment name")
             logger.info("To reinitialize your conda ops project:")
-            logger.info(">>> conda ops init")
+            logger.info(">>> conda ops proj create")
+            #logger.info(">>> conda ops init")
         paths = config['paths']
         if len(paths) < 4:
             check = False
             logger.error("Config is missing paths")
             logger.info("To reinitialize your conda ops project:")
-            logger.info(">>> conda ops init")
+            logger.info(">>> conda ops proj create")
+            #logger.info(">>> conda ops init")
 
     if die_on_error and not check:
         sys.exit(1)
@@ -360,8 +310,8 @@ def reqs_check(config, die_on_error=True):
     else:
         check = False
         logger.warning("No requirements file present")
-        logger.info("To add requirements to the environment:")
-        logger.info(">>> conda ops add <package>")
+        logger.info("To add a default requirements file to the environment:")
+        logger.info(">>> conda ops reqs create")
     if die_on_error and not check:
         sys.exit(1)
     return check
@@ -534,18 +484,21 @@ def lockfile_check(config, die_on_error=True):
                         logger.warning(f"package information for {package['name']} is inconsistent")
                         logger.debug(f"{package_url}, \n{package['url']}")
                         logger.info("To regenerate the lock file:")
-                        logger.info(">>> conda ops lock")
+                        logger.info(">>> conda ops lockfile regenerate")
+                        #logger.info(">>> conda ops lock")
             except Exception as e:
                 check = False
                 logger.error(f"Unable to load lockfile {lock_file}")
                 logger.debug(e)
                 logger.info("To regenerate the lock file:")
-                logger.info(">>> conda ops lock")
+                logger.info(">>> conda ops lockfile regenerate")
+                #logger.info(">>> conda ops lock")
     else:
         check = False
         logger.error("There is no lock file.")
         logger.info("To create the lock file:")
-        logger.info(">>> conda ops lock")
+        logger.info(">>> conda ops lockfile generate")
+        #logger.info(">>> conda ops lock")
 
     if die_on_error and not check:
         sys.exit(1)
@@ -572,7 +525,8 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
             check = False
             logger.warning("The requirements file is newer than the lock file.")
             logger.info("To update the lock file:")
-            logger.info(">>> conda ops lock")
+            logger.info(">>> conda ops lockfile regenerate")
+            #logger.info(">>> conda ops lock")
         with open(requirements_file, 'r') as yamlfile:
             reqs_env = yaml.load(yamlfile)
         channel_order = get_channel_order(reqs_env)
@@ -735,7 +689,8 @@ def env_check(config=None, die_on_error=True):
             check = False
             logger.warning(f"Managed conda environment ('{env_name}') does not yet exist.")
             logger.info("To create it:")
-            logger.info(">>> conda ops create")
+            logger.info(">>> conda ops env create")
+            #logger.info(">>> conda ops create")
     if die_on_error and not check:
         sys.exit(1)
     return check
@@ -757,7 +712,8 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
     if not lockfile_consistent:
         logger.warning(f"Lock file is missing or inconsistent. Cannot determine the consistency of the lockfile and environment.")
         logger.info("To lock the environment:")
-        logger.info(">>> conda ops lock")
+        logger.info(">>> conda ops lockfile generate")
+        #logger.info(">>> conda ops lock")
         if die_on_error:
             sys.exit(1)
         else:
@@ -810,12 +766,16 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
             logger.debug("\nThe following packages are in the environment but not in the lock file:\n")
             logger.debug("\n".join(in_env))
             logger.debug("\n")
+            logger.info("To restore the environment to the state of the lock file")
+            logger.info(">>> conda ops env regenerate")
+            #logger.info(">>> conda ops sync")
         if len(in_lock) > 0:
             logger.debug("\nThe following packages are in the lock file but not in the environment:\n")
             logger.debug("\n".join(in_lock))
             logger.debug("\n")
-        logger.info("To restore the environment to the state of the lock file")
-        logger.info(">>> conda ops sync")
+            logger.info("To add these packages to the environment:")
+            logger.info(">>> conda ops env install")
+            #logger.info(">>> conda ops sync")
 
     if die_on_error and not check:
         sys.exit(1)
@@ -855,7 +815,8 @@ def env_delete(config=None, env_name=None):
     if not env_exists:
         logger.warning(f"The conda environment {env_name} does not exist, and cannot be deleted.")
         logger.info("To create the environment:")
-        logger.info(">>> conda ops create")
+        logger.info(">>> conda ops env create")
+        #logger.info(">>> conda ops create")
     else:
         print(f"Deleting the conda environment {env_name}")
         stdout, stderr, result_code = run_command("remove", '-n', env_name, '--all', use_exception_handler=True)
@@ -942,7 +903,8 @@ def find_conda_ops_dir(die_on_error=True):
         else:
             logger.warning(s)
         logger.info("To place the current directory under conda ops management:")
-        logger.info(">>> conda ops init")
+        logger.info(">>> conda ops proj create")
+        #logger.info(">>> conda ops init")
         logger.info("To change to a managed directory:")
         logger.info(">>> cd path/to/managed/conda/project")
 
