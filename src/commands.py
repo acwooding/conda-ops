@@ -130,6 +130,10 @@ def proj_create():
     _config_settings ={
         'env_name': env_name,
     }
+    _removal_dict = {
+        'pip': '',
+        'conda': ''
+    }
     config = {}
 
     config['settings'] = KVStore(_config_settings, config_file=config_file, config_section='OPS_SETTINGS')
@@ -265,7 +269,9 @@ def reqs_remove(packages, config=None):
                 pip_dict = reqs['dependencies'].pop(k)
                 break
 
+    removal_dict = {'conda': [], 'pip': []}
     # first remove non-pip dependencies
+
     deps = list(set(reqs['dependencies']))
     for package in packages:
         for dep in deps:
@@ -274,10 +280,12 @@ def reqs_remove(packages, config=None):
             else:
                 dep_check = dep.strip()
             if dep_check.startswith(package): # probably need a regex match to get this right
+                removal_dict['conda'].append(dep)
                 if dep_check != package:
                     logger.warning(f'Removing {dep} from requirements')
                 deps.remove(dep)
     reqs['dependencies'] = deps
+
 
     # now remove pip dependencies is the section exists
     if pip_dict is not None:
@@ -286,6 +294,7 @@ def reqs_remove(packages, config=None):
         for package in packages:
             for dep in deps:
                 if dep.startswith(package):
+                    removal_dict['pip'].append(dep)
                     if dep_check != package: # probably need a proper reges match to get this right
                         logger.warning(f'Removing {dep} from requirements')
                     deps.remove(dep)
@@ -363,11 +372,11 @@ def reqs_check(config, die_on_error=True):
 #
 ##################################################################
 
-def lockfile_generate(config, rollback_on_fail=False):
+def lockfile_generate(config):
     """
     Generate a lock file from the requirements file.
 
-    Currently always overwrites any existing files.
+    Currently always overwrites the existing lock file when complete.
     """
     ops_dir = config['paths']['ops_dir']
     requirements_file = config['paths']['requirements']
@@ -381,21 +390,6 @@ def lockfile_generate(config, rollback_on_fail=False):
     with open(ops_dir / '.ops.channel-order.include', 'r') as f:
         order_list = f.read().split()
 
-    if rollback_on_fail:
-        # clone so we can rollback if needed
-        logger.error("Unimplemented: rollback requires a deactivated environment. Do it as a separate step")
-        '''
-        logger.debug("Setting up rollback environment")
-        clone_env_name = env_name+"-clone"
-
-        conda_args = ["-n", clone_env_name, "--clone", env_name]
-        stdout, stderr, result_code = run_command("create", conda_args, use_exception_handler=True)
-        if result_code != 0:
-            logger.error("Failed to create clone environment")
-            logger.info(stdout)
-            logger.info(stderr)
-            return None
-        '''
     for i, channel in enumerate(order_list):
         if channel != 'pip':
             json_reqs = conda_step_env_lock(channel, config)
@@ -403,21 +397,6 @@ def lockfile_generate(config, rollback_on_fail=False):
             logger.error("Unimplemented: pip lock step")
             # json_reqs = pip_step_env_lock()
         if json_reqs is None:
-            if rollback_on_fail:
-                logger.error("To rollback the environment:")
-                logger.info(">>> conda deactivate")
-                logger.info(">>> conda ops clean")
-                """
-                env_delete(config=config)
-                conda_args = ["-n", env_name, "--clone", clone_env_name]
-                stdout, stderr, result_code = run_command("create", conda_args, use_exception_handler=True)
-                if result_code != 0:
-                    logger.error("Failed to create clone environment")
-                    logger.info(stdout)
-                    logger.info(stderr)
-                    return None
-                """
-            else:
                 if i > 0:
                     logger.warning(f"Last successful channel was {order_list[i-1]}")
                     logger.error(f"Unimplemented: Decide what to do when not rolling back the environment here")
@@ -438,17 +417,75 @@ def lockfile_generate(config, rollback_on_fail=False):
         Path(ops_dir / f'.ops.{channel}-environment.txt').unlink()
     Path(ops_dir / '.ops.channel-order.include').unlink()
 
-    if rollback_on_fail:
-        pass
-        # delete the clone environment
-        #env_delete(env_name=clone_env_name)
+def lockfile_regenerate(config):
+    """
+    Generate a lock file from a clean environment from the requirements file.
 
+    Currently always overwrites the existing lock file when complete.
+    """
+    ops_dir = config['paths']['ops_dir']
+    requirements_file = config['paths']['requirements']
+    lock_file = config['paths']['lockfile']
+    requirements = yaml.load(requirements_file)
+    env_name = config['settings']['env_name']
 
-def conda_step_env_lock(channel, config):
+    conda_info = get_conda_info()
+    active_env = conda_info['active_prefix_name']
+
+    # create a blank environment name to create the lockfile from scratch
+    raw_test_env = env_name+'-test'
+    for i in range(100):
+        test_env = raw_test_env+f'-{i}'
+        if not check_env_exists(test_env):
+            break
+
+    logger.info('Generating multi-step requirements files')
+    create_split_files(requirements_file, ops_dir)
+
+    with open(ops_dir / '.ops.channel-order.include', 'r') as f:
+        order_list = f.read().split()
+
+    for i, channel in enumerate(order_list):
+        logger.debug(f'Installing from channel {channel}')
+        if channel != 'pip':
+            json_reqs = conda_step_env_lock(channel, config, env_name=test_env)
+        else:
+            logger.error("Unimplemented: pip lock step")
+            # json_reqs = pip_step_env_lock()
+        if json_reqs is None:
+                if i > 0:
+                    logger.warning(f"Last successful channel was {order_list[i-1]}")
+                    logger.error(f"Unimplemented: Decide what to do when not rolling back the environment here")
+                    last_good_channel = order_list[i-1]
+                    sys.exit(1)
+                else:
+                    logger.error("No successful channels were installed")
+                    sys.exit(1)
+                break
+        else:
+            last_good_channel = order_list[i]
+
+    last_good_lockfile = f'.ops.lock.{last_good_channel}'
+    logger.debug(f"Updating lock file from {last_good_lockfile}")
+    shutil.copy(ops_dir / (ops_dir / last_good_lockfile), lock_file)
+
+    # clean up
+    for channel in order_list:
+        Path(ops_dir / f'.ops.{channel}-environment.txt').unlink()
+    Path(ops_dir / '.ops.channel-order.include').unlink()
+    conda_args = ["-n", test_env, "--all"]
+    stdout, stderr, result_code = run_command("remove", conda_args, use_exception_handler=True)
+    if result_code != 0:
+        logger.info(stdout)
+        logger.info(stderr)
+        return None
+
+def conda_step_env_lock(channel, config, env_name=None):
     """
     Given a conda channel from the channel order list, update the environment and generate a new lock file.
     """
-    env_name = config['settings']['env_name']
+    if env_name is None:
+        env_name = config['settings']['env_name']
     ops_dir = config['paths']['ops_dir']
 
     logger.info(f'Generating the intermediate lock file for channel {channel}')
@@ -476,7 +513,7 @@ def conda_step_env_lock(channel, config):
             return None
 
     channel_lockfile = (ops_dir / f'.ops.lock.{channel}')
-    json_reqs = env_lock(config, lock_file=channel_lockfile)
+    json_reqs = env_lock(config, lock_file=channel_lockfile, env_name=env_name)
 
     return json_reqs
 
@@ -587,8 +624,6 @@ def env_activate(*, config=None, name=None):
     else:
         logger.info("To activate the conda ops environment:")
         logger.info(f">>> conda activate {env_name}")
-
-
 
 def env_deactivate(config):
     """Deactivate managed conda environment"""
@@ -832,6 +867,7 @@ def env_delete(config=None, env_name=None):
             logger.info(stderr)
             sys.exit(result_code)
         logger.info("Environment deleted.")
+
 
 ############################################
 #

@@ -6,7 +6,7 @@ import conda.plugins
 from .commands import (cmd_init, cmd_create, consistency_check, cmd_clean,
                        env_activate, cmd_sync, proj_load, env_deactivate,
                        env_create, env_delete, env_check, env_lockfile_check,
-                       env_sync, env_lock, lockfile_generate, proj_create, proj_check,
+                       env_sync, env_lock, lockfile_generate, lockfile_regenerate, proj_create, proj_check,
                        reqs_create, reqs_add, reqs_check, reqs_remove,
                        lockfile_check, lockfile_reqs_check)
 
@@ -48,7 +48,7 @@ def conda_ops(argv: list):
     r_remove.add_argument('packages', type=str, nargs='+')
     reqs_subparser.add_parser('check')
 
-    lockfile = subparsers.add_parser('lockfile', help='Accepts generate, update, check, reqs-check')
+    lockfile = subparsers.add_parser('lockfile', help='Accepts generate, regenerate, update, check, reqs-check')
     lockfile.add_argument('kind', type=str)
 
 
@@ -102,7 +102,7 @@ def conda_ops(argv: list):
         print('To update the lockfile accordingly:')
         print('>>> conda ops lock')
     elif args.command == 'lock':
-        lockfile_generate(config)
+        lockfile_regenerate(config)
         logger.info("Lock file genereated")
     elif args.command == 'activate':
         cmd_activate()
@@ -116,6 +116,8 @@ def conda_ops(argv: list):
     elif args.command == 'lockfile':
         if args.kind == 'generate':
             lockfile_generate(config)
+        elif args.kind == 'regenerate':
+            lockfile_regenerate(config)
         elif args.kind == 'check':
             check = lockfile_check(config)
             if check:
