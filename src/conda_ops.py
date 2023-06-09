@@ -4,7 +4,7 @@ import logging
 import conda.plugins
 
 from .commands import (cmd_init, cmd_create, consistency_check, cmd_clean,
-                       env_activate, cmd_sync, proj_load, env_deactivate,
+                       env_activate, cmd_sync, proj_load, env_deactivate, env_regenerate,
                        env_create, env_delete, env_check, env_lockfile_check,
                        env_sync, env_lock, lockfile_generate, lockfile_regenerate, proj_create, proj_check,
                        reqs_create, reqs_add, reqs_check, reqs_remove,
@@ -35,7 +35,7 @@ def conda_ops(argv: list):
     # add additional parsers for hidden commands
     proj = subparsers.add_parser('proj', help='Accepts create, check and load')
     proj.add_argument('kind', type=str)
-    env = subparsers.add_parser('env', help='Accepts create, sync, clean, delete, dump, activate, deactivate, check, lockfile-check')
+    env = subparsers.add_parser('env', help='Accepts create, sync, clean, delete, dump, activate, deactivate, check, lockfile-check, regenerate')
     env.add_argument('kind', type=str)
 
     reqs = subparsers.add_parser('reqs', help='Accepts create, add, remove, check')
@@ -131,6 +131,8 @@ def conda_ops(argv: list):
     elif args.command == 'env':
         if args.kind == 'create':
             env_create(config)
+        if args.kind == 'regenerate':
+            env_regenerate(config=config)
         elif args.kind == 'sync':
             env_sync(config)
         elif args.kind == 'clean':
