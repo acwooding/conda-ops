@@ -458,7 +458,7 @@ def pip_step_env_lock(config, env_name=None):
     sys.stdout = stdout_backup
     stdout_str = capture_output.getvalue()
 
-    pip_dict = extract_pip_installed_filenames(stdout_str)
+    pip_dict = extract_pip_installed_filenames(stdout_str, config=config)
 
     channel_lockfile = (ops_dir / f'.ops.lock.pip')
     json_reqs = env_lock(lock_file=channel_lockfile, env_name=env_name, pip_dict=pip_dict)
@@ -507,16 +507,6 @@ def lockfile_check(config, die_on_error=True):
         with open(lock_file, 'r') as f:
             try:
                 json_reqs = json.load(f)
-                for package in json_reqs:
-                    package_url = '/'.join([package['base_url'], package['platform'],
-                                            (package['dist_name']+package['extension'])]).strip()+f"#{package['md5']}"
-                    if package['url'].strip() != package_url.strip():
-                        check = False
-                        logger.warning(f"package information for {package['name']} is inconsistent")
-                        logger.debug(f"{package_url}, \n{package['url']}")
-                        logger.info("To regenerate the lock file:")
-                        logger.info(">>> conda ops lockfile regenerate")
-                        #logger.info(">>> conda ops lock")
             except Exception as e:
                 check = False
                 logger.error(f"Unable to load lockfile {lock_file}")
@@ -524,6 +514,18 @@ def lockfile_check(config, die_on_error=True):
                 logger.info("To regenerate the lock file:")
                 logger.info(">>> conda ops lockfile regenerate")
                 #logger.info(">>> conda ops lock")
+            if json_reqs:
+                for package in json_reqs:
+                    if package['manager'] == 'conda':
+                        package_url = '/'.join([package['base_url'], package['platform'],
+                                                (package['dist_name']+package['extension'])]).strip()+f"#{package['md5']}"
+                        if package['url'].strip() != package_url.strip():
+                            check = False
+                            logger.warning(f"package information for {package['name']} is inconsistent")
+                            logger.debug(f"{package_url}, \n{package['url']}")
+                            logger.info("To regenerate the lock file:")
+                            logger.info(">>> conda ops lockfile regenerate")
+                            #logger.info(">>> conda ops lock")
     else:
         check = False
         logger.error("There is no lock file.")
@@ -682,7 +684,9 @@ def env_lock(config=None, lock_file=None, env_name=None, pip_dict=None):
             if package['channel'] == 'pypi':
                 package['manager'] = 'pip'
                 if pip_dict is not None:
-                    pip_dict_entry = pip_dict[package['name']]
+                    pip_dict_entry = pip_dict.get(package['name'], None)
+                    if pip_dict_entry is not None:
+                        logger.debug(f'pip_dict_entry:{pip_dict_entry}')
                     if pip_dict_entry['version'] != package['version']:
                         logger.error(f"The pip extra info entry version {pip_dict_entry['version']} does not match the conda package version{package['version']}")
                         logger.debug(pip_dict_entry)
@@ -1096,27 +1100,29 @@ def get_pypi_package_info(package_name, version, filename):
         return None, None
     return url, sha256_hash
 
-def extract_pip_installed_filenames(stdout):
+def extract_pip_installed_filenames(stdout, config=None):
     """
     Take the output of pip install --verbose to get the package name, version and filenames of what was installed.
     """
-    list_stdout = stdout.split("Collecting ")
+    pattern_1 = "Collecting "
+    pattern_2 = "Requirement already satisfied: "
+    list_stdout = re.split(r"Collecting |Requirement already ", stdout)
+    logger.debug(list_stdout)
     filename_dict = {}
     for package_stdout in list_stdout[1:]:
-        logger.debug(package_stdout)
-        pattern = r'^(\S+)'
-        match = re.search(pattern, package_stdout, re.MULTILINE)
-
-        if match:
-            package_name = match.group(1)
-        else:
-            package_name = None
-            logger.error("No match for package_name found.")
-
+        if "Using pip" in package_stdout:
+            pass
         if "Using cached" in package_stdout:
+            pattern = r'^(\S+)'
+            match = re.search(pattern, package_stdout, re.MULTILINE)
+            if match:
+                package_name = match.group(1)
+            else:
+                package_name = None
+                logger.error("No match for package_name found.")
+
             pattern = r'Using cached ([^\s]+)'
             match = re.search(pattern, package_stdout)
-
             if match:
                 filename = match.group(1)
                 logger.debug(filename)
@@ -1133,7 +1139,26 @@ def extract_pip_installed_filenames(stdout):
                 url = None
                 sha = None
             filename_dict[package_name] = {'version': version, 'filename': filename, 'url': url, 'sha256':sha}
+        elif "satisfied: " in package_stdout:
+            # in this case, look in existing lockfile for details
+            pattern = r'satisfied: ([^\s]+)'
+            match = re.search(pattern, package_stdout)
+            if match:
+                package_name = match.group(1)
+            else:
+                package_name = None
+                logger.error("No match for package_name found.")
+            lockfile = config['paths']['lockfile']
+            with open(lockfile, 'r') as lf:
+                lock_list = json.load(lf)
+            for package in lock_list:
+                if package['name'] == package_name:
+                    break
+            filename_dict[package_name] = {'version': package.get('version', None),
+                                           'filename': package.get('filename', None),
+                                           'url': package.get('url', None),
+                                           'sha256': package.get('sha256', None)}
         else:
             logger.error("Unimplemented so far...")
-            filename_dict[package_name] = {'version': None, 'filename': None, 'url': None, 'sha256': None}
+            logger.debug(package_stdout)
     return filename_dict
