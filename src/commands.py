@@ -13,6 +13,11 @@ import conda.cli.python_api
 from conda.cli.main_info import get_info_dict
 import urllib
 import shutil
+import subprocess
+import re
+from io import StringIO
+from contextlib import redirect_stdout
+
 
 import logging
 
@@ -336,9 +341,6 @@ def lockfile_generate(config, regenerate=False):
     requirements = yaml.load(requirements_file)
     env_name = config['settings']['env_name']
 
-    conda_info = get_conda_info()
-    active_env = conda_info['active_prefix_name']
-
     if regenerate:
         # create a blank environment name to create the lockfile from scratch
         raw_test_env = env_name+'-test'
@@ -356,13 +358,13 @@ def lockfile_generate(config, regenerate=False):
         order_list = f.read().split()
 
     order_list += ['pip']
+    json_reqs = None
     for i, channel in enumerate(order_list):
         logger.debug(f'Installing from channel {channel}')
         if channel != 'pip':
             json_reqs = conda_step_env_lock(channel, config, env_name=test_env)
         else:
-            logger.error("Unimplemented: pip lock step")
-            # json_reqs = pip_step_env_lock()
+            json_reqs = pip_step_env_lock(config, env_name=test_env)
         if json_reqs is None:
                 if i > 0:
                     logger.warning(f"Last successful channel was {order_list[i-1]}")
@@ -374,7 +376,7 @@ def lockfile_generate(config, regenerate=False):
                     sys.exit(1)
                 break
         else:
-            last_good_channel = order_list[i-1] # skip pip for now
+            last_good_channel = order_list[i]
 
     last_good_lockfile = f'.ops.lock.{last_good_channel}'
     logger.debug(f"Updating lock file from {last_good_lockfile}")
@@ -397,7 +399,7 @@ def conda_step_env_lock(channel, config, env_name=None):
         env_name = config['settings']['env_name']
     ops_dir = config['paths']['ops_dir']
 
-    logger.info(f'Generating the intermediate lock file for channel {channel}')
+    logger.info(f'Generating the intermediate lock file for channel {channel} via environment {env_name}')
 
     with open(ops_dir / f'.ops.{channel}-environment.txt') as f:
         package_list = f.read().split()
@@ -422,33 +424,57 @@ def conda_step_env_lock(channel, config, env_name=None):
             return None
 
     channel_lockfile = (ops_dir / f'.ops.lock.{channel}')
-    json_reqs = env_lock(config, lock_file=channel_lockfile, env_name=env_name)
+    json_reqs = env_lock(lock_file=channel_lockfile, env_name=env_name)
 
     return json_reqs
 
-def pip_step_env_lock(config):
+def pip_step_env_lock(config, env_name=None):
     # set the pip interop flag to True as soon as pip packages are to be installed so conda remain aware of it
     # possibly set this at the first creation of the environment so it's always True
-    env_pip_interop(config, flag=True)
+
+    if env_name is None:
+        env_name = config['settings']['env_name']
+
+    env_pip_interop(env_name=env_name, flag=True)
 
     ops_dir = config['paths']['ops_dir']
-    logger.info(f'Generating the intermediate lock file for pip')
+    logger.info(f'Generating the intermediate lock file for pip via environment {env_name}')
 
-    with open(ops_dir / f'.ops.pypi-requirements.txt') as f:
+    pypi_reqs_file = ops_dir / f'.ops.pypi-requirements.txt'
+    with open(pypi_reqs_file) as f:
         pypi_list = f.read().split('\n')
 
-    print(pypi_list)
+    # Workaround for the issue in cconda version 23.5.0 (and greater?) see issues.
+    # We need to capture the pip install output to get the exact filenames of the packages
+    stdout_backup  = sys.stdout
+    sys.stdout = capture_output = StringIO()
+    with redirect_stdout(capture_output):
+        conda_args = ["-n", env_name, "pip", "install", "-r", str(pypi_reqs_file), "--verbose"]
+        stdout, stderr, result_code = run_command("run", conda_args, use_exception_handler=True)
+        if result_code != 0:
+            logger.info(stdout)
+            logger.info(stderr)
+            return None
+    sys.stdout = stdout_backup
+    stdout_str = capture_output.getvalue()
 
-    logger.error('TODO: Implement the pip step for sdists and editable modules here')
+    pip_dict = extract_pip_installed_filenames(stdout_str)
+
+    channel_lockfile = (ops_dir / f'.ops.lock.pip')
+    json_reqs = env_lock(lock_file=channel_lockfile, env_name=env_name, pip_dict=pip_dict)
+
     with open(ops_dir / f'.ops.sdist-requirements.txt') as f:
         sdist_list = f.read().split('\n')
-    print(sdist_list)
+    logger.error('TODO: Implement the pip step for sdists and editable modules {sdist_list}')
 
-def env_pip_interop(config, flag=True):
+    return json_reqs
+
+def env_pip_interop(config=None, env_name=None, flag=True):
     """
     Set the flag pip_interop_enabled to the value of flag locally for the conda ops managed env_activate
     """
-    env_name = config['settings']['env_name']
+    if env_name is None:
+        env_name = config['settings']['env_name']
 
     if not check_env_exists(env_name):
         logger.error(f"Cannot set pip_interop_enabled flag locally in environment {env_name} as it does not exist.")
@@ -617,7 +643,7 @@ def env_create(config=None, env_name=None, lock_file=None):
     logger.info(f">>> conda activate {env_name}")
 
 
-def env_lock(config, lock_file=None, env_name=None):
+def env_lock(config=None, lock_file=None, env_name=None, pip_dict=None):
     """
     Generate a lockfile from the contents of the environment.
     """
@@ -628,12 +654,18 @@ def env_lock(config, lock_file=None, env_name=None):
 
     if check_env_exists(env_name):
         # json requirements
+        # need to use a subprocess to get any newly installed python package information
+        # that was installed via pip
         conda_args = ["-n", env_name, '--json']
-        stdout, stderr, result_code = run_command("list", conda_args, use_exception_handler=True)
+        result = subprocess.run(['conda', 'list'] + conda_args, capture_output=True)
+        result_code = result.returncode
+        stdout = result.stdout
+        stderr = result.stderr
         if result_code != 0:
             logger.info(stdout)
             logger.info(stderr)
             sys.exit(1)
+
         json_reqs = json.loads(stdout)
 
         # explicit requirements to get full urls and md5
@@ -645,17 +677,33 @@ def env_lock(config, lock_file=None, env_name=None):
             sys.exit(1)
         explicit = [x for x in stdout.split("\n") if ('https' in x)]
 
+        logger.debug(f"Environment {env_name} to be locked with {len(json_reqs)} packages")
         for package in json_reqs:
-            starter_str = '/'.join([package['base_url'], package['platform'], package['dist_name']])
-            for line in explicit:
-                if starter_str in line:
-                    break
-            md5_split = line.split('#')
-            package['md5'] = md5_split[-1]
-            package['extension'] = md5_split[0].split(f"{package['dist_name']}")[-1]
-            package['url'] = line
+            if package['channel'] == 'pypi':
+                package['manager'] = 'pip'
+                if pip_dict is not None:
+                    pip_dict_entry = pip_dict[package['name']]
+                    if pip_dict_entry['version'] != package['version']:
+                        logger.error(f"The pip extra info entry version {pip_dict_entry['version']} does not match the conda package version{package['version']}")
+                        logger.debug(pip_dict_entry)
+                        logger.debug(package)
+                    else:
+                        package['url'] = pip_dict_entry['url']
+                        package['sha256'] = pip_dict_entry['sha256']
+            else:
+                starter_str = '/'.join([package['base_url'], package['platform'], package['dist_name']])
+                for line in explicit:
+                    if starter_str in line:
+                        break
+                md5_split = line.split('#')
+                package['md5'] = md5_split[-1]
+                package['extension'] = md5_split[0].split(f"{package['dist_name']}")[-1]
+                package['url'] = line
+                package['manager'] = 'conda'
+
+        blob = json.dumps(json_reqs, indent=2, sort_keys=True)
         with open(lock_file, 'w') as f:
-            json.dump(json_reqs, f)
+            f.write(blob)
     else:
         logger.error(f"No environment {env_name} exists")
 
@@ -1016,3 +1064,76 @@ def check_env_active(env_name):
         return True
     else:
         return False
+
+def get_pypi_package_info(package_name, version, filename):
+    """
+    Get the pypi package information from pypi for a package name.
+
+    If installed, use the matching distribution and platform information from what is installed.
+    """
+    url = f"https://pypi.org/pypi/{package_name}/{version}/json"
+
+    # Fetch the package metadata JSON
+    with urllib.request.urlopen(url) as response:
+        data = json.loads(response.read().decode())
+
+    # Find the wheel file in the list of distributions
+    releases = data["urls"]
+
+    matching_releases = []
+    for release in releases:
+        if release['filename'] == filename:
+            matching_releases.append(release)
+
+    if matching_releases:
+        for release in matching_releases:
+            sha256_hash = release["digests"]["sha256"]
+            url = release["url"]
+            logger.debug(f"The SHA256 hash for the wheel file {filename} of {package_name} {version} is: {sha256_hash}")
+            logger.debug(f"The url is {url}")
+    else:
+        logger.debug(f"No wheel distribution found for {package_name} {version}.")
+        return None, None
+    return url, sha256_hash
+
+def extract_pip_installed_filenames(stdout):
+    """
+    Take the output of pip install --verbose to get the package name, version and filenames of what was installed.
+    """
+    list_stdout = stdout.split("Collecting ")
+    filename_dict = {}
+    for package_stdout in list_stdout[1:]:
+        logger.debug(package_stdout)
+        pattern = r'^(\S+)'
+        match = re.search(pattern, package_stdout, re.MULTILINE)
+
+        if match:
+            package_name = match.group(1)
+        else:
+            package_name = None
+            logger.error("No match for package_name found.")
+
+        if "Using cached" in package_stdout:
+            pattern = r'Using cached ([^\s]+)'
+            match = re.search(pattern, package_stdout)
+
+            if match:
+                filename = match.group(1)
+                logger.debug(filename)
+            else:
+                filename = None
+                logger.error("No match for filename found.")
+            if filename is not None:
+                version = filename.split('-')[1]
+            else:
+                version = None
+            if version is not None:
+                url, sha = get_pypi_package_info(package_name, version, filename)
+            else:
+                url = None
+                sha = None
+            filename_dict[package_name] = {'version': version, 'filename': filename, 'url': url, 'sha256':sha}
+        else:
+            logger.error("Unimplemented so far...")
+            filename_dict[package_name] = {'version': None, 'filename': None, 'url': None, 'sha256': None}
+    return filename_dict

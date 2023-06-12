@@ -3,7 +3,7 @@ import logging
 
 import conda.plugins
 
-from .commands import (consistency_check,  pip_step_env_lock,
+from .commands import (consistency_check, pip_step_env_lock, get_pypi_package_info,
                        env_activate, proj_load, env_deactivate, env_regenerate,
                        env_create, env_delete, env_check, env_lockfile_check,
                        env_install, env_lock, lockfile_generate, proj_create, proj_check,
@@ -54,7 +54,7 @@ def conda_ops(argv: list):
             proj_load()
     elif args.command == 'lockfile':
         if args.kind == 'generate':
-            lockfile_generate(config, renegerate=False)
+            lockfile_generate(config, regenerate=False)
         elif args.kind == 'regenerate':
             lockfile_generate(config, regenerate=True)
         elif args.kind == 'check':
@@ -71,7 +71,7 @@ def conda_ops(argv: list):
         if args.kind == 'create':
             env_create(config)
         if args.kind == 'regenerate':
-            env_generate(config=config, regenerate=True)
+            env_regenerate(config=config)
         elif args.kind == 'install':
             env_install(config)
         elif args.kind == 'clean':
@@ -90,6 +90,7 @@ def conda_ops(argv: list):
             env_lockfile_check(config)
     elif args.command == 'test':
         pip_step_env_lock(config)
+        #get_pypi_package_info('python-dotenv', '1.0.0', "python_dotenv-1.0.0-py3-none-any.whl")
     elif args.reqs_command == 'create':
         reqs_create(config)
     elif args.reqs_command == 'add':
