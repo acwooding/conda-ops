@@ -17,6 +17,7 @@ import subprocess
 import re
 from io import StringIO
 from contextlib import redirect_stdout
+from packaging.requirements import Requirement
 
 
 import logging
@@ -257,7 +258,8 @@ def reqs_remove(packages, config=None):
 
     # add back the pip section
     if pip_dict is not None:
-        reqs['dependencies'] = [pip_dict] + reqs['dependencies']
+        if len(pip_dict['pip']) > 0:
+            reqs['dependencies'] = [pip_dict] + reqs['dependencies']
 
     with open(requirements_file, 'w') as yamlfile:
         yaml.dump(reqs, yamlfile)
@@ -385,8 +387,13 @@ def lockfile_generate(config, regenerate=False):
 
     # clean up
     for channel in order_list:
-        Path(ops_dir / f'.ops.{channel}-environment.txt').unlink()
+        if channel == 'pip':
+            Path(ops_dir / f'.ops.pypi-requirements.txt').unlink()
+            Path(ops_dir / f'.ops.sdist-requirements.txt').unlink()
+        else:
+            Path(ops_dir / f'.ops.{channel}-environment.txt').unlink()
         Path(ops_dir / f'.ops.lock.{channel}').unlink()
+
     Path(ops_dir / '.ops.channel-order.include').unlink()
     if regenerate:
         env_delete(env_name=test_env)
@@ -465,7 +472,7 @@ def pip_step_env_lock(config, env_name=None):
 
     with open(ops_dir / f'.ops.sdist-requirements.txt') as f:
         sdist_list = f.read().split('\n')
-    logger.error('TODO: Implement the pip step for sdists and editable modules {sdist_list}')
+    logger.error(f'TODO: Implement the pip step for sdists and editable modules {sdist_list}')
 
     return json_reqs
 
@@ -706,14 +713,15 @@ def env_lock(config=None, lock_file=None, env_name=None, pip_dict=None):
                 if pip_dict is not None:
                     pip_dict_entry = pip_dict.get(package['name'], None)
                     if pip_dict_entry is not None:
-                        logger.debug(f'pip_dict_entry:{pip_dict_entry}')
-                    if pip_dict_entry['version'] != package['version']:
-                        logger.error(f"The pip extra info entry version {pip_dict_entry['version']} does not match the conda package version{package['version']}")
-                        logger.debug(pip_dict_entry)
-                        logger.debug(package)
-                    else:
-                        package['url'] = pip_dict_entry['url']
-                        package['sha256'] = pip_dict_entry['sha256']
+                        if pip_dict_entry['version'] != package['version']:
+                            logger.error(f"The pip extra info entry version {pip_dict_entry['version']} does not match the conda package version{package['version']}")
+                            logger.debug(pip_dict_entry)
+                            logger.debug(package)
+                            sys.exit(1)
+                        else:
+                            package['url'] = pip_dict_entry['url']
+                            package['sha256'] = pip_dict_entry['sha256']
+                            package['filenmae'] = pip_dict_entry['filename']
             else:
                 starter_str = '/'.join([package['base_url'], package['platform'], package['dist_name']])
                 for line in explicit:
@@ -1207,8 +1215,14 @@ def get_pypi_package_info(package_name, version, filename):
     url = f"https://pypi.org/pypi/{package_name}/{version}/json"
 
     # Fetch the package metadata JSON
-    with urllib.request.urlopen(url) as response:
-        data = json.loads(response.read().decode())
+    try:
+        with urllib.request.urlopen(url) as response:
+            data = json.loads(response.read().decode())
+    except Exception as e:
+        print(e)
+        logger.error(f"No releases found for url {url}")
+        return None, None
+
 
     # Find the wheel file in the list of distributions
     releases = data["urls"]
@@ -1222,8 +1236,7 @@ def get_pypi_package_info(package_name, version, filename):
         for release in matching_releases:
             sha256_hash = release["digests"]["sha256"]
             url = release["url"]
-            logger.debug(f"The SHA256 hash for the wheel file {filename} of {package_name} {version} is: {sha256_hash}")
-            logger.debug(f"The url is {url}")
+            logger.debug(f"   The url for the file {filename} of {package_name} {version} is: {url}")
     else:
         logger.debug(f"No wheel distribution found for {package_name} {version}.")
         return None, None
@@ -1236,7 +1249,7 @@ def extract_pip_installed_filenames(stdout, config=None):
     pattern_1 = "Collecting "
     pattern_2 = "Requirement already satisfied: "
     list_stdout = re.split(r"Collecting |Requirement already ", stdout)
-    logger.debug(list_stdout)
+
     filename_dict = {}
     for package_stdout in list_stdout[1:]:
         if "Using pip" in package_stdout:
@@ -1245,7 +1258,8 @@ def extract_pip_installed_filenames(stdout, config=None):
             pattern = r'^(\S+)'
             match = re.search(pattern, package_stdout, re.MULTILINE)
             if match:
-                package_name = match.group(1)
+                requirement = Requirement(match.group(1))
+                package_name = requirement.name
             else:
                 package_name = None
                 logger.error("No match for package_name found.")
@@ -1254,7 +1268,6 @@ def extract_pip_installed_filenames(stdout, config=None):
             match = re.search(pattern, package_stdout)
             if match:
                 filename = match.group(1)
-                logger.debug(filename)
             else:
                 filename = None
                 logger.error("No match for filename found.")
@@ -1273,7 +1286,8 @@ def extract_pip_installed_filenames(stdout, config=None):
             pattern = r'satisfied: ([^\s]+)'
             match = re.search(pattern, package_stdout)
             if match:
-                package_name = match.group(1)
+                requirement = Requirement(match.group(1))
+                package_name = requirement.name
             else:
                 package_name = None
                 logger.error("No match for package_name found.")
@@ -1282,11 +1296,12 @@ def extract_pip_installed_filenames(stdout, config=None):
                 lock_list = json.load(lf)
             for package in lock_list:
                 if package['name'] == package_name:
+                    filename_dict[package_name] = {'version': package.get('version', None),
+                                                   'filename': package.get('filename', None),
+                                                   'url': package.get('url', None),
+                                                   'sha256': package.get('sha256', None)}
                     break
-            filename_dict[package_name] = {'version': package.get('version', None),
-                                           'filename': package.get('filename', None),
-                                           'url': package.get('url', None),
-                                           'sha256': package.get('sha256', None)}
+
         else:
             logger.error("Unimplemented so far...")
             logger.debug(package_stdout)
