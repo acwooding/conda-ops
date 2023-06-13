@@ -862,35 +862,36 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
             #logger.info(">>> conda ops sync")
 
     # check that the pip contents of the lockfile match the conda environment
+
+    # need to use a subprocess to ensure we get all of the pip package info
+    conda_args = ["-n", env_name, '--json']
+    result = subprocess.run(['conda', 'list'] + conda_args, capture_output=True)
+    result_code = result.returncode
+    stdout = result.stdout
+    stderr = result.stderr
+    conda_args = ["-n", env_name, "--json"]
+    if result_code != 0:
+        logger.error("Could not get packages from the environment")
+        logger.info(stdout)
+        logger.info(stderr)
+        if die_on_error:
+            sys.exit(result_code)
+        else:
+            return False
+    conda_list = json.loads(stdout)
+
+    conda_dict = {}
+    for package in conda_list:
+        if package['channel'] == 'pypi':
+            conda_dict[package['name']] = package['version']
+
+    logger.debug(f"Found {len(conda_dict)} pip package(s) in environment: {env_name}")
+
     if len(explicit_files) > 1:
         env_pip_interop(env_name=env_name, flag=True)
 
         logger.info("Checking consistency of pip installed packages...")
         logger.debug("Note that we only compare the package name and version number as this is all conda list gives us")
-        # need to use a subprocess to ensure we get all of the pip package info
-        conda_args = ["-n", env_name, '--json']
-        result = subprocess.run(['conda', 'list'] + conda_args, capture_output=True)
-        result_code = result.returncode
-        stdout = result.stdout
-        stderr = result.stderr
-        conda_args = ["-n", env_name, "--json"]
-        if result_code != 0:
-            logger.error("Could not get packages from the environment")
-            logger.info(stdout)
-            logger.info(stderr)
-            if die_on_error:
-                sys.exit(result_code)
-            else:
-                return False
-        conda_list = json.loads(stdout)
-
-        conda_dict = {}
-        for package in conda_list:
-            if package['channel'] == 'pypi':
-                conda_dict[package['name']] = package['version']
-
-        logger.debug(f"Found {len(conda_dict)} pip package(s) in environment: {env_name}")
-
         lock_dict = {}
         lockfile = config['paths']['lockfile']
         with open(lockfile, 'r') as f:
@@ -911,7 +912,9 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
                 logger.debug("\n".join(in_env))
                 logger.debug("\n")
                 logger.info("To restore the environment to the state of the lock file")
+                logger.info(">>> conda deactivate")
                 logger.info(">>> conda ops env regenerate")
+                logger.info(f">>> conda activate {env_name}")
                 #logger.info(">>> conda ops sync")
             if len(in_lock) > 0:
                 logger.debug("\nThe following packages are in the lock file but not in the environment:\n")
@@ -928,7 +931,19 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
                 logger.debug("\n")
                 logger.info("To sync these versions:")
                 logger.info(">>> conda ops env regenerate")
-
+    elif len(conda_dict) > 0:
+        check = False
+        in_env = conda_dict.keys()
+        logger.debug("\nThe following packages are in the environment but not in the lock file:\n")
+        logger.debug("\n".join(in_env))
+        logger.debug("\n")
+        logger.info("To restore the environment to the state of the lock file")
+        logger.info(">>> conda deactivate")
+        logger.info(">>> conda ops env regenerate")
+        logger.info(f">>> conda activate {env_name}")
+        #logger.info(">>> conda ops sync")
+    else:
+        logger.debug("Pip packages in environment and lock file are in sync.\n")
 
 
     if die_on_error and not check:
@@ -1301,7 +1316,33 @@ def extract_pip_installed_filenames(stdout, config=None):
                                                    'url': package.get('url', None),
                                                    'sha256': package.get('sha256', None)}
                     break
+        elif "Downloading" in package_stdout:
+            pattern = r'^(\S+)'
+            match = re.search(pattern, package_stdout, re.MULTILINE)
+            if match:
+                requirement = Requirement(match.group(1))
+                package_name = requirement.name
+            else:
+                package_name = None
+                logger.error("No match for package_name found.")
 
+            pattern = r'Downloading ([^\s]+)'
+            match = re.search(pattern, package_stdout)
+            if match:
+                filename = match.group(1)
+            else:
+                filename = None
+                logger.error("No match for filename found.")
+            if filename is not None:
+                version = filename.split('-')[1]
+            else:
+                version = None
+            if version is not None:
+                url, sha = get_pypi_package_info(package_name, version, filename)
+            else:
+                url = None
+                sha = None
+            filename_dict[package_name] = {'version': version, 'filename': filename, 'url': url, 'sha256':sha}
         else:
             logger.error("Unimplemented so far...")
             logger.debug(package_stdout)
