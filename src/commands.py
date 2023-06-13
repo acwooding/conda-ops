@@ -84,10 +84,7 @@ def proj_create():
     _config_settings ={
         'env_name': env_name,
     }
-    _removal_dict = {
-        'pip': '',
-        'conda': ''
-    }
+
     config = {}
 
     config['settings'] = KVStore(_config_settings, config_file=config_file, config_section='OPS_SETTINGS')
@@ -205,7 +202,6 @@ def reqs_remove(packages, config=None):
     Remove packages from the requirements file. Treat pip as a special channel.
 
     TODO: Handle version strings properly
-    TODO: Remove extraneous channels
     """
     requirements_file = config['paths']['requirements']
     logger.debug(packages)
@@ -225,7 +221,6 @@ def reqs_remove(packages, config=None):
                 pip_dict = reqs['dependencies'].pop(k)
                 break
 
-    removal_dict = {'conda': [], 'pip': []}
     # first remove non-pip dependencies
 
     deps = list(set(reqs['dependencies']))
@@ -236,12 +231,24 @@ def reqs_remove(packages, config=None):
             else:
                 dep_check = dep.strip()
             if dep_check.startswith(package): # probably need a regex match to get this right
-                removal_dict['conda'].append(dep)
                 if dep_check != package:
                     logger.warning(f'Removing {dep} from requirements')
                 deps.remove(dep)
     reqs['dependencies'] = deps
 
+    # remove any channels that aren't needed anymore
+    channel_in_use = []
+    for dep in deps:
+        if '::' in dep:
+            channel, _  = dep.split('::')
+            channel_in_use.append(channel)
+    new_channel_order = []
+    for channel in reqs['channel-order']:
+        if channel == 'defaults':
+            new_channel_order.append(channel)
+        if channel in channel_in_use:
+            new_channel_order.append(channel)
+    reqs['channel-order'] = new_channel_order
 
     # now remove pip dependencies is the section exists
     if pip_dict is not None:
@@ -250,7 +257,6 @@ def reqs_remove(packages, config=None):
         for package in packages:
             for dep in deps:
                 if dep.startswith(package):
-                    removal_dict['pip'].append(dep)
                     if dep_check != package: # probably need a proper reges match to get this right
                         logger.warning(f'Removing {dep} from requirements')
                     deps.remove(dep)
@@ -265,7 +271,6 @@ def reqs_remove(packages, config=None):
         yaml.dump(reqs, yamlfile)
 
     print(f'Removed packages {package_str} to requirements file.')
-    logger.error("Unimplemented: Remove channels that are no longer in use")
 
 def reqs_create(config):
     """
