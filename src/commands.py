@@ -403,110 +403,6 @@ def lockfile_generate(config, regenerate=False):
     if regenerate:
         env_delete(env_name=test_env)
 
-def conda_step_env_lock(channel, config, env_name=None):
-    """
-    Given a conda channel from the channel order list, update the environment and generate a new lock file.
-    """
-    if env_name is None:
-        env_name = config['settings']['env_name']
-    ops_dir = config['paths']['ops_dir']
-
-    logger.info(f'Generating the intermediate lock file for channel {channel} via environment {env_name}')
-
-    with open(ops_dir / f'.ops.{channel}-environment.txt') as f:
-        package_list = f.read().split()
-
-    if len(package_list) == 0:
-        logger.warning("No packages to be installed at this step")
-        return {}
-    if check_env_exists(env_name):
-        conda_args = ["-n", env_name, "-c", channel] + package_list
-        stdout, stderr, result_code = run_command("install", conda_args, use_exception_handler=True)
-        if result_code != 0:
-            logger.info(stdout)
-            logger.info(stderr)
-            return None
-    else:
-        # create the environment directly
-        conda_args = ["-n", env_name, "-c", channel] + package_list
-        stdout, stderr, result_code = run_command("create", conda_args, use_exception_handler=True)
-        if result_code != 0:
-            logger.info(stdout)
-            logger.info(stderr)
-            return None
-
-    channel_lockfile = (ops_dir / f'.ops.lock.{channel}')
-    json_reqs = env_lock(lock_file=channel_lockfile, env_name=env_name)
-
-    return json_reqs
-
-def pip_step_env_lock(config, env_name=None):
-    # set the pip interop flag to True as soon as pip packages are to be installed so conda remain aware of it
-    # possibly set this at the first creation of the environment so it's always True
-
-    if env_name is None:
-        env_name = config['settings']['env_name']
-
-    env_pip_interop(env_name=env_name, flag=True)
-
-    ops_dir = config['paths']['ops_dir']
-    logger.info(f'Generating the intermediate lock file for pip via environment {env_name}')
-
-    pypi_reqs_file = ops_dir / f'.ops.pypi-requirements.txt'
-    with open(pypi_reqs_file) as f:
-        pypi_list = f.read().split('\n')
-
-    # Workaround for the issue in cconda version 23.5.0 (and greater?) see issues.
-    # We need to capture the pip install output to get the exact filenames of the packages
-    stdout_backup  = sys.stdout
-    sys.stdout = capture_output = StringIO()
-    with redirect_stdout(capture_output):
-        conda_args = ["-n", env_name, "pip", "install", "-r", str(pypi_reqs_file), "--verbose"]
-        stdout, stderr, result_code = run_command("run", conda_args, use_exception_handler=True)
-        if result_code != 0:
-            logger.info(stdout)
-            logger.info(stderr)
-            return None
-    sys.stdout = stdout_backup
-    stdout_str = capture_output.getvalue()
-
-    pip_dict = extract_pip_installed_filenames(stdout_str, config=config)
-
-    channel_lockfile = (ops_dir / f'.ops.lock.pip')
-    json_reqs = env_lock(lock_file=channel_lockfile, env_name=env_name, pip_dict=pip_dict)
-
-    with open(ops_dir / f'.ops.sdist-requirements.txt') as f:
-        sdist_list = f.read().split('\n')
-    logger.error(f'TODO: Implement the pip step for sdists and editable modules {sdist_list}')
-
-    return json_reqs
-
-def env_pip_interop(config=None, env_name=None, flag=True):
-    """
-    Set the flag pip_interop_enabled to the value of flag locally for the conda ops managed env_activate
-    """
-    if env_name is None:
-        env_name = config['settings']['env_name']
-
-    if not check_env_exists(env_name):
-        logger.error(f"Cannot set pip_interop_enabled flag locally in environment {env_name} as it does not exist.")
-        logger.info(">>> conda ops env create")
-        sys.exit(1)
-
-    conda_info = get_conda_info()
-    for env_path in conda_info['envs']:
-        if Path(env_path).name == env_name:
-            break
-
-    condarc_path = Path(env_path) / '.condarc'
-    conda_args = ["--set", 'pip_interop_enabled', str(flag), '--file', str(condarc_path)]
-
-    stdout, stderr, result_code = run_command("config", conda_args, use_exception_handler=True)
-    if result_code != 0:
-        logger.info(stdout)
-        logger.info(stderr)
-        sys.exit(1)
-    return True
 
 def lockfile_check(config, die_on_error=True):
     """
@@ -1352,3 +1248,109 @@ def extract_pip_installed_filenames(stdout, config=None):
             logger.error("Unimplemented so far...")
             logger.debug(package_stdout)
     return filename_dict
+
+
+def conda_step_env_lock(channel, config, env_name=None):
+    """
+    Given a conda channel from the channel order list, update the environment and generate a new lock file.
+    """
+    if env_name is None:
+        env_name = config['settings']['env_name']
+    ops_dir = config['paths']['ops_dir']
+
+    logger.info(f'Generating the intermediate lock file for channel {channel} via environment {env_name}')
+
+    with open(ops_dir / f'.ops.{channel}-environment.txt') as f:
+        package_list = f.read().split()
+
+    if len(package_list) == 0:
+        logger.warning("No packages to be installed at this step")
+        return {}
+    if check_env_exists(env_name):
+        conda_args = ["-n", env_name, "-c", channel] + package_list
+        stdout, stderr, result_code = run_command("install", conda_args, use_exception_handler=True)
+        if result_code != 0:
+            logger.info(stdout)
+            logger.info(stderr)
+            return None
+    else:
+        # create the environment directly
+        conda_args = ["-n", env_name, "-c", channel] + package_list
+        stdout, stderr, result_code = run_command("create", conda_args, use_exception_handler=True)
+        if result_code != 0:
+            logger.info(stdout)
+            logger.info(stderr)
+            return None
+
+    channel_lockfile = (ops_dir / f'.ops.lock.{channel}')
+    json_reqs = env_lock(lock_file=channel_lockfile, env_name=env_name)
+
+    return json_reqs
+
+def pip_step_env_lock(config, env_name=None):
+    # set the pip interop flag to True as soon as pip packages are to be installed so conda remain aware of it
+    # possibly set this at the first creation of the environment so it's always True
+
+    if env_name is None:
+        env_name = config['settings']['env_name']
+
+    env_pip_interop(env_name=env_name, flag=True)
+
+    ops_dir = config['paths']['ops_dir']
+    logger.info(f'Generating the intermediate lock file for pip via environment {env_name}')
+
+    pypi_reqs_file = ops_dir / f'.ops.pypi-requirements.txt'
+    with open(pypi_reqs_file) as f:
+        pypi_list = f.read().split('\n')
+
+    # Workaround for the issue in cconda version 23.5.0 (and greater?) see issues.
+    # We need to capture the pip install output to get the exact filenames of the packages
+    stdout_backup  = sys.stdout
+    sys.stdout = capture_output = StringIO()
+    with redirect_stdout(capture_output):
+        conda_args = ["-n", env_name, "pip", "install", "-r", str(pypi_reqs_file), "--verbose"]
+        stdout, stderr, result_code = run_command("run", conda_args, use_exception_handler=True)
+        if result_code != 0:
+            logger.info(stdout)
+            logger.info(stderr)
+            return None
+    sys.stdout = stdout_backup
+    stdout_str = capture_output.getvalue()
+
+    pip_dict = extract_pip_installed_filenames(stdout_str, config=config)
+
+    channel_lockfile = (ops_dir / f'.ops.lock.pip')
+    json_reqs = env_lock(lock_file=channel_lockfile, env_name=env_name, pip_dict=pip_dict)
+
+    with open(ops_dir / f'.ops.sdist-requirements.txt') as f:
+        sdist_list = f.read().split('\n')
+    logger.error(f'TODO: Implement the pip step for sdists and editable modules {sdist_list}')
+
+    return json_reqs
+
+def env_pip_interop(config=None, env_name=None, flag=True):
+    """
+    Set the flag pip_interop_enabled to the value of flag locally for the conda ops managed env_activate
+    """
+    if env_name is None:
+        env_name = config['settings']['env_name']
+
+    if not check_env_exists(env_name):
+        logger.error(f"Cannot set pip_interop_enabled flag locally in environment {env_name} as it does not exist.")
+        logger.info(">>> conda ops env create")
+        sys.exit(1)
+
+    conda_info = get_conda_info()
+    for env_path in conda_info['envs']:
+        if Path(env_path).name == env_name:
+            break
+
+    condarc_path = Path(env_path) / '.condarc'
+    conda_args = ["--set", 'pip_interop_enabled', str(flag), '--file', str(condarc_path)]
+
+    stdout, stderr, result_code = run_command("config", conda_args, use_exception_handler=True)
+    if result_code != 0:
+        logger.info(stdout)
+        logger.info(stderr)
+        sys.exit(1)
+    return True
