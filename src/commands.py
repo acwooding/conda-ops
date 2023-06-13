@@ -182,7 +182,6 @@ def reqs_add(packages, channel=None, config=None):
             pip_dict = {'pip': list(set(packages))}
         else:
             pip_dict['pip'] = list(set(pip_dict['pip'] + packages))
-        reqs['dependencies'].append(pip_dict)
     else: # interpret channel as a conda channel
         package_list = [f'{channel}::{package}' for package in packages]
         reqs['dependencies'] = list(set(reqs['dependencies'] + package_list))
@@ -358,7 +357,8 @@ def lockfile_generate(config, regenerate=False):
     with open(ops_dir / '.ops.channel-order.include', 'r') as f:
         order_list = f.read().split()
 
-    order_list += ['pip']
+    if (ops_dir / f'.ops.pypi-requirements.txt').exists():
+        order_list += ['pip']
     json_reqs = None
     for i, channel in enumerate(order_list):
         logger.debug(f'Installing from channel {channel}')
@@ -385,9 +385,8 @@ def lockfile_generate(config, regenerate=False):
 
     # clean up
     for channel in order_list:
-        pass
-        #Path(ops_dir / f'.ops.{channel}-environment.txt').unlink()
-        #Path(ops_dir / f'.ops.lock.{channel}').unlink()
+        Path(ops_dir / f'.ops.{channel}-environment.txt').unlink()
+        Path(ops_dir / f'.ops.lock.{channel}').unlink()
     Path(ops_dir / '.ops.channel-order.include').unlink()
     if regenerate:
         env_delete(env_name=test_env)
@@ -842,7 +841,9 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
             logger.debug("\n".join(in_env))
             logger.debug("\n")
             logger.info("To restore the environment to the state of the lock file")
+            logger.info(">>> conda deactivate")
             logger.info(">>> conda ops env regenerate")
+            logger.info(f">>> conda activate {env_name}")
             #logger.info(">>> conda ops sync")
         if len(in_lock) > 0:
             logger.debug("\nThe following packages are in the lock file but not in the environment:\n")
