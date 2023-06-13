@@ -4,6 +4,8 @@ from src.commands import reqs_add, reqs_remove, reqs_create, reqs_check
 from src.commands import yaml
 import pytest
 
+CONDA_OPS_DIR_NAME = '.conda-ops'
+
 def test_reqs_add(shared_temp_dir):
     """
     Test the reqs_add function.
@@ -11,8 +13,8 @@ def test_reqs_add(shared_temp_dir):
     then check if these packages were correctly added.
     """
     config = {
-        'paths': {'requirements': shared_temp_dir / 'reqs_test_environment.yml'},
-        'settings': {'env_name': str(shared_temp_dir)}
+        'paths': {'requirements': shared_temp_dir / CONDA_OPS_DIR_NAME / 'reqs_test_environment.yml'},
+        'settings': {'env_name': str(shared_temp_dir.name)}
     }
     reqs_create(config)
     reqs_add(['black', 'flake8'], config=config)
@@ -27,8 +29,8 @@ def test_reqs_remove(shared_temp_dir):
     and then check if the correct package was removed.
     """
     config = {
-        'paths': {'requirements': shared_temp_dir / 'reqs_test_environment.yml'},
-        'settings': {'env_name': str(shared_temp_dir)}
+        'paths': {'requirements': shared_temp_dir / CONDA_OPS_DIR_NAME / 'reqs_test_environment.yml'},
+        'settings': {'env_name': str(shared_temp_dir.name)}
     }
     reqs_create(config)
     reqs_add(['black', 'flake8'], config=config)
@@ -43,8 +45,8 @@ def test_reqs_create(shared_temp_dir):
     We will call reqs_create and then check if the requirements file was correctly created.
     """
     config = {
-        'paths': {'requirements': shared_temp_dir / 'reqs_test_environment.yml'},
-        'settings': {'env_name': str(shared_temp_dir)}
+        'paths': {'requirements': shared_temp_dir / CONDA_OPS_DIR_NAME / 'reqs_test_environment.yml'},
+        'settings': {'env_name': str(shared_temp_dir.name)}
     }
     reqs_create(config)
     assert config['paths']['requirements'].exists()
@@ -55,8 +57,8 @@ def test_reqs_check(shared_temp_dir):
     We will create a requirements file and then check the requirements are in the correct format.
     """
     config = {
-        'paths': {'requirements': shared_temp_dir / 'reqs_test_environment.yml'},
-        'settings': {'env_name': str(shared_temp_dir)}
+        'paths': {'requirements': shared_temp_dir / CONDA_OPS_DIR_NAME / 'reqs_test_environment.yml'},
+        'settings': {'env_name': str(shared_temp_dir.name)}
     }
     reqs_create(config)
     assert reqs_check(config)
@@ -68,8 +70,8 @@ def test_reqs_add_pip(shared_temp_dir):
     and then check if the package was correctly added.
     """
     config = {
-        'paths': {'requirements': shared_temp_dir / 'reqs_test_environment.yml'},
-        'settings': {'env_name': str(shared_temp_dir)}
+        'paths': {'requirements': shared_temp_dir / CONDA_OPS_DIR_NAME / 'reqs_test_environment.yml'},
+        'settings': {'env_name': str(shared_temp_dir.name)}
     }
     reqs_create(config)
     reqs_add(['flask'], channel='pip', config=config)
@@ -83,7 +85,7 @@ def test_reqs_remove_pip(shared_temp_dir):
     remove it, and then check if the package was correctly removed.
     """
     config = {
-        'paths': {'requirements': shared_temp_dir / 'reqs_test_environment.yml'},
+        'paths': {'requirements': shared_temp_dir / CONDA_OPS_DIR_NAME / 'reqs_test_environment.yml'},
         'settings': {'env_name': str(shared_temp_dir)}
     }
     reqs_create(config)
@@ -99,14 +101,15 @@ def test_reqs_add_conda_forge(shared_temp_dir):
     and then check if the package was correctly added.
     """
     config = {
-        'paths': {'requirements': shared_temp_dir / 'reqs_test_environment.yml'},
-        'settings': {'env_name': str(shared_temp_dir)}
+        'paths': {'requirements': (shared_temp_dir / CONDA_OPS_DIR_NAME / 'reqs_test_environment.yml')},
+        'settings': {'env_name': str(shared_temp_dir.name)}
     }
     reqs_create(config)
     reqs_add(['pylint'], channel='conda-forge', config=config)
     reqs = yaml.load(config['paths']['requirements'].open())
     assert 'conda-forge::pylint' in reqs['dependencies']
     assert 'conda-forge' in reqs['channel-order']
+
 
 def test_reqs_remove_conda_forge(shared_temp_dir):
     """
@@ -115,8 +118,8 @@ def test_reqs_remove_conda_forge(shared_temp_dir):
     remove it, and then check if the package was correctly removed.
     """
     config = {
-        'paths': {'requirements': shared_temp_dir / 'reqs_test_environment.yml'},
-        'settings': {'env_name': str(shared_temp_dir)}
+        'paths': {'requirements': shared_temp_dir / CONDA_OPS_DIR_NAME / 'reqs_test_environment.yml'},
+        'settings': {'env_name': str(shared_temp_dir.name)}
     }
     # make sure no previous file exists
     reqs_file = config['paths']['requirements']

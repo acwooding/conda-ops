@@ -11,12 +11,12 @@ def test_lockfile_generate(shared_temp_dir):
     It creates a temporary directory and checks whether the function generates the lockfile correctly.
     """
     temp_dir = shared_temp_dir
-
+    ops_dir = temp_dir / CONDA_OPS_DIR_NAME
     config = {
         'paths': {
-            'ops_dir': temp_dir / CONDA_OPS_DIR_NAME,
-            'requirements': temp_dir / 'environment-generate.yml',
-            'lockfile': temp_dir / 'lockfile-generate.json',
+            'ops_dir': ops_dir,
+            'requirements': ops_dir / 'environment-generate.yml',
+            'lockfile': ops_dir / 'lockfile-generate.json',
         },
         'settings': {
             'env_name': str(temp_dir.name),
@@ -47,16 +47,15 @@ def test_lockfile_check_when_file_exists_and_valid(shared_temp_dir):
     Raises:
         AssertionError: If the assertion fails.
     """
-    # Make a lockfile
+    # Setup
     config = {"paths": {"lockfile": shared_temp_dir / CONDA_OPS_DIR_NAME / "lockfile.json"}}
     lockfile_data = [{"manager": "conda", "base_url": "http://example.com", "platform": "linux", "dist_name": "example", "extension": ".tar.gz", "md5": "md5hash", "url": "http://example.com/linux/example.tar.gz#md5hash", "name":"example"}]
     with open(config["paths"]["lockfile"], "w") as f:
         json.dump(lockfile_data, f)
 
-    # Act
+    # Test
     result = lockfile_check(config, die_on_error=False)
 
-    # Assert
     assert result == True
 
 def test_lockfile_check_when_file_exists_but_invalid(shared_temp_dir):
@@ -73,16 +72,15 @@ def test_lockfile_check_when_file_exists_but_invalid(shared_temp_dir):
     Raises:
         AssertionError: If the assertion fails.
     """
-    # Arrange
-    config = {"paths": {"lockfile": shared_temp_dir /  "lockfile.json"}}
+    # Setup
+    config = {"paths": {"lockfile": shared_temp_dir /  CONDA_OPS_DIR_NAME / "lockfile.json"}}
     lockfile_data = [{"manager": "conda", "base_url": "http://example.com", "platform": "linux", "dist_name": "example", "extension": ".tar.gz", "md5": "md5hash", "url": "http://wrong-url.com", "name": "example"}]
     with open(config["paths"]["lockfile"], "w") as f:
         json.dump(lockfile_data, f)
 
-    # Act
+    # Test
     result = lockfile_check(config, die_on_error=False)
 
-    # Assert
     assert result == False
 
 def test_lockfile_check_when_file_not_exists(shared_temp_dir):
@@ -98,15 +96,14 @@ def test_lockfile_check_when_file_not_exists(shared_temp_dir):
     Raises:
         AssertionError: If the assertion fails.
     """
-    # Arrange
+    # Setup
     config = {"paths": {"lockfile": shared_temp_dir / CONDA_OPS_DIR_NAME /  "lockfile.json"}}
     if config['paths']['lockfile'].exists():
         config['paths']['lockfile'].unlink()
 
-    # Act
+    # Test
     result = lockfile_check(config, die_on_error=False)
 
-    # Assert
     assert result == False
 
 

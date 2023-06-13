@@ -15,9 +15,14 @@ def shared_temp_dir(tmp_path_factory):
 @pytest.hookimpl(tryfirst=True)
 def pytest_sessionfinish(session, exitstatus):
     # Check if any tests failed
+    shared_temp_dir = session.config.cache.get('shared_temp_dir', None)
+    keep_temp = getattr(shared_temp_dir, 'keep_temp', False)
+
     if session.testsfailed > 0:
         # Give the boilerplate to keep the temp dir if needed
-        session.config.cache.set("keep_temp_dir", False)
+        keep_temp = False
+    if (not keep_temp) and (shared_temp_dir is not None):
+        shared_temp_dir.rmdir()
 
 def pytest_collection_modifyitems(config, items):
     """
