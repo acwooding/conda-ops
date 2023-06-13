@@ -9,7 +9,6 @@ from src.commands import proj_create, proj_load, proj_check
 CONDA_OPS_DIR_NAME = '.conda-ops'
 CONFIG_FILENAME = 'config.ini'
 
-@pytest.mark.runfirst
 def test_proj_create(mocker, shared_temp_dir):
     """
     Test case to verify the behavior of the `proj_create` function.
