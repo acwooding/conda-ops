@@ -909,7 +909,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
             in_lock = set(lock_dict.keys()).difference(conda_dict.keys())
             if len(in_env) > 0:
                 logger.debug("\nThe following packages are in the environment but not in the lock file:\n")
-                logger.debug("\n".join(in_env))
+                logger.debug(", ".join(in_env))
                 logger.debug("\n")
                 logger.info("To restore the environment to the state of the lock file")
                 logger.info(">>> conda deactivate")
@@ -918,7 +918,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
                 #logger.info(">>> conda ops sync")
             if len(in_lock) > 0:
                 logger.debug("\nThe following packages are in the lock file but not in the environment:\n")
-                logger.debug("\n".join(in_lock))
+                logger.debug(", ".join(in_lock))
                 logger.debug("\n")
                 logger.info("To add these packages to the environment:")
                 logger.info(">>> conda ops env install")
@@ -935,7 +935,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
         check = False
         in_env = conda_dict.keys()
         logger.debug("\nThe following packages are in the environment but not in the lock file:\n")
-        logger.debug("\n".join(in_env))
+        logger.debug(", ".join(in_env))
         logger.debug("\n")
         logger.info("To restore the environment to the state of the lock file")
         logger.info(">>> conda deactivate")
