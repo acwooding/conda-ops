@@ -1,6 +1,5 @@
 import os
 import pytest
-import mock
 import tempfile
 from pathlib import Path
 from src.commands import proj_create, proj_load, proj_check

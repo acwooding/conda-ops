@@ -460,7 +460,7 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
         lockfile_consistent = lockfile_check(config, die_on_error=die_on_error)
 
     if lockfile_consistent and reqs_consistent:
-        if requirements_file.stat().st_mtime < lock_file.stat().st_mtime:
+        if requirements_file.stat().st_mtime <= lock_file.stat().st_mtime:
             logger.debug("Lock file is newer than the requirements file")
         else:
             check = False
@@ -475,10 +475,28 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
         with open(lock_file, 'r') as lf:
             lock_dict = json.load(lf)
         lock_names = [package['name'] for package in lock_dict]
+
+        # so far we don't check that the channel info is correct, just that the package is there
+        missing_packages = []
+        logger.debug(channel_dict)
         for channel in channel_order:
-            for package in channel_dict['kind']:
+            if channel == 'pip':
+                pip_cd = channel_dict.get(channel, None)
+                if pip_cd:
+                    channel_list = channel_dict[channel][channel]
+                else:
+                    channel_list = []
+            else:
+                channel_list = channel_dict[channel]
+            for package in channel_list:
                 if package not in lock_names:
-                    logger.error(package)
+                    missing_packages.append(package)
+        if len(missing_packages) > 0:
+            check = False
+            logger.error(f"The following requirements are not in the lockfile:")
+            logger.error(f"{' '. join(missing_packages)}")
+            logger.info("To update the lock file:")
+            logger.info(">>> conda ops lockfile generate")
     else:
         if not reqs_consistent:
             logger.error(f"Cannot check lockfile against requirements as the requirements file is missing or inconsistent.")
