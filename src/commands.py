@@ -688,7 +688,7 @@ def env_check(config=None, die_on_error=True):
 
     logger.info(f"Active Conda environment: {active_conda_env}")
     logger.info(f"Conda platform: {platform}")
-    if active_conda_env == env_name:
+    if check_env_active(env_name):
         pass
     else:
         env_exists = check_env_exists(env_name)

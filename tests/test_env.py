@@ -1,4 +1,4 @@
-from src.commands import check_env_exists, env_create, lockfile_generate
+from src.commands import check_env_exists, env_create, lockfile_generate, env_check, env_delete
 from src.python_api import run_command
 import pytest
 
@@ -66,3 +66,47 @@ def test_env_create_no_lockfile(setup_config_files):
     # Call the env_create function
     with pytest.raises(SystemExit):
         env_create(config)
+
+
+def test_env_check_existing(setup_config_files, mocker):
+    """
+    Test the env_check function when the environment exists but is not active.
+    """
+    config = setup_config_files
+    mocker.patch('src.commands.check_env_exists', return_value=True)
+    mocker.patch('src.commands.check_env_active', return_value=False)
+
+    # Call the env_check function
+    # die_on_error by default
+    with pytest.raises(SystemExit):
+        env_check(config)
+
+    assert env_check(config, die_on_error=False) is False
+
+
+def test_env_check_non_existing(setup_config_files, mocker):
+    """
+    Test the env_check function when the environment does not exist.
+    """
+    config = setup_config_files
+    mocker.patch('src.commands.check_env_exists', return_value=False)
+    mocker.patch('src.commands.check_env_active', return_value=False)
+
+    # Call the env_check function
+    # die_on_error by default
+    with pytest.raises(SystemExit):
+        env_check(config)
+
+    assert env_check(config, die_on_error=False) is False
+
+
+def test_env_check_active(setup_config_files, mocker):
+    """
+    Test the env_check function when the environment is active.
+    """
+    config = setup_config_files
+    mocker.patch('src.commands.check_env_exists', return_value=True)
+    mocker.patch('src.commands.check_env_active', return_value=True)
+
+    assert env_check(config) is True
+    assert env_check(config, die_on_error=False) is True
