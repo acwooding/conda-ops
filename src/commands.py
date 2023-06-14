@@ -561,6 +561,12 @@ def env_create(config=None, env_name=None, lock_file=None):
 
     if lock_file is None:
         lock_file = config['paths']['lockfile']
+
+    if not lock_file.exists():
+        logger.error(f"The lockfile does not exist: {lock_file}")
+        logger.info("To generate a lockfile:")
+        logger.info(">>> conda ops lockfile generate")
+        sys.exit(1)
     explicit_files = generate_explicit_lock_files(config, lock_file=lock_file)
 
     explicit_lock_file = config['paths']['explicit_lockfile']

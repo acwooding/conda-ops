@@ -23,6 +23,8 @@ def setup_config_files(shared_temp_dir):
             'ops_dir': ops_dir,
             'requirements': ops_dir / 'environment.yml',
             'lockfile': ops_dir / 'lockfile.json',
+            'explicit_lockfile': ops_dir / 'lockfile.explicit',
+            'pip_explicit_lockfile': ops_dir / 'lockfile.pypi'
         },
         'settings': {
             'env_name': str(shared_temp_dir.name),
