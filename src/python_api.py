@@ -96,9 +96,10 @@ def run_command(command, *arguments, **kwargs):
             else:
                 result = do_call(args, p)
         if is_run:
-            stdout = result.stdout
-            stderr = result.stderr
-            result = result.rc
+            if type(result) is not int:
+                stdout = result.stdout
+                stderr = result.stderr
+                result = result.rc
         else:
             stdout = c.stdout
             stderr = c.stderr
