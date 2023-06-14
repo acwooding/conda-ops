@@ -6,18 +6,19 @@ from logging import getLogger
 from conda.base.constants import SEARCH_PATH
 from conda.base.context import context
 from conda.common.compat import encode_arguments
-from conda.common.io import CaptureTarget, argv, captured
+from conda.common.io import argv, captured
 from conda.exceptions import conda_exception_handler
 from conda.gateways.logging import initialize_std_loggers
 from conda.cli.conda_argparse import do_call, ArgumentParser
 from conda.cli.main import generate_parser
-from conda.cli.python_api import Commands, STRING, STDOUT
+from conda.cli.python_api import STRING
 
 log = getLogger("conda.cli.python_api")
 
 # Modifying this to not use p.parse_args as it leads to unintended behaviour and passing the wrong arguments to conda
 # Conda overrides the usual parse_args from argparse and adds a separate behaviour when a conda subcommand plugin is
 # running
+
 
 # Note, a deviated copy of this code appears in tests/test_create.py
 def run_command(command, *arguments, **kwargs):
@@ -71,7 +72,7 @@ def run_command(command, *arguments, **kwargs):
     arguments = list(arguments)
     arguments.insert(0, command)
 
-    args = super(ArgumentParser, p).parse_args(arguments) # replaces p.parse_args(arguments)
+    args = super(ArgumentParser, p).parse_args(arguments)  # replaces p.parse_args(arguments)
     args.yes = True  # always skip user confirmation, force setting context.always_yes
     context.__init__(
         search_path=configuration_search_path,
@@ -88,9 +89,7 @@ def run_command(command, *arguments, **kwargs):
     else:
         cap_args = (stdout, stderr)
     try:
-        with argv(["python_api"] + encode_arguments(arguments)), captured(
-            *cap_args
-        ) as c:
+        with argv(["python_api"] + encode_arguments(arguments)), captured(*cap_args) as c:
             if use_exception_handler:
                 result = conda_exception_handler(do_call, args, p)
             else:
@@ -108,7 +107,5 @@ def run_command(command, *arguments, **kwargs):
         e.stdout, e.stderr = stdout, stderr
         raise e
     return_code = result or 0
-    log.debug(
-        "\n  stdout: %s\n  stderr: %s\n  return_code: %s", stdout, stderr, return_code
-    )
+    log.debug("\n  stdout: %s\n  stderr: %s\n  return_code: %s", stdout, stderr, return_code)
     return stdout, stderr, return_code

@@ -3,7 +3,9 @@ from .kvstore import KVStore
 from pathlib import Path
 
 import logging
+
 logger = logging.getLogger()
+
 
 class PathStore(KVStore):
     """Persistent Key-Value store for project-level paths
@@ -54,17 +56,14 @@ class PathStore(KVStore):
     # as variables in relative paths
     _protected = ['catalog_path']
 
-    def __init__(self, *args,
-                 config_section='Paths', config_file=None,
-                 **kwargs):
+    def __init__(self, *args, config_section='Paths', config_file=None, **kwargs):
         """Handle the special case of the config file"""
         if config_file is None:
             self._config_file = "config.ini"
         else:
             self._config_file = Path(config_file)
         self._usage_warning = False
-        super().__init__(*args, config_section=config_section,
-                         config_file=self._config_file, **kwargs)
+        super().__init__(*args, config_section=config_section, config_file=self._config_file, **kwargs)
         self._usage_warning = True
 
     def _write(self):
@@ -81,10 +80,13 @@ class PathStore(KVStore):
             raise AttributeError(f"{key} is write-protected")
 
         if self._usage_warning:
-            logger.warning(f"'{key}' is a local configuration variable, and for reproducibility reasons, should not set from a notebook or shared code. It is better to edit '{self._config_file}' instead. We have set it, but you have been warned.")
+            logger.warning(
+                f"'{key}' is a local configuration variable, and for reproducibility reasons, \
+                should not set from a notebook or shared code. It is better to edit '{self._config_file}' \
+                instead. We have set it, but you have been warned."
+            )
 
         super().__setitem__(key, value)
-
 
     def __getitem__(self, key):
         """get keys (including protected ones), converting to paths and fully resolving them"""
@@ -97,6 +99,7 @@ class PathStore(KVStore):
     def catalog_path(self):
         return self._config_file.parent.resolve()
 
+
 @SingletonDecorator
 class Paths(PathStore):
     pass
@@ -104,4 +107,5 @@ class Paths(PathStore):
 
 if __name__ == "__main__":
     import doctest
+
     doctest.testmod()

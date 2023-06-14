@@ -1,9 +1,9 @@
 import pytest
-import tempfile
 from pathlib import Path
 from src.commands import yaml
 
 CONDA_OPS_DIR_NAME = '.conda-ops'
+
 
 @pytest.fixture(scope="session")
 def shared_temp_dir(tmp_path_factory):
@@ -15,6 +15,7 @@ def shared_temp_dir(tmp_path_factory):
     # Yield the temporary directory path to the tests
     yield Path(temp_dir)
 
+
 @pytest.fixture(scope='function')
 def setup_config_files(shared_temp_dir):
     ops_dir = shared_temp_dir / CONDA_OPS_DIR_NAME
@@ -24,17 +25,17 @@ def setup_config_files(shared_temp_dir):
             'requirements': ops_dir / 'environment.yml',
             'lockfile': ops_dir / 'lockfile.json',
             'explicit_lockfile': ops_dir / 'lockfile.explicit',
-            'pip_explicit_lockfile': ops_dir / 'lockfile.pypi'
+            'pip_explicit_lockfile': ops_dir / 'lockfile.pypi',
         },
         'settings': {
             'env_name': str(shared_temp_dir.name),
-        }
+        },
     }
     requirements_dict = {
         'name': str(shared_temp_dir.name),
         'channels': ['defaults'],
         'channel-order': ['defaults'],
-        'dependencies': ['python', 'pip']
+        'dependencies': ['python', 'pip'],
     }
     ops_dir.mkdir(exist_ok=True)
     with open(config['paths']['requirements'], 'w') as f:
@@ -54,6 +55,7 @@ def pytest_sessionfinish(session, exitstatus):
         keep_temp = False
     if (not keep_temp) and (shared_temp_dir is not None):
         shared_temp_dir.rmdir()
+
 
 def pytest_collection_modifyitems(config, items):
     """

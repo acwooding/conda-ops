@@ -1,12 +1,10 @@
-import os
 import pytest
-import tempfile
-from pathlib import Path
 from src.commands import proj_create, proj_load, proj_check
 
 # Assuming these constants are defined in src
 CONDA_OPS_DIR_NAME = '.conda-ops'
 CONFIG_FILENAME = 'config.ini'
+
 
 def test_proj_create(mocker, shared_temp_dir):
     """
@@ -18,10 +16,6 @@ def test_proj_create(mocker, shared_temp_dir):
     Args:
         mocker: Pytest mocker fixture for mocking dependencies.
         shared_temp_dir: Pytest fixture providing a shared temporary directory.
-
-    Raises:
-        AssertionError: If any of the assertions fail.
-
     """
     tmpdir = shared_temp_dir
     mocker.patch('pathlib.Path.cwd', return_value=tmpdir)
@@ -34,6 +28,7 @@ def test_proj_create(mocker, shared_temp_dir):
     assert (tmpdir / CONDA_OPS_DIR_NAME).is_dir()
     assert (tmpdir / CONDA_OPS_DIR_NAME / CONFIG_FILENAME).exists()
 
+
 def test_proj_load(mocker, shared_temp_dir):
     """
     Test case to verify the behavior of the `proj_load` function.
@@ -44,9 +39,6 @@ def test_proj_load(mocker, shared_temp_dir):
     Args:
         mocker: Pytest mocker fixture for mocking dependencies.
         shared_temp_dir: Pytest fixture providing a shared temporary directory.
-
-    Raises:
-        AssertionError: If any of the assertions fail.
     """
     tmpdir = shared_temp_dir
     mocker.patch('pathlib.Path.cwd', return_value=tmpdir)
@@ -58,6 +50,7 @@ def test_proj_load(mocker, shared_temp_dir):
     assert len(config['paths']) == 5
     assert len(config['settings']) == 1
 
+
 def test_proj_check(mocker, shared_temp_dir):
     """
     Test case to verify the behavior of the `proj_check` function when a config object is present.
@@ -68,15 +61,13 @@ def test_proj_check(mocker, shared_temp_dir):
     Args:
         mocker: Pytest mocker fixture for mocking dependencies.
         shared_temp_dir: Pytest fixture providing a shared temporary directory.
-
-    Raises:
-        AssertionError: If the assertion fails.
     """
     tmpdir = shared_temp_dir
     mocker.patch('pathlib.Path.cwd', return_value=tmpdir)
     result = proj_check(die_on_error=True)
 
     assert result
+
 
 def test_proj_check_no_config(mocker, shared_temp_dir):
     """
@@ -89,11 +80,7 @@ def test_proj_check_no_config(mocker, shared_temp_dir):
     Args:
         mocker: Pytest mocker fixture for mocking dependencies.
         shared_temp_dir: Pytest fixture providing a shared temporary directory.
-
-    Raises:
-        AssertionError: If any of the assertions fail.
     """
-    tmpdir = shared_temp_dir
     mocker.patch('src.commands.proj_load', return_value=None)
 
     with pytest.raises(SystemExit):

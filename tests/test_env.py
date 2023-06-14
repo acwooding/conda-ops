@@ -1,6 +1,10 @@
-from src.commands import check_env_exists, env_create, lockfile_generate, env_check, env_delete
+from src.commands import check_env_exists, env_create, lockfile_generate, env_check
 from src.python_api import run_command
 import pytest
+import logging
+
+logger = logging.getLogger()
+
 
 def test_check_env_exists(shared_temp_dir):
     """
@@ -27,6 +31,7 @@ def test_check_env_exists(shared_temp_dir):
         logger.error(stdout)
         logger.error(stderr)
 
+
 def test_env_create(setup_config_files):
     """
     Test the env_create function.
@@ -50,11 +55,11 @@ def test_env_create(setup_config_files):
     # Check if the environment is created
     assert check_env_exists(env_name) is True
 
-
     # Call the env_create function again
     # when it already exists
     with pytest.raises(SystemExit):
         env_create(config)
+
 
 def test_env_create_no_lockfile(setup_config_files):
     """

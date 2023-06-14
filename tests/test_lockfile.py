@@ -1,9 +1,9 @@
 import pytest
 import json
-from pathlib import Path
-from src.commands import lockfile_generate, lockfile_check, lockfile_reqs_check, yaml
+from src.commands import lockfile_generate, lockfile_check, lockfile_reqs_check, reqs_add
 
 CONDA_OPS_DIR_NAME = '.conda-ops'
+
 
 def test_lockfile_generate(setup_config_files):
     """
@@ -12,6 +12,10 @@ def test_lockfile_generate(setup_config_files):
     """
     config = setup_config_files
 
+    # make sure there is something from non-defaults channels here
+    reqs_add(['flask'], channel='pip', config=config)
+    reqs_add(['pylint'], channel='conda-forge', config=config)
+
     lockfile_generate(config)
     assert config['paths']['lockfile'].exists()
 
@@ -19,6 +23,7 @@ def test_lockfile_generate(setup_config_files):
     config['paths']['lockfile'].unlink()
     lockfile_generate(config, regenerate=True)
     assert config['paths']['lockfile'].exists()
+
 
 def test_lockfile_generate_no_reqs(setup_config_files):
     """
@@ -29,6 +34,7 @@ def test_lockfile_generate_no_reqs(setup_config_files):
     config['paths']['requirements'].unlink()
     with pytest.raises(SystemExit):
         lockfile_generate(config)
+
 
 def test_lockfile_check_when_file_exists_and_valid(setup_config_files):
     """
@@ -46,14 +52,26 @@ def test_lockfile_check_when_file_exists_and_valid(setup_config_files):
     """
     # Setup
     config = setup_config_files
-    lockfile_data = [{"manager": "conda", "base_url": "http://example.com", "platform": "linux", "dist_name": "example", "extension": ".tar.gz", "md5": "md5hash", "url": "http://example.com/linux/example.tar.gz#md5hash", "name":"example"}]
+    lockfile_data = [
+        {
+            "manager": "conda",
+            "base_url": "http://example.com",
+            "platform": "linux",
+            "dist_name": "example",
+            "extension": ".tar.gz",
+            "md5": "md5hash",
+            "url": "http://example.com/linux/example.tar.gz#md5hash",
+            "name": "example",
+        }
+    ]
     with open(config["paths"]["lockfile"], "w") as f:
         json.dump(lockfile_data, f)
 
     # Test
     result = lockfile_check(config, die_on_error=False)
 
-    assert result == True
+    assert result is True
+
 
 def test_lockfile_check_when_file_exists_but_invalid(setup_config_files):
     """
@@ -71,14 +89,26 @@ def test_lockfile_check_when_file_exists_but_invalid(setup_config_files):
     """
     # Setup
     config = setup_config_files
-    lockfile_data = [{"manager": "conda", "base_url": "http://example.com", "platform": "linux", "dist_name": "example", "extension": ".tar.gz", "md5": "md5hash", "url": "http://wrong-url.com", "name": "example"}]
+    lockfile_data = [
+        {
+            "manager": "conda",
+            "base_url": "http://example.com",
+            "platform": "linux",
+            "dist_name": "example",
+            "extension": ".tar.gz",
+            "md5": "md5hash",
+            "url": "http://wrong-url.com",
+            "name": "example",
+        }
+    ]
     with open(config["paths"]["lockfile"], "w") as f:
         json.dump(lockfile_data, f)
 
     # Test
     result = lockfile_check(config, die_on_error=False)
 
-    assert result == False
+    assert result is False
+
 
 def test_lockfile_check_when_file_not_exists(setup_config_files):
     """
@@ -101,7 +131,7 @@ def test_lockfile_check_when_file_not_exists(setup_config_files):
     # Test
     result = lockfile_check(config, die_on_error=False)
 
-    assert result == False
+    assert result is False
 
 
 def test_lockfile_reqs_check_consistent(setup_config_files):
@@ -115,7 +145,7 @@ def test_lockfile_reqs_check_consistent(setup_config_files):
     # Create consistent requirement and lock file
     config = setup_config_files
 
-    lockfile_generate(config)
+    lockfile_generate(config, regenerate=True)
     assert lockfile_reqs_check(config) is True
 
     # Make requirements newer than the lock file
@@ -125,6 +155,7 @@ def test_lockfile_reqs_check_consistent(setup_config_files):
         lockfile_reqs_check(config)
 
     assert lockfile_reqs_check(config, die_on_error=False) is False
+
 
 def test_lockfile_reqs_check_inconsistent(setup_config_files, mocker):
     """
@@ -142,7 +173,18 @@ def test_lockfile_reqs_check_inconsistent(setup_config_files, mocker):
     # But the data in the files doesn't match
     config = setup_config_files
 
-    lockfile_data = [{"manager": "conda", "base_url": "http://example.com", "platform": "linux", "dist_name": "example", "extension": ".tar.gz", "md5": "md5hash", "url": "http://example.com/linux/example.tar.gz#md5hash", "name":"example"}]
+    lockfile_data = [
+        {
+            "manager": "conda",
+            "base_url": "http://example.com",
+            "platform": "linux",
+            "dist_name": "example",
+            "extension": ".tar.gz",
+            "md5": "md5hash",
+            "url": "http://example.com/linux/example.tar.gz#md5hash",
+            "name": "example",
+        }
+    ]
     with open(config["paths"]["lockfile"], "w") as f:
         json.dump(lockfile_data, f)
 
