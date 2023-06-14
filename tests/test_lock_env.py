@@ -5,13 +5,11 @@ from src.commands import lockfile_generate, check_env_exists, conda_step_env_loc
 
 CONDA_OPS_DIR_NAME = '.conda-ops'
 
-def test_lockfile_generate(shared_temp_dir, setup_config_files):
+def test_lockfile_generate(setup_config_files):
     """
     This test checks the function lockfile_generate().
     It creates a temporary directory and checks whether the function generates the lockfile correctly.
     """
-    temp_dir = shared_temp_dir
-    ops_dir = temp_dir / CONDA_OPS_DIR_NAME
     config = setup_config_files
 
     lockfile_generate(config)
@@ -22,7 +20,17 @@ def test_lockfile_generate(shared_temp_dir, setup_config_files):
     lockfile_generate(config, regenerate=True)
     assert config['paths']['lockfile'].exists()
 
-def test_lockfile_check_when_file_exists_and_valid(shared_temp_dir, setup_config_files):
+def test_lockfile_generate_no_reqs(setup_config_files):
+    """
+    This test checks the function lockfile_generate() when there is no requirements file present
+    """
+    config = setup_config_files
+
+    config['paths']['requirements'].unlink()
+    with pytest.raises(SystemExit):
+        lockfile_generate(config)
+
+def test_lockfile_check_when_file_exists_and_valid(setup_config_files):
     """
     Test case to verify the behavior of lockfile_check when the lockfile exists and is valid.
 
@@ -47,7 +55,7 @@ def test_lockfile_check_when_file_exists_and_valid(shared_temp_dir, setup_config
 
     assert result == True
 
-def test_lockfile_check_when_file_exists_but_invalid(shared_temp_dir, setup_config_files):
+def test_lockfile_check_when_file_exists_but_invalid(setup_config_files):
     """
     Test case to verify the behavior of lockfile_check when the lockfile exists but contains invalid data.
 
@@ -72,7 +80,7 @@ def test_lockfile_check_when_file_exists_but_invalid(shared_temp_dir, setup_conf
 
     assert result == False
 
-def test_lockfile_check_when_file_not_exists(shared_temp_dir, setup_config_files):
+def test_lockfile_check_when_file_not_exists(setup_config_files):
     """
     Test case to verify the behavior of lockfile_check when the lockfile does not exist.
 
@@ -96,7 +104,7 @@ def test_lockfile_check_when_file_not_exists(shared_temp_dir, setup_config_files
     assert result == False
 
 
-def test_lockfile_reqs_check_consistent(shared_temp_dir, setup_config_files):
+def test_lockfile_reqs_check_consistent(setup_config_files):
     """
     This test checks the lockfile_reqs_check function from the commands module.
 
@@ -118,7 +126,7 @@ def test_lockfile_reqs_check_consistent(shared_temp_dir, setup_config_files):
 
     assert lockfile_reqs_check(config, die_on_error=False) is False
 
-def test_lockfile_reqs_check_inconsistent(shared_temp_dir, setup_config_files, mocker):
+def test_lockfile_reqs_check_inconsistent(setup_config_files, mocker):
     """
     This test checks the lockfile_reqs_check function from the commands module.
 

@@ -345,7 +345,6 @@ def lockfile_generate(config, regenerate=False):
     ops_dir = config['paths']['ops_dir']
     requirements_file = config['paths']['requirements']
     lock_file = config['paths']['lockfile']
-    requirements = yaml.load(requirements_file)
     env_name = config['settings']['env_name']
 
     if regenerate:
@@ -357,6 +356,12 @@ def lockfile_generate(config, regenerate=False):
                 break
     else:
         test_env = env_name
+
+    if not requirements_file.exists():
+        logger.error(f"Requirements file does not exist: {requirements_file}")
+        logger.info("To create a minimal default requirements file:")
+        logger.info(">>> conda ops reqs create")
+        sys.exit(1)
 
     logger.info('Generating multi-step requirements files')
     create_split_files(requirements_file, ops_dir)
