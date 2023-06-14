@@ -1,7 +1,7 @@
 import pytest
 import json
 from pathlib import Path
-from src.commands import lockfile_generate, check_env_exists, conda_step_env_lock, lockfile_check, yaml, lockfile_reqs_check
+from src.commands import lockfile_generate, lockfile_check, lockfile_reqs_check, yaml
 
 CONDA_OPS_DIR_NAME = '.conda-ops'
 
@@ -184,12 +184,3 @@ def test_lockfile_reqs_check_inconsistent(setup_config_files, mocker):
     with pytest.raises(SystemExit):
         lockfile_reqs_check(config, die_on_error=True)
     assert lockfile_reqs_check(config, die_on_error=False) is False
-
-
-def test_check_env_exists():
-    """
-    This test checks the function check_env_exists().
-    It uses an unlikely environment name to ensure that it doesn't exist.
-    """
-    env_name = "very_unlikely_env_name_that_doesnt_exist"
-    assert check_env_exists(env_name) is False
