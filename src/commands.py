@@ -193,7 +193,7 @@ def reqs_add(packages, channel=None, config=None):
     logger.error("NOT YET IMPLEMENTED: check that the given packages have not already been specified in a different channel or version. Override with the new option and possilby warn")
 
     with open(requirements_file, 'w') as yamlfile:
-        yaml.dump(reqs, yamlfile)
+        yaml.dump(reqs, yamlfile, sort_keys=True)
 
     print(f'Added packages {package_str} to requirements file.')
 
@@ -268,7 +268,7 @@ def reqs_remove(packages, config=None):
             reqs['dependencies'] = [pip_dict] + reqs['dependencies']
 
     with open(requirements_file, 'w') as yamlfile:
-        yaml.dump(reqs, yamlfile)
+        yaml.dump(reqs, yamlfile, sort_keys=True)
 
     print(f'Removed packages {package_str} to requirements file.')
 
@@ -286,7 +286,7 @@ def reqs_create(config):
                              'dependencies': ['python', 'pip']}
         logger.info('writing')
         with open(requirements_file, 'w') as f:
-            yaml.dump(requirements_dict, f)
+            yaml.dump(requirements_dict, f, sort_keys=True)
     else:
         logger.info(f'Requirements file {requirements_file} already exists')
 
@@ -310,7 +310,7 @@ def reqs_check(config, die_on_error=True):
             if input("Would you like to update the environment name in your requirements file (y/n) ").lower() == 'y':
                 requirements['name'] = env_name
                 with open(requirements_file, 'w') as f:
-                    yaml.dump(requirements, f)
+                    yaml.dump(requirements, f, sort_keys=True)
             else:
                 logger.warning(f"Please check the consistency of your requirements file {requirements_file} manually.")
                 check = False
