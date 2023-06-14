@@ -1,6 +1,6 @@
 # tests/test_reqs.py
 
-from src.commands import reqs_add, reqs_remove, reqs_create, reqs_check
+from src.commands import reqs_add, reqs_remove, reqs_create, reqs_check, check_package_in_list
 from src.commands import yaml
 import pytest
 
@@ -104,3 +104,47 @@ def test_reqs_remove_conda_forge(setup_config_files):
     reqs = yaml.load(reqs_file.open())
     assert 'conda-forge::pylint' not in reqs['dependencies']
     assert 'conda-forge' not in reqs['channel-order']
+
+def test_reqs_add_version(setup_config_files):
+    """
+    Test the reqs_add function.
+    We will create a temporary requirements file, add a package, and add a version pin of that package.
+    """
+    config = setup_config_files
+    reqs_add(['black'], config=config)
+    reqs_add(['black>22'], config=config)
+    reqs = yaml.load(config['paths']['requirements'].open())
+    assert 'black' not in reqs['dependencies']
+    assert 'black>22' in reqs['dependencies']
+
+def test_reqs_remove_version(setup_config_files):
+    """
+    Test the reqs_add function.
+    We will create a temporary requirements file, add a package, and add a version pin of that package.
+    """
+    config = setup_config_files
+    reqs_add(['black>22'], config=config)
+    reqs_remove(['black'], config=config)
+    reqs = yaml.load(config['paths']['requirements'].open())
+    assert 'black>22' not in reqs['dependencies']
+
+def test_check_package_in_list():
+    # Test case 1: Matching package found
+    package_list = ['numpy', 'requests', 'numpy==1.18.5', 'torch', 'numpy==1.18.6']
+    matching_packages = check_package_in_list('numpy', package_list)
+    assert matching_packages == ['numpy', 'numpy==1.18.5', 'numpy==1.18.6']
+
+    # Test case 2: No matching package found
+    package_list = ['pandas', 'matplotlib', 'tensorflow', 'scipy']
+    matching_packages = check_package_in_list('numpy', package_list)
+    assert matching_packages == []
+
+    # Test case 3: Matching package with channel specifier
+    package_list = ['pandas', 'conda-forge::numpy', 'conda-forge::numpy==1.19.2']
+    matching_packages = check_package_in_list('numpy', package_list)
+    assert matching_packages == ['conda-forge::numpy', 'conda-forge::numpy==1.19.2']
+
+    # Test case 4: Matching package with different version specifier
+    package_list = ['numpy==1.18.3', 'numpy>=1.18.0', 'numpy<2.0.0']
+    matching_packages = check_package_in_list('numpy==1.18.5', package_list)
+    assert matching_packages == ['numpy==1.18.3', 'numpy>=1.18.0', 'numpy<2.0.0']

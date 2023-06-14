@@ -156,7 +156,6 @@ def reqs_add(packages, channel=None, config=None):
     TODO: Handle version strings properly
     """
     requirements_file = config['paths']['requirements']
-    logger.debug(packages)
     package_str= ' '.join(packages)
     logger.info(f'adding packages {package_str} from channel {channel} to the requirements file {requirements_file}')
 
@@ -173,27 +172,49 @@ def reqs_add(packages, channel=None, config=None):
                 pip_dict = reqs['dependencies'].pop(k)
                 break
 
-    if channel is None:
-        reqs['dependencies'] = list(set(reqs['dependencies'] + packages))
-    elif channel=='pip':
-        if pip_dict is None:
-            pip_dict = {'pip': list(set(packages))}
+    for package in packages:
+        # check for existing packages and remove them if they have a name match
+        conflicts = check_package_in_list(package, reqs['dependencies'])
+        logger.debug(conflicts)
+        if pip_dict is not None:
+            pip_conflicts = check_package_in_list(package, pip_dict['pip'])
         else:
-            pip_dict['pip'] = list(set(pip_dict['pip'] + packages))
-    else: # interpret channel as a conda channel
-        package_list = [f'{channel}::{package}' for package in packages]
-        reqs['dependencies'] = list(set(reqs['dependencies'] + package_list))
-        if not channel in reqs['channel-order']:
-            reqs['channel-order'].append(channel)
+            pip_conflicts = []
+        if len(conflicts) > 0 or len(pip_conflicts) > 0:
+            logger.warning(f"Package {package} is in the existing requirements as {' '.join(conflicts)} {' pip::'.join(pip_conflicts)}")
+            logger.warning(f"The existing requirements will be replaced withe {package} from channel {channel}")
+            for conflict in conflicts:
+                reqs['dependencies'].remove(conflict)
+            for conflict in pip_conflicts:
+                pip_dict['pip'].remove(conflict)
+        # add package
+        if channel is None:
+            if reqs['dependencies'] is None:
+                reqs['dependencies'] = [package]
+            else:
+                reqs['dependencies'] = sorted(reqs['dependencies']+[package])
+        elif channel=='pip':
+            if pip_dict is None:
+                pip_dict = {'pip': [package]}
+            else:
+                if len(pip_dict['pip']) == 0:
+                    pip_dict['pip'] = [package]
+                else:
+                    pip_dict['pip'] = sorted(pip_dict['pip'] + [package])
+        else: # interpret channel as a conda channel
+            if reqs['dependencies'] is None:
+                reqs['dependencies'] = [f'{channel}::{package}']
+            else:
+                reqs['dependencies'] = sorted(reqs['dependencies']+[f'{channel}::{package}'])
+            if not channel in reqs['channel-order']:
+                reqs['channel-order'].append(channel)
 
     # add back the pip section
     if pip_dict is not None:
         reqs['dependencies'] = [pip_dict] + reqs['dependencies']
 
-    logger.error("NOT YET IMPLEMENTED: check that the given packages have not already been specified in a different channel or version. Override with the new option and possilby warn")
-
     with open(requirements_file, 'w') as yamlfile:
-        yaml.dump(reqs, yamlfile, sort_keys=True)
+        yaml.dump(reqs, yamlfile)
 
     print(f'Added packages {package_str} to requirements file.')
 
@@ -234,7 +255,7 @@ def reqs_remove(packages, config=None):
                 if dep_check != package:
                     logger.warning(f'Removing {dep} from requirements')
                 deps.remove(dep)
-    reqs['dependencies'] = deps
+    reqs['dependencies'] = sorted(deps)
 
     # remove any channels that aren't needed anymore
     channel_in_use = []
@@ -260,7 +281,7 @@ def reqs_remove(packages, config=None):
                     if dep_check != package: # probably need a proper reges match to get this right
                         logger.warning(f'Removing {dep} from requirements')
                     deps.remove(dep)
-        pip_dict['pip'] = deps
+        pip_dict['pip'] = sorted(deps)
 
     # add back the pip section
     if pip_dict is not None:
@@ -268,7 +289,7 @@ def reqs_remove(packages, config=None):
             reqs['dependencies'] = [pip_dict] + reqs['dependencies']
 
     with open(requirements_file, 'w') as yamlfile:
-        yaml.dump(reqs, yamlfile, sort_keys=True)
+        yaml.dump(reqs, yamlfile)
 
     print(f'Removed packages {package_str} to requirements file.')
 
@@ -283,10 +304,10 @@ def reqs_create(config):
         requirements_dict = {'name': env_name,
                              'channels': ['defaults'],
                              'channel-order': ['defaults'],
-                             'dependencies': ['python', 'pip']}
+                             'dependencies': sorted(['pip', 'python'])}
         logger.info('writing')
         with open(requirements_file, 'w') as f:
-            yaml.dump(requirements_dict, f, sort_keys=True)
+            yaml.dump(requirements_dict, f)
     else:
         logger.info(f'Requirements file {requirements_file} already exists')
 
@@ -310,7 +331,7 @@ def reqs_check(config, die_on_error=True):
             if input("Would you like to update the environment name in your requirements file (y/n) ").lower() == 'y':
                 requirements['name'] = env_name
                 with open(requirements_file, 'w') as f:
-                    yaml.dump(requirements, f, sort_keys=True)
+                    yaml.dump(requirements, f)
             else:
                 logger.warning(f"Please check the consistency of your requirements file {requirements_file} manually.")
                 check = False
@@ -1396,3 +1417,19 @@ def env_pip_interop(config=None, env_name=None, flag=True):
         logger.info(stderr)
         sys.exit(1)
     return True
+
+def check_package_in_list(package, package_list):
+    """
+    Given a package, return the packages in the package_list that match that requirement.
+    """
+    matching_list = []
+    requirement = Requirement(package)
+    for p in package_list:
+        if '::' in p:
+            req_p = Requirement(p.split('::')[1])
+        else:
+            req_p = Requirement(p)
+        if requirement.name == req_p.name:
+            matching_list.append(p)
+
+    return matching_list
