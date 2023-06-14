@@ -15,9 +15,12 @@ def test_lockfile_generate(shared_temp_dir, setup_config_files):
     config = setup_config_files
 
     lockfile_generate(config)
-
     assert config['paths']['lockfile'].exists()
 
+    # reset
+    config['paths']['lockfile'].unlink()
+    lockfile_generate(config, regenerate=True)
+    assert config['paths']['lockfile'].exists()
 
 def test_lockfile_check_when_file_exists_and_valid(shared_temp_dir, setup_config_files):
     """
