@@ -15,10 +15,12 @@ def test_reqs_create(shared_temp_dir):
         'paths': {'requirements': shared_temp_dir / CONDA_OPS_DIR_NAME / 'reqs_test_environment.yml'},
         'settings': {'env_name': str(shared_temp_dir.name)}
     }
+    ops_dir = shared_temp_dir / CONDA_OPS_DIR_NAME
+    ops_dir.mkdir(exist_ok=True)
     reqs_create(config)
     assert config['paths']['requirements'].exists()
 
-def test_reqs_add(shared_temp_dir, setup_config_files):
+def test_reqs_add(setup_config_files):
     """
     Test the reqs_add function.
     We will create a temporary requirements file, add some packages and
@@ -30,7 +32,7 @@ def test_reqs_add(shared_temp_dir, setup_config_files):
     assert 'black' in reqs['dependencies']
     assert 'flake8' in reqs['dependencies']
 
-def test_reqs_remove(shared_temp_dir, setup_config_files):
+def test_reqs_remove(setup_config_files):
     """
     Test the reqs_remove function.
     We will create a temporary requirements file, add some packages, remove one,
@@ -45,7 +47,7 @@ def test_reqs_remove(shared_temp_dir, setup_config_files):
 
 
 
-def test_reqs_check(shared_temp_dir, setup_config_files):
+def test_reqs_check(setup_config_files):
     """
     Test the reqs_check function.
     We will create a requirements file and then check the requirements are in the correct format.
@@ -53,7 +55,7 @@ def test_reqs_check(shared_temp_dir, setup_config_files):
     config = setup_config_files
     assert reqs_check(config)
 
-def test_reqs_add_pip(shared_temp_dir, setup_config_files):
+def test_reqs_add_pip(setup_config_files):
     """
     Test the reqs_add function for the pip channel.
     We will create a requirements file, add a package from the pip channel,
@@ -64,7 +66,7 @@ def test_reqs_add_pip(shared_temp_dir, setup_config_files):
     reqs = yaml.load(config['paths']['requirements'].open())
     assert {'pip': ['flask']} in reqs['dependencies']
 
-def test_reqs_remove_pip(shared_temp_dir, setup_config_files):
+def test_reqs_remove_pip(setup_config_files):
     """
     Test the reqs_remove function for the pip channel.
     We will create a requirements file, add a package from the pip channel,
@@ -76,7 +78,7 @@ def test_reqs_remove_pip(shared_temp_dir, setup_config_files):
     reqs = yaml.load(config['paths']['requirements'].open())
     assert {'pip': ['flask']} not in reqs['dependencies']
 
-def test_reqs_add_conda_forge(shared_temp_dir, setup_config_files):
+def test_reqs_add_conda_forge(setup_config_files):
     """
     Test the reqs_add function for the conda-forge channel.
     We will create a requirements file, add a package from the conda-forge channel,
@@ -89,7 +91,7 @@ def test_reqs_add_conda_forge(shared_temp_dir, setup_config_files):
     assert 'conda-forge' in reqs['channel-order']
 
 
-def test_reqs_remove_conda_forge(shared_temp_dir, setup_config_files):
+def test_reqs_remove_conda_forge(setup_config_files):
     """
     Test the reqs_remove function for the conda-forge channel.
     We will create a temporary requirements file, add a package from the conda-forge channel,
