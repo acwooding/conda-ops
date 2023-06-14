@@ -427,9 +427,13 @@ def lockfile_check(config, die_on_error=True):
                 logger.info("To regenerate the lock file:")
                 logger.info(">>> conda ops lockfile regenerate")
                 #logger.info(">>> conda ops lock")
+            no_url = []
             if json_reqs:
                 for package in json_reqs:
-                    if package['manager'] == 'conda':
+                    if package.get('url', None) is None:
+                        no_url.append(package['name'])
+                        check = False
+                    elif package['manager'] == 'conda':
                         package_url = '/'.join([package['base_url'], package['platform'],
                                                 (package['dist_name']+package['extension'])]).strip()+f"#{package['md5']}"
                         if package['url'].strip() != package_url.strip():
@@ -439,6 +443,13 @@ def lockfile_check(config, die_on_error=True):
                             logger.info("To regenerate the lock file:")
                             logger.info(">>> conda ops lockfile regenerate")
                             #logger.info(">>> conda ops lock")
+                if len(no_url) > 0:
+                    logger.error(f"url(s) for {len(no_url)} packages(s) are missing.")
+                    logger.warning(f"The packages {' '.join(no_url)} may not have been added to requirements.")
+                    logger.warning(f"Please add any missing packages to the requirements and regenerate the lock file.")
+                    logger.info("To regenerate the lock file:")
+                    logger.info(">>> conda ops lockfile regenerate")
+
     else:
         check = False
         logger.error("There is no lock file.")
@@ -611,63 +622,65 @@ def env_lock(config=None, lock_file=None, env_name=None, pip_dict=None):
     if lock_file is None:
         lock_file = config['paths']['lockfile']
 
-    if check_env_exists(env_name):
-        # json requirements
-        # need to use a subprocess to get any newly installed python package information
-        # that was installed via pip
-        conda_args = ["-n", env_name, '--json']
-        result = subprocess.run(['conda', 'list'] + conda_args, capture_output=True)
-        result_code = result.returncode
-        stdout = result.stdout
-        stderr = result.stderr
-        if result_code != 0:
-            logger.info(stdout)
-            logger.info(stderr)
-            sys.exit(1)
-
-        json_reqs = json.loads(stdout)
-
-        # explicit requirements to get full urls and md5
-        conda_args = ["-n", env_name, '--explicit', '--md5']
-        stdout, stderr, result_code = run_command("list", conda_args, use_exception_handler=True)
-        if result_code != 0:
-            logger.info(stdout)
-            logger.info(stderr)
-            sys.exit(1)
-        explicit = [x for x in stdout.split("\n") if ('https' in x)]
-
-        logger.debug(f"Environment {env_name} to be locked with {len(json_reqs)} packages")
-        for package in json_reqs:
-            if package['channel'] == 'pypi':
-                package['manager'] = 'pip'
-                if pip_dict is not None:
-                    pip_dict_entry = pip_dict.get(package['name'], None)
-                    if pip_dict_entry is not None:
-                        if pip_dict_entry['version'] != package['version']:
-                            logger.error(f"The pip extra info entry version {pip_dict_entry['version']} does not match the conda package version{package['version']}")
-                            logger.debug(pip_dict_entry)
-                            logger.debug(package)
-                            sys.exit(1)
-                        else:
-                            package['url'] = pip_dict_entry['url']
-                            package['sha256'] = pip_dict_entry['sha256']
-                            package['filenmae'] = pip_dict_entry['filename']
-            else:
-                starter_str = '/'.join([package['base_url'], package['platform'], package['dist_name']])
-                for line in explicit:
-                    if starter_str in line:
-                        break
-                md5_split = line.split('#')
-                package['md5'] = md5_split[-1]
-                package['extension'] = md5_split[0].split(f"{package['dist_name']}")[-1]
-                package['url'] = line
-                package['manager'] = 'conda'
-
-        blob = json.dumps(json_reqs, indent=2, sort_keys=True)
-        with open(lock_file, 'w') as f:
-            f.write(blob)
-    else:
+    if not check_env_exists(env_name):
         logger.error(f"No environment {env_name} exists")
+        sys.exit(1)
+
+    # json requirements
+    # need to use a subprocess to get any newly installed python package information
+    # that was installed via pip
+    conda_args = ["-n", env_name, '--json']
+    result = subprocess.run(['conda', 'list'] + conda_args, capture_output=True)
+    result_code = result.returncode
+    stdout = result.stdout
+    stderr = result.stderr
+    if result_code != 0:
+        logger.info(stdout)
+        logger.info(stderr)
+        sys.exit(1)
+
+    json_reqs = json.loads(stdout)
+
+    # explicit requirements to get full urls and md5
+    conda_args = ["-n", env_name, '--explicit', '--md5']
+    stdout, stderr, result_code = run_command("list", conda_args, use_exception_handler=True)
+    if result_code != 0:
+        logger.info(stdout)
+        logger.info(stderr)
+        sys.exit(1)
+    explicit = [x for x in stdout.split("\n") if ('https' in x)]
+
+    # add additional information to go into the lock file based on the kind of package
+    logger.debug(f"Environment {env_name} to be locked with {len(json_reqs)} packages")
+    for package in json_reqs:
+        if package['channel'] == 'pypi':
+            package['manager'] = 'pip'
+            if pip_dict is not None:
+                pip_dict_entry = pip_dict.get(package['name'], None)
+                if pip_dict_entry is not None:
+                    if pip_dict_entry['version'] != package['version']:
+                        logger.error(f"The pip extra info entry version {pip_dict_entry['version']} does not match the conda package version{package['version']}")
+                        logger.debug(pip_dict_entry)
+                        logger.debug(package)
+                        sys.exit(1)
+                    else:
+                        package['url'] = pip_dict_entry['url']
+                        package['sha256'] = pip_dict_entry['sha256']
+                        package['filenmae'] = pip_dict_entry['filename']
+        else:
+            starter_str = '/'.join([package['base_url'], package['platform'], package['dist_name']])
+            for line in explicit:
+                if starter_str in line:
+                    break
+            md5_split = line.split('#')
+            package['md5'] = md5_split[-1]
+            package['extension'] = md5_split[0].split(f"{package['dist_name']}")[-1]
+            package['url'] = line
+            package['manager'] = 'conda'
+
+    blob = json.dumps(json_reqs, indent=2, sort_keys=True)
+    with open(lock_file, 'w') as f:
+        f.write(blob)
 
     return json_reqs
 
