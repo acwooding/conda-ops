@@ -1,7 +1,8 @@
 # tests/test_reqs.py
 
-from src.commands import reqs_add, reqs_remove, reqs_create, reqs_check, check_package_in_list
+from src.commands import reqs_add, reqs_remove, reqs_create, reqs_check, check_package_in_list, clean_package_args
 from src.commands import yaml
+import pytest
 
 CONDA_OPS_DIR_NAME = '.conda-ops'
 
@@ -46,15 +47,6 @@ def test_reqs_remove(setup_config_files):
     reqs = yaml.load(config['paths']['requirements'].open())
     assert 'black' not in reqs['dependencies']
     assert 'flake8' in reqs['dependencies']
-
-
-def test_reqs_check(setup_config_files):
-    """
-    Test the reqs_check function.
-    We will create a requirements file and then check the requirements are in the correct format.
-    """
-    config = setup_config_files
-    assert reqs_check(config)
 
 
 def test_reqs_add_pip(setup_config_files):
@@ -155,3 +147,94 @@ def test_check_package_in_list():
     package_list = ['numpy==1.18.3', 'numpy>=1.18.0', 'numpy<2.0.0']
     matching_packages = check_package_in_list('numpy==1.18.5', package_list)
     assert matching_packages == ['numpy==1.18.3', 'numpy>=1.18.0', 'numpy<2.0.0']
+
+def test_reqs_add_equals(setup_config_files):
+    """
+    Test the reqs_add function.
+    We will create a temporary requirements file, add a package, and add a version pin of that package
+    with an equals sign.
+    """
+    config = setup_config_files
+    reqs_add(['black=22'], config=config)
+    reqs = yaml.load(config['paths']['requirements'].open())
+    assert 'black=22' not in reqs['dependencies']
+    assert 'black==22' in reqs['dependencies']
+
+def test_reqs_add_equals(setup_config_files):
+    """
+    Test the reqs_add function.
+    We will create a temporary requirements file, add a package, and add a version pin of that package
+    with an equals sign.
+    """
+    config = setup_config_files
+    reqs_add(['black=22'], config=config)
+    reqs = yaml.load(config['paths']['requirements'].open())
+    assert 'black=22' not in reqs['dependencies']
+    assert 'black==22' in reqs['dependencies']
+
+
+def test_reqs_check(setup_config_files):
+    """
+    Test the reqs_check function.
+    We will create a requirements file and then check the requirements are in the correct format.
+    """
+    config = setup_config_files
+    assert reqs_check(config)
+
+def test_reqs_check_add_manual_equals(setup_config_files):
+    """
+    Test the reqs_check function when packages have been added manually.
+    We will create a temporary requirements file, add a package, and add a version pin of that package
+    with an equals sign.
+
+    Expected behaviour is to update the = to ==.
+    """
+    config = setup_config_files
+
+    # add dependencies directly to file
+    reqs = yaml.load(config['paths']['requirements'].open())
+    reqs['dependencies'].append('python=3.11')
+    print(reqs)
+    with open(config['paths']['requirements'], 'w') as f:
+        yaml.dump(reqs, f)
+
+    # check that it passes the reqs_check
+    assert reqs_check(config)
+
+    # check that it modified the package correctly
+    assert 'python==3.11' in reqs['dependencies']
+    assert 'python' not in reqs['dependencies']
+    assert 'python=3.11' not in reqs['dependencies']
+
+def test_reqs_check_add_manual_invalid_package_str(setup_config_files):
+    """
+    Test the reqs_check function when packages have been added manually.
+    We will create a temporary requirements file, add a package manually that is ill specified.
+    """
+    config = setup_config_files
+
+    # add dependencies directly to file
+    reqs = yaml.load(config['paths']['requirements'].open())
+    reqs['dependencies'].append('python >?3.11')
+    print(reqs)
+    with open(config['paths']['requirements'], 'w') as f:
+        yaml.dump(reqs, f)
+
+    # reqs_check should fail
+    with pytest.raises(SystemExit):
+        reqs_check(config)
+    assert reqs_check(config, die_on_error=False) is False
+
+def test_clean_package_args():
+    """
+    Test that package_args works as expected.
+    """
+    # valid list to be altered
+    package_args = ['  python', 'numpy pandas', 'black=22 ']
+    clean_packages = clean_package_args(package_args)
+    assert clean_packages == sorted(['python', 'numpy', 'pandas', 'black==22'])
+
+    # invalid list to fail on
+    package_args = ['python', 'python >?3.11']
+    with pytest.raises(SystemExit):
+        clean_package_args(package_args)

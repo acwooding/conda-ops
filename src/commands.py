@@ -159,7 +159,7 @@ def reqs_add(packages, channel=None, config=None):
     package_str = ' '.join(packages)
     logger.info(f'adding packages {package_str} from channel {channel} to the requirements file {requirements_file}')
 
-    packages = [x.strip() for x in packages]
+    packages = clean_package_args(packages)
 
     with open(requirements_file, 'r') as yamlfile:
         reqs = yaml.load(yamlfile)
@@ -233,7 +233,7 @@ def reqs_remove(packages, config=None):
     package_str = ' '.join(packages)
     logger.info(f'Removing packages {package_str} from the requirements file {requirements_file}')
 
-    packages = [x.strip() for x in packages]
+    packages = clean_package_args(packages)
 
     with open(requirements_file, 'r') as yamlfile:
         reqs = yaml.load(yamlfile)
@@ -1475,3 +1475,45 @@ def check_package_in_list(package, package_list):
             matching_list.append(p)
 
     return matching_list
+
+def clean_package_args(package_args):
+    """
+    Given a list of packages from the argparser, check that it is in a valid format as per PEP 508.
+
+       - Change package=version to package==version.
+       - Split combined strings "python numpy" to "python", "numpy"
+
+    Returns: Cleaned package list or exits.
+    """
+    # first split packages
+    split_packages = []
+    for package in package_args:
+        if " " in package:
+            split_packages.extend(package.split())
+        else:
+            split_packages.append(package)
+
+    # validate pacakages and modify if it can be done
+    invalid_packages = []
+    cleaned_packages = []
+    for package in split_packages:
+        print(package)
+        if "=" in package and "==" not in package:
+            # Change = to ==
+            clean_package = package.replace("=", "==").strip()
+        else:
+            clean_package = package.strip()
+        # Check PEP 508 compliance
+        try:
+            Requirement(clean_package)
+            cleaned_packages.append(clean_package)
+        except Exception as e:
+            print(e)
+            invalid_packages.append(package)
+
+    if len(invalid_packages) > 0:
+        logger.error(f"Invalid package format: {' '.join(invalid_packages)}")
+        logger.info("Please fix the entries to be PEP 508 compliant and surrounded by quotes if any version specifications are present")
+        sys.exit(1)
+
+    return sorted(cleaned_packages)
