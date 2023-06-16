@@ -156,6 +156,48 @@ def test_lockfile_reqs_check_consistent(setup_config_files):
 
     assert lockfile_reqs_check(config, die_on_error=False) is False
 
+def test_lockfile_reqs_check_inconsistent_version(setup_config_files):
+    """
+    This checks when the requirments and lock file are individually consistent,
+    the requirements are all in the lock file by name, but the version constrainst
+    are not satisfied by the lock file. 
+    """
+    config = setup_config_files
+    reqs_add('python==3.11', config=config)
+
+    lockfile_data = [
+        {
+            "manager": "conda",
+            "base_url": "http://example.com",
+            "platform": "linux",
+            "dist_name": "example",
+            "extension": ".tar.gz",
+            "md5": "md5hash",
+            "url": "http://example.com/linux/example.tar.gz#md5hash",
+            "name": "python",
+            "version": "3.10"
+        },
+        {
+            "manager": "conda",
+            "base_url": "http://example.com",
+            "platform": "linux",
+            "dist_name": "example",
+            "extension": ".tar.gz",
+            "md5": "md5hash",
+            "url": "http://example.com/linux/example.tar.gz#md5hash",
+            "name": "pip",
+            "version": "21.2.2"
+        }
+    ]
+    with open(config["paths"]["lockfile"], "w") as f:
+        json.dump(lockfile_data, f)
+
+    # check when die_on_error is True (by default)
+    with pytest.raises(SystemExit):
+        lockfile_reqs_check(config)
+
+    # check when die_on_error is False
+    assert lockfile_reqs_check(config, die_on_error=False) is False
 
 def test_lockfile_reqs_check_inconsistent(setup_config_files, mocker):
     """
