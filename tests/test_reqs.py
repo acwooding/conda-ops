@@ -193,7 +193,7 @@ def test_reqs_check_add_manual_equals(setup_config_files):
 
     # add dependencies directly to file
     reqs = yaml.load(config['paths']['requirements'].open())
-    reqs['dependencies'].append('python=3.11')
+    reqs['dependencies'] += ['python=3.11', 'python']
     print(reqs)
     with open(config['paths']['requirements'], 'w') as f:
         yaml.dump(reqs, f)
@@ -230,9 +230,9 @@ def test_clean_package_args():
     Test that package_args works as expected.
     """
     # valid list to be altered
-    package_args = ['  python', 'numpy pandas', 'black=22 ']
+    package_args = ['  python', 'numpy pandas', 'black=22 ', 'python=3.11']
     clean_packages = clean_package_args(package_args)
-    assert clean_packages == sorted(['python', 'numpy', 'pandas', 'black==22'])
+    assert clean_packages == sorted(['python==3.11', 'numpy', 'pandas', 'black==22'])
 
     # invalid list to fail on
     package_args = ['python', 'python >?3.11']
