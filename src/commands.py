@@ -1,26 +1,26 @@
 # Main Functionality
 
-from pathlib import Path
-import sys
 import json
+import logging
+import re
+import shutil
+import subprocess
+import sys
+import urllib
+from contextlib import redirect_stdout
+from io import StringIO
+from pathlib import Path
+
+from conda.models.match_spec import MatchSpec
+# from conda.cli.main_info import get_info_dict
+from packaging.requirements import Requirement
 from ruamel.yaml import YAML
+
 from .split_requirements import create_split_files, env_split, get_channel_order
 from .python_api import run_command
 from .kvstore import KVStore
 from ._paths import PathStore
 
-# from conda.cli.main_info import get_info_dict
-from conda.models.match_spec import MatchSpec
-import urllib
-import shutil
-import subprocess
-import re
-from io import StringIO
-from contextlib import redirect_stdout
-from packaging.requirements import Requirement
-
-
-import logging
 
 logger = logging.getLogger()
 
@@ -163,7 +163,7 @@ def reqs_add(packages, channel=None, config=None):
 
     packages = clean_package_args(packages)
 
-    with open(requirements_file, "r") as yamlfile:
+    with open(requirements_file, "r", encoding="utf-8") as yamlfile:
         reqs = yaml.load(yamlfile)
 
     # pull off the pip section to treat it specially
@@ -213,7 +213,7 @@ def reqs_add(packages, channel=None, config=None):
     if pip_dict is not None:
         reqs["dependencies"] = [pip_dict] + reqs["dependencies"]
 
-    with open(requirements_file, "w") as yamlfile:
+    with open(requirements_file, "w", encoding="utf-8") as yamlfile:
         yaml.dump(reqs, yamlfile)
 
     print(f"Added packages {package_str} to requirements file.")
@@ -232,7 +232,7 @@ def reqs_remove(packages, config=None):
 
     packages = clean_package_args(packages)
 
-    with open(requirements_file, "r") as yamlfile:
+    with open(requirements_file, "r", encoding="utf-8") as yamlfile:
         reqs = yaml.load(yamlfile)
 
     # pull off the pip section ot keep it at the beginning of the reqs file
@@ -284,7 +284,7 @@ def reqs_remove(packages, config=None):
         if len(pip_dict["pip"]) > 0:
             reqs["dependencies"] = [pip_dict] + reqs["dependencies"]
 
-    with open(requirements_file, "w") as yamlfile:
+    with open(requirements_file, "w", encoding="utf-8") as yamlfile:
         yaml.dump(reqs, yamlfile)
 
     print(f"Removed packages {package_str} to requirements file.")
@@ -305,8 +305,8 @@ def reqs_create(config):
             "dependencies": sorted(["pip", "python"]),
         }
         logger.info("writing")
-        with open(requirements_file, "w") as f:
-            yaml.dump(requirements_dict, f)
+        with open(requirements_file, "w", encoding="utf-8") as yamlfile:
+            yaml.dump(requirements_dict, yamlfile)
     else:
         logger.info(f"Requirements file {requirements_file} already exists")
 
@@ -324,17 +324,17 @@ def reqs_check(config, die_on_error=True):
     if requirements_file.exists():
         logger.debug("Requirements file present")
 
-        with open(requirements_file, "r") as f:
-            requirements = yaml.load(requirements_file)
-        if not (requirements["name"] == env_name):
+        with open(requirements_file, "r", encoding="utf-8") as yamlfile:
+            requirements = yaml.load(yamlfile)
+        if not requirements["name"] == env_name:
             logger.error(
                 f"The name in the requirements file {requirements['name']} does not match \
                 the name of the managed conda environment {env_name}"
             )
             if input("Would you like to update the environment name in your requirements file (y/n) ").lower() == "y":
                 requirements["name"] = env_name
-                with open(requirements_file, "w") as f:
-                    yaml.dump(requirements, f)
+                with open(requirements_file, "w", encoding="utf-8") as yamlfile:
+                    yaml.dump(requirements, yamlfile)
             else:
                 logger.warning(f"Please check the consistency of your requirements file {requirements_file} manually.")
                 check = False
@@ -359,9 +359,9 @@ def reqs_check(config, die_on_error=True):
                     logger.warning(f"Requirement {package} will be updated to the cannonical format {str(req)}")
                 valid_specs.append(str(req))
                 package_name_list.append(req.name)
-            except Exception as e:
+            except Exception as exception:
                 check = False
-                print(e)
+                print(exception)
                 invalid_specs.append(package)
         valid_pip_specs = []
         if pip_dict is not None:
@@ -374,9 +374,9 @@ def reqs_check(config, die_on_error=True):
                         logger.warning(f"Requirement {package} will be updated to the cannonical format {str(req)}")
                     valid_pip_specs.append(str(req))
                     package_name_list.append(req.name)
-                except Exception as e:
+                except Exception as exception:
                     check = False
-                    print(e)
+                    print(exception)
                     invalid_specs.append(package)
         if len(invalid_specs) > 0:
             check = False
@@ -388,7 +388,7 @@ def reqs_check(config, die_on_error=True):
 
         if len(duplicates) > 0:
             check = False
-            logger.error(f"The packages {[x for x in duplicates.keys()]} have been specified more than once.")
+            logger.error(f"The packages {list(duplicates.keys())} have been specified more than once.")
             logger.info(f"Please update the requirements file {requirements_file} accordingly.")
 
         if check and update:
@@ -398,8 +398,8 @@ def reqs_check(config, die_on_error=True):
                 requirements["dependencies"] = [{"pip": valid_pip_specs}] + valid_specs
             else:
                 requirements["dependencies"] = valid_specs
-            with open(requirements_file, "r") as f:
-                yaml.dump(requirements, f)
+            with open(requirements_file, "r") as yamlfile:
+                yaml.dump(requirements, yamlfile)
     else:
         check = False
         logger.warning("No requirements file present")
@@ -449,8 +449,8 @@ def lockfile_generate(config, regenerate=False):
     logger.info("Generating multi-step requirements files")
     create_split_files(requirements_file, ops_dir)
 
-    with open(ops_dir / ".ops.channel-order.include", "r") as f:
-        order_list = f.read().split()
+    with open(ops_dir / ".ops.channel-order.include", "r") as order_file:
+        order_list = order_file.read().split()
 
     if (ops_dir / ".ops.pypi-requirements.txt").exists():
         order_list += ["pip"]
@@ -471,8 +471,7 @@ def lockfile_generate(config, regenerate=False):
                 logger.error("No successful channels were installed")
                 sys.exit(1)
             break
-        else:
-            last_good_channel = order_list[i]
+        last_good_channel = order_list[i]
 
     last_good_lockfile = f".ops.lock.{last_good_channel}"
     logger.debug(f"Updating lock file from {last_good_lockfile}")
@@ -500,13 +499,13 @@ def lockfile_check(config, die_on_error=True):
 
     check = True
     if lock_file.exists():
-        with open(lock_file, "r") as f:
+        with open(lock_file, "r", encoding="utf-8") as lockfile:
             try:
-                json_reqs = json.load(f)
-            except Exception as e:
+                json_reqs = json.load(lockfile)
+            except Exception as exception:
                 check = False
                 logger.error(f"Unable to load lockfile {lock_file}")
-                logger.debug(e)
+                logger.debug(exception)
                 logger.info("To regenerate the lock file:")
                 logger.info(">>> conda ops lockfile regenerate")
                 # logger.info(">>> conda ops lock")
@@ -576,12 +575,12 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
             logger.info("To update the lock file:")
             logger.info(">>> conda ops lockfile regenerate")
             # logger.info(">>> conda ops lock")
-        with open(requirements_file, "r") as yamlfile:
+        with open(requirements_file, "r", encoding="utf-8") as yamlfile:
             reqs_env = yaml.load(yamlfile)
         channel_order = get_channel_order(reqs_env)
         _, channel_dict = env_split(reqs_env, channel_order)
-        with open(lock_file, "r") as lf:
-            lock_dict = json.load(lf)
+        with open(lock_file, "r", encoding="utf-8") as jsonfile:
+            lock_dict = json.load(jsonfile)
         lock_names = [package["name"] for package in lock_dict]
 
         # so far we don't check that the channel info is correct, just that the package is there
@@ -699,7 +698,7 @@ def env_create(config=None, env_name=None, lock_file=None):
             if result_code != 0:
                 logger.info(stdout)
                 logger.info(stderr)
-                return None
+                sys.exit(result_code)
         sys.stdout = stdout_backup
         stdout_str = capture_output.getvalue()
         logger.info(stdout_str)
@@ -725,14 +724,14 @@ def env_lock(config=None, lock_file=None, env_name=None, pip_dict=None):
     # need to use a subprocess to get any newly installed python package information
     # that was installed via pip
     conda_args = ["-n", env_name, "--json"]
-    result = subprocess.run(["conda", "list"] + conda_args, capture_output=True)
+    result = subprocess.run(["conda", "list"] + conda_args, capture_output=True, check=False)
     result_code = result.returncode
     stdout = result.stdout
     stderr = result.stderr
     if result_code != 0:
         logger.info(stdout)
         logger.info(stderr)
-        sys.exit(1)
+        sys.exit(result_code)
 
     json_reqs = json.loads(stdout)
 
@@ -743,7 +742,7 @@ def env_lock(config=None, lock_file=None, env_name=None, pip_dict=None):
         logger.info(stdout)
         logger.info(stderr)
         sys.exit(1)
-    explicit = [x for x in stdout.split("\n") if ("https" in x)]
+    explicit = [x for x in stdout.split("\n") if "https" in x]
 
     # add additional information to go into the lock file based on the kind of package
     logger.debug(f"Environment {env_name} to be locked with {len(json_reqs)} packages")
@@ -775,8 +774,8 @@ def env_lock(config=None, lock_file=None, env_name=None, pip_dict=None):
             package["manager"] = "conda"
 
     blob = json.dumps(json_reqs, indent=2, sort_keys=True)
-    with open(lock_file, "w") as f:
-        f.write(blob)
+    with open(lock_file, "w", encoding="utf-8") as jsonfile:
+        jsonfile.write(blob)
 
     return json_reqs
 
@@ -867,16 +866,16 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
         else:
             return False
 
-    conda_set = set([x for x in stdout.split("\n") if ("https" in x)])
+    conda_set = {x for x in stdout.split("\n") if "https" in x}
     logger.debug(f"Found {len(conda_set)} conda package(s) in environment: {env_name}")
 
     # generate the explicit lock file and load it
     explicit_files = generate_explicit_lock_files(config)
     explicit_lock_file = config["paths"]["explicit_lockfile"]
 
-    with open(explicit_lock_file, "r") as f:
-        lock_contents = f.read()
-    lock_set = set([x for x in lock_contents.split("\n") if ("https" in x)])
+    with open(explicit_lock_file, "r", encoding="utf-8") as explicitfile:
+        lock_contents = explicitfile.read()
+    lock_set = {x for x in lock_contents.split("\n") if "https" in x}
 
     if conda_set == lock_set:
         logger.debug("Conda packages in environment and lock file are in sync.\n")
@@ -906,7 +905,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
 
     # need to use a subprocess to ensure we get all of the pip package info
     conda_args = ["-n", env_name, "--json"]
-    result = subprocess.run(["conda", "list"] + conda_args, capture_output=True)
+    result = subprocess.run(["conda", "list"] + conda_args, capture_output=True, check=False)
     result_code = result.returncode
     stdout = result.stdout
     stderr = result.stderr
@@ -934,8 +933,8 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
         logger.debug("Note that we only compare the package name and version number as this is all conda list gives us")
         lock_dict = {}
         lockfile = config["paths"]["lockfile"]
-        with open(lockfile, "r") as f:
-            lock_list = json.load(f)
+        with open(lockfile, "r", encoding="utf-8") as jsonfile:
+            lock_list = json.load(jsonfile)
         for package in lock_list:
             if package["channel"] == "pypi":
                 lock_dict[package["name"]] = package["version"]
@@ -1024,7 +1023,6 @@ def env_install(config=None):
             if result_code != 0:
                 logger.info(stdout)
                 logger.info(stderr)
-                return None
         sys.stdout = stdout_backup
         stdout_str = capture_output.getvalue()
         logger.info(stdout_str)
@@ -1130,11 +1128,11 @@ def find_conda_ops_dir(die_on_error=True):
     logger.debug("Searching for conda_ops dir.")
     ops_dir = find_upwards(Path.cwd(), CONDA_OPS_DIR_NAME)
     if ops_dir is None:
-        s = "No managed conda environment found (here or in parent directories)."
+        message = "No managed conda environment found (here or in parent directories)."
         if die_on_error:
-            logger.error(s)
+            logger.error(message)
         else:
-            logger.warning(s)
+            logger.warning(message)
         logger.info("To place the current directory under conda ops management:")
         logger.info(">>> conda ops proj create")
         # logger.info(">>> conda ops init")
@@ -1203,8 +1201,8 @@ def generate_explicit_lock_files(config=None, lock_file=None):
     if lock_file is None:
         lock_file = config["paths"]["lockfile"]
 
-    with open(lock_file, "r") as f:
-        json_reqs = json.load(f)
+    with open(lock_file, "r", encoding="utf-8") as jsonfile:
+        json_reqs = json.load(jsonfile)
 
     # conda lock file
     explicit_str = "# This file may be used to create an environment using:\n\
@@ -1212,18 +1210,17 @@ def generate_explicit_lock_files(config=None, lock_file=None):
     explicit_str += json_to_explicit(json_reqs, package_manager="conda")
 
     explicit_lock_file = config["paths"]["explicit_lockfile"]
-    with open(explicit_lock_file, "w") as f:
-        f.write(explicit_str)
+    with open(explicit_lock_file, "w", encoding="utf-8") as explicitfile:
+        explicitfile.write(explicit_str)
 
     # pypi lock file
     pip_reqs = json_to_explicit(json_reqs, package_manager="pip")
     if len(pip_reqs) > 0:
         pip_lock_file = config["paths"]["pip_explicit_lockfile"]
-        with open(pip_lock_file, "w") as f:
-            f.write(pip_reqs)
+        with open(pip_lock_file, "w", encoding="utf-8") as explicitfile:
+            explicitfile.write(pip_reqs)
         return [explicit_lock_file, pip_lock_file]
-    else:
-        return [explicit_lock_file]
+    return [explicit_lock_file]
 
 
 def check_env_exists(env_name):
@@ -1233,10 +1230,7 @@ def check_env_exists(env_name):
     json_output = get_conda_info()
 
     env_list = [Path(x).name for x in json_output["envs"]]
-    if env_name in env_list:
-        return True
-    else:
-        return False
+    return env_name in env_list
 
 
 def check_env_active(env_name):
@@ -1246,11 +1240,7 @@ def check_env_active(env_name):
     conda_info = get_conda_info()
     active_env = conda_info["active_prefix_name"]
 
-    if active_env == env_name:
-        return True
-    else:
-        return False
-
+    return active_env == env_name
 
 def get_pypi_package_info(package_name, version, filename):
     """
@@ -1264,8 +1254,8 @@ def get_pypi_package_info(package_name, version, filename):
     try:
         with urllib.request.urlopen(url) as response:
             data = json.loads(response.read().decode())
-    except Exception as e:
-        print(e)
+    except Exception as exception:
+        print(exception)
         logger.error(f"No releases found for url {url}")
         return None, None
 
@@ -1336,8 +1326,8 @@ def extract_pip_installed_filenames(stdout, config=None):
                 package_name = None
                 logger.error("No match for package_name found.")
             lockfile = config["paths"]["lockfile"]
-            with open(lockfile, "r") as lf:
-                lock_list = json.load(lf)
+            with open(lockfile, "r", encoding="utf-8") as jsonfile:
+                lock_list = json.load(jsonfile)
             for package in lock_list:
                 if package["name"] == package_name:
                     filename_dict[package_name] = {
@@ -1390,8 +1380,8 @@ def conda_step_env_lock(channel, config, env_name=None):
 
     logger.info(f"Generating the intermediate lock file for channel {channel} via environment {env_name}")
 
-    with open(ops_dir / f".ops.{channel}-environment.txt") as f:
-        package_list = f.read().split()
+    with open(ops_dir / f".ops.{channel}-environment.txt") as reqsfile:
+        package_list = reqsfile.read().split()
 
     if len(package_list) == 0:
         logger.warning("No packages to be installed at this step")
@@ -1419,6 +1409,9 @@ def conda_step_env_lock(channel, config, env_name=None):
 
 
 def pip_step_env_lock(config, env_name=None):
+    """
+    Update the environment with the pip requirements and generate a new lock file.
+    """
     # set the pip interop flag to True as soon as pip packages are to be installed so conda remain aware of it
     # possibly set this at the first creation of the environment so it's always True
 
@@ -1451,8 +1444,8 @@ def pip_step_env_lock(config, env_name=None):
     channel_lockfile = ops_dir / ".ops.lock.pip"
     json_reqs = env_lock(lock_file=channel_lockfile, env_name=env_name, pip_dict=pip_dict)
 
-    with open(ops_dir / ".ops.sdist-requirements.txt") as f:
-        sdist_list = f.read().split("\n")
+    with open(ops_dir / ".ops.sdist-requirements.txt") as reqsfile:
+        sdist_list = reqsfile.read().split("\n")
     logger.error(f"TODO: Implement the pip step for sdists and editable modules {sdist_list}")
 
     return json_reqs
@@ -1471,10 +1464,14 @@ def env_pip_interop(config=None, env_name=None, flag=True):
         sys.exit(1)
 
     conda_info = get_conda_info()
+
+    env_path = None
     for env_path in conda_info["envs"]:
         if Path(env_path).name == env_name:
             break
 
+    if env_path is None:
+        logger.error(f"Cannot find a path to the environment {env_name}.")
     condarc_path = Path(env_path) / ".condarc"
     conda_args = ["--set", "pip_interop_enabled", str(flag), "--file", str(condarc_path)]
 
@@ -1495,13 +1492,13 @@ def check_package_in_list(package, package_list, channel=None):
         requirement = Requirement(package)
     else:
         requirement = MatchSpec(package)
-    for p in package_list:
+    for comp_package in package_list:
         if channel == "pip":
-            req_p = Requirement(p)
+            req_p = Requirement(comp_package)
         else:
-            req_p = MatchSpec(p)
+            req_p = MatchSpec(comp_package)
         if requirement.name == req_p.name:
-            matching_list.append(p)
+            matching_list.append(comp_package)
     return matching_list
 
 
@@ -1538,16 +1535,16 @@ def clean_package_args(package_args, channel=None):
             try:
                 req = Requirement(clean_package)
                 cleaned_packages.append(req)
-            except Exception as e:
-                print(e)
+            except Exception as exception:
+                print(exception)
                 invalid_packages.append(package)
         else:
             # Check conda requirement format compliance
             try:
                 req = MatchSpec(clean_package)
                 cleaned_packages.append(req)
-            except Exception as e:
-                print(e)
+            except Exception as exception:
+                print(exception)
                 invalid_packages.append(package)
 
     if len(invalid_packages) > 0:
