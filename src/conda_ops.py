@@ -36,96 +36,94 @@ def conda_ops(argv: list):
     subparsers = parser.add_subparsers(dest="command", metavar="command")
 
     # add additional parsers for hidden commands
-    proj = subparsers.add_parser('proj', help='Accepts create, check and load')
-    proj.add_argument('kind', type=str)
-    env = subparsers.add_parser(
-        'env', help='Accepts create, sync, clean, delete, dump, activate, deactivate, check, lockfile-check, regenerate'
-    )
-    env.add_argument('kind', type=str)
+    proj = subparsers.add_parser("proj", help="Accepts create, check and load")
+    proj.add_argument("kind", type=str)
+    env = subparsers.add_parser("env", help="Accepts create, sync, clean, delete, dump, activate, deactivate, check, lockfile-check, regenerate")
+    env.add_argument("kind", type=str)
 
-    reqs = subparsers.add_parser('reqs', help='Accepts create, add, remove, check')
-    reqs_subparser = reqs.add_subparsers(dest='reqs_command', metavar='reqs_command')
-    reqs_subparser.add_parser('create')
-    r_add = reqs_subparser.add_parser('add')
-    r_add.add_argument('packages', type=str, nargs='+')
+    reqs = subparsers.add_parser("reqs", help="Accepts create, add, remove, check")
+    reqs_subparser = reqs.add_subparsers(dest="reqs_command", metavar="reqs_command")
+    reqs_subparser.add_parser("create")
+    r_add = reqs_subparser.add_parser("add")
+    r_add.add_argument("packages", type=str, nargs="+")
     r_add.add_argument(
-        '-c',
-        '--channel',
+        "-c",
+        "--channel",
         help="indicate the channel that the packages are coming from, set this to 'pip' \
         if the packages you are adding are to be installed via pip",
     )
-    r_remove = reqs_subparser.add_parser('remove')
-    r_remove.add_argument('packages', type=str, nargs='+')
-    reqs_subparser.add_parser('check')
+    r_remove = reqs_subparser.add_parser("remove")
+    r_remove.add_argument("packages", type=str, nargs="+")
+    reqs_subparser.add_parser("check")
 
-    lockfile = subparsers.add_parser('lockfile', help='Accepts generate, regenerate, update, check, reqs-check')
-    lockfile.add_argument('kind', type=str)
+    lockfile = subparsers.add_parser("lockfile", help="Accepts generate, regenerate, update, check, reqs-check")
+    lockfile.add_argument("kind", type=str)
 
-    subparsers.add_parser('test')
+    subparsers.add_parser("test")
 
     args = parser.parse_args(argv)
 
-    if args.command not in ['init', 'proj']:
+    if args.command not in ["init", "proj"]:
         config = proj_load(die_on_error=True)
 
-    if args.command in ['status', None]:
+    if args.command in ["status", None]:
         consistency_check(config=config)
-    elif args.command == 'proj':
-        if args.kind == 'create':
+    elif args.command == "proj":
+        if args.kind == "create":
             proj_create()
-        elif args.kind == 'check':
+        elif args.kind == "check":
             proj_check()
-        elif args.kind == 'load':
+        elif args.kind == "load":
             proj_load()
-    elif args.command == 'lockfile':
-        if args.kind == 'generate':
+    elif args.command == "lockfile":
+        if args.kind == "generate":
             lockfile_generate(config, regenerate=False)
-        elif args.kind == 'regenerate':
+        elif args.kind == "regenerate":
             lockfile_generate(config, regenerate=True)
-        elif args.kind == 'check':
+        elif args.kind == "check":
             check = lockfile_check(config)
             if check:
                 logger.info("Lockfile is consistent")
-        elif args.kind == 'update':
-            print('call lockfile_update')
-        elif args.kind == 'reqs-check':
+        elif args.kind == "update":
+            print("call lockfile_update")
+        elif args.kind == "reqs-check":
             check = lockfile_reqs_check(config)
             if check:
                 logger.info("Lockfile and requirements are consistent")
-    elif args.command == 'env':
-        if args.kind == 'create':
+    elif args.command == "env":
+        if args.kind == "create":
             env_create(config)
-        if args.kind == 'regenerate':
+        if args.kind == "regenerate":
             env_regenerate(config=config)
-        elif args.kind == 'install':
+        elif args.kind == "install":
             env_install(config)
-        elif args.kind == 'clean':
-            print('call env_clean')
-        elif args.kind == 'delete':
+        elif args.kind == "clean":
+            print("call env_clean")
+        elif args.kind == "delete":
             env_delete(config)
-        elif args.kind == 'lock':
+        elif args.kind == "lock":
             env_lock(config)
-        elif args.kind == 'activate':
+        elif args.kind == "activate":
             env_activate(config=config)
-        elif args.kind == 'deactivate':
+        elif args.kind == "deactivate":
             env_deactivate(config)
-        elif args.kind == 'check':
+        elif args.kind == "check":
             env_check(config)
-        elif args.kind == 'lockfile-check':
+        elif args.kind == "lockfile-check":
             env_lockfile_check(config)
-    elif args.command == 'test':
+    elif args.command == "test":
         pip_step_env_lock(config)
-    elif args.reqs_command == 'create':
+    elif args.reqs_command == "create":
         reqs_create(config)
-    elif args.reqs_command == 'add':
+    elif args.reqs_command == "add":
         reqs_add(args.packages, channel=args.channel, config=config)
         logger.info("To update the lock file:")
         logger.info(">>> conda ops lockfile generate")
-    elif args.reqs_command == 'remove':
+    elif args.reqs_command == "remove":
         reqs_remove(args.packages, config=config)
         logger.info("To update the lock file:")
         logger.info(">>> conda ops lockfile regenerate")
-    elif args.reqs_command == 'check':
+    elif args.reqs_command == "check":
         check = reqs_check(config)
         if check:
             logger.info("Requirements file is consistent")

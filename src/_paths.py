@@ -54,9 +54,9 @@ class PathStore(KVStore):
 
     # These keys should never be written to disk, though they may be used
     # as variables in relative paths
-    _protected = ['catalog_path']
+    _protected = ["catalog_path"]
 
-    def __init__(self, *args, config_section='Paths', config_file=None, **kwargs):
+    def __init__(self, *args, config_section="Paths", config_file=None, **kwargs):
         """Handle the special case of the config file"""
         if config_file is None:
             self._config_file = "config.ini"

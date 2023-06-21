@@ -91,9 +91,7 @@ class KVStore(MutableMapping):
             self._config.add_section(config_section)
             self._config.read_dict(self.data)
 
-        self.update(
-            {k: v for k, v in self._config.items(self._config_section, raw=True)}
-        )  # `update` comes for free from the abc
+        self.update({k: v for k, v in self._config.items(self._config_section, raw=True)})  # `update` comes for free from the abc
         self.update(dict(*args, **kwargs))
         self._write()
 
@@ -124,7 +122,7 @@ class KVStore(MutableMapping):
 
     def _write(self):
         if self._persistent:
-            with open(self._config_file, 'w') as fw:
+            with open(self._config_file, "w") as fw:
                 self._config.write(fw)
 
     def __repr__(self):
