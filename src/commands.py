@@ -9,6 +9,7 @@ from .python_api import run_command
 from .kvstore import KVStore
 from ._paths import PathStore
 # from conda.cli.main_info import get_info_dict
+from conda.models.match_spec import MatchSpec
 import urllib
 import shutil
 import subprocess
@@ -164,13 +165,8 @@ def reqs_add(packages, channel=None, config=None):
     with open(requirements_file, 'r') as yamlfile:
         reqs = yaml.load(yamlfile)
 
-    # pull off the pip section ot keep it at the beginning of the reqs file
-    pip_dict = None
-    for k, dep in enumerate(reqs['dependencies']):
-        if isinstance(dep, dict):  # nested yaml
-            if dep.get('pip', None):
-                pip_dict = reqs['dependencies'].pop(k)
-                break
+    # pull off the pip section to treat it specially
+    reqs['dependencies'], pip_dict = pop_pip_section(reqs['dependencies'])
 
     for package in packages:
         # check for existing packages and remove them if they have a name match
@@ -239,12 +235,7 @@ def reqs_remove(packages, config=None):
         reqs = yaml.load(yamlfile)
 
     # pull off the pip section ot keep it at the beginning of the reqs file
-    pip_dict = None
-    for k, dep in enumerate(reqs['dependencies']):
-        if isinstance(dep, dict):  # nested yaml
-            if dep.get('pip', None):
-                pip_dict = reqs['dependencies'].pop(k)
-                break
+    reqs['dependencies'], pip_dict = pop_pip_section(reqs['dependencies'])
 
     # first remove non-pip dependencies
 
@@ -275,7 +266,7 @@ def reqs_remove(packages, config=None):
             new_channel_order.append(channel)
     reqs['channel-order'] = new_channel_order
 
-    # now remove pip dependencies is the section exists
+    # now remove pip dependencies if the section exists
     if pip_dict is not None:
         pip_dict['pip'] = list(set(pip_dict['pip'] + packages))
         deps = list(set(pip_dict['pip']))
@@ -351,6 +342,63 @@ def reqs_check(config, die_on_error=True):
             logger.warning("No dependencies found in the requirements file.")
             logger.error("Unimplemented: what to do in this case.")
             check = False
+        conda_deps, pip_dict = pop_pip_section(deps)
+
+        # check that the package specifications are valid
+        # make the specifications cannonical (warn when changing them)
+        valid_specs = []
+        invalid_specs = []
+        package_name_list = []
+        update = False
+        for package in conda_deps:
+            try:
+                req = MatchSpec(package)
+                if str(req) != package:
+                    update = True
+                    logger.warning(f"Requirement {package} will be updated to the cannonical format {str(req)}")
+                valid_specs.append(str(req))
+                package_name_list.append(req.name)
+            except Exception as e:
+                check = False
+                print(e)
+                invalid_specs.append(package)
+        valid_pip_specs = []
+        if pip_dict is not None:
+            pip_deps = pip_dict.get('pip', None)
+            for package in pip_deps:
+                try:
+                    req = Requirement(package)
+                    if str(req) != package:
+                        update = True
+                        logger.warning(f"Requirement {package} will be updated to the cannonical format {str(req)}")
+                    valid_pip_specs.append(str(req))
+                    package_name_list.append(req.name)
+                except Exception as e:
+                    check = False
+                    print(e)
+                    invalid_specs.append(package)
+        if len(invalid_specs) > 0:
+            check = False
+            logger.error(f"The following specs are of an invalid format: {invalid_specs}.")
+            logger.info("Please update them accordingly.")
+
+        # check for duplicate packages
+        duplicates = check_for_duplicates(package_name_list)
+
+        if len(duplicates) > 0:
+            check = False
+            logger.error(f"The packages {[x for x in duplicates.keys()]} have been specified more than once.")
+            logger.info(f"Please update the requirements file {requirements_file} accordingly.")
+
+        if check and update:
+            # only update the file if the specs are all valid
+            logger.warning("Updating the requirements file")
+            if len(valid_pip_specs) > 0:
+                requirements['dependencies'] = [{'pip':valid_pip_specs}] + valid_specs
+            else:
+                requirements['dependencies'] = valid_specs
+            with open(requirements_file, 'r') as f:
+                yaml.dump(requirements, f)
     else:
         check = False
         logger.warning("No requirements file present")
@@ -1460,23 +1508,25 @@ def env_pip_interop(config=None, env_name=None, flag=True):
     return True
 
 
-def check_package_in_list(package, package_list):
+def check_package_in_list(package, package_list, channel=None):
     """
     Given a package, return the packages in the package_list that match that requirement.
     """
     matching_list = []
-    requirement = Requirement(package)
+    if channel == 'pip':
+        requirement = Requirement(package)
+    else:
+        requirement = MatchSpec(package)
     for p in package_list:
-        if '::' in p:
-            req_p = Requirement(p.split('::')[1])
-        else:
+        if channel == 'pip':
             req_p = Requirement(p)
+        else:
+            req_p = MatchSpec(p)
         if requirement.name == req_p.name:
             matching_list.append(p)
-
     return matching_list
 
-def clean_package_args(package_args):
+def clean_package_args(package_args, channel=None):
     """
     Given a list of packages from the argparser, check that it is in a valid format as per PEP 508.
 
@@ -1503,17 +1553,69 @@ def clean_package_args(package_args):
             clean_package = package.replace("=", "==").strip()
         else:
             clean_package = package.strip()
-        # Check PEP 508 compliance
-        try:
-            Requirement(clean_package)
-            cleaned_packages.append(clean_package)
-        except Exception as e:
-            print(e)
-            invalid_packages.append(package)
+        if channel == 'pip':
+            # Check PEP 508 compliance
+
+            try:
+                req = Requirement(clean_package)
+                cleaned_packages.append(req)
+            except Exception as e:
+                print(e)
+                invalid_packages.append(package)
+        else:
+            # Check conda requirement format compliance
+            try:
+                req = MatchSpec(clean_package)
+                cleaned_packages.append(req)
+            except Exception as e:
+                print(e)
+                invalid_packages.append(package)
 
     if len(invalid_packages) > 0:
         logger.error(f"Invalid package format: {' '.join(invalid_packages)}")
-        logger.info("Please fix the entries to be PEP 508 compliant and surrounded by quotes if any version specifications are present")
+        if channel == 'pip':
+            logger.info("Please fix the entries to be PEP 508 compliant and surrounded by quotes if any version specifications are present")
+        else:
+            logger.info("Please make sure that these entries are formatted as valid conda specifications.")
         sys.exit(1)
 
-    return sorted(cleaned_packages)
+    # check for duplicate packages
+    str_packages = [x.name for x in cleaned_packages]
+    duplicates = check_for_duplicates(str_packages)
+    if len(duplicates) > 0:
+        logger.error(f"The packages {duplicates.keys()} have been specified more than once.")
+        sys.exit(1)
+
+
+    return sorted([str(x) for x in cleaned_packages])
+
+def pop_pip_section(dependencies):
+    """
+    Given the dependencies section of the yaml of the requirements file (in conda environment.yml form),
+    pop the pip section from the dependencies.
+
+    Returns:
+        (dependencies, pip_section): where the dependencies have the pip_section removed
+    """
+    # pull off the pip section ot keep it at the beginning of the reqs file
+    pip_dict = None
+    for k, dep in enumerate(dependencies):
+        if isinstance(dep, dict):  # nested yaml
+            if dep.get('pip', None):
+                pip_dict = dependencies.pop(k)
+                break
+    return dependencies, pip_dict
+
+def check_for_duplicates(package_list):
+    """
+    Given a list of packages, look for duplicates and return the indices of the packages.
+    """
+    # check for duplicate packages
+    item_indices = {}
+    for i, item in enumerate(package_list):
+        if item in item_indices:
+            item_indices[item].append(i)
+        else:
+            item_indices[item] = [i]
+    duplicates = {item: indices for item, indices in item_indices.items() if len(indices) > 1}
+    return duplicates

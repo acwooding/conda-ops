@@ -160,10 +160,10 @@ def test_lockfile_reqs_check_inconsistent_version(setup_config_files):
     """
     This checks when the requirments and lock file are individually consistent,
     the requirements are all in the lock file by name, but the version constrainst
-    are not satisfied by the lock file. 
+    are not satisfied by the lock file.
     """
     config = setup_config_files
-    reqs_add('python==3.11', config=config)
+    reqs_add(['python==3.11'], config=config)
 
     lockfile_data = [
         {

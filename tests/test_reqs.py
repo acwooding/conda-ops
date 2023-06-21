@@ -1,7 +1,7 @@
 # tests/test_reqs.py
 
 from src.commands import reqs_add, reqs_remove, reqs_create, reqs_check, check_package_in_list, clean_package_args
-from src.commands import yaml
+from src.commands import yaml, pop_pip_section
 import pytest
 
 CONDA_OPS_DIR_NAME = '.conda-ops'
@@ -112,7 +112,7 @@ def test_reqs_add_version(setup_config_files):
     reqs_add(['black>22'], config=config)
     reqs = yaml.load(config['paths']['requirements'].open())
     assert 'black' not in reqs['dependencies']
-    assert 'black>22' in reqs['dependencies']
+    assert "black[version='>22']" in reqs['dependencies']
 
 
 def test_reqs_remove_version(setup_config_files):
@@ -124,7 +124,7 @@ def test_reqs_remove_version(setup_config_files):
     reqs_add(['black>22'], config=config)
     reqs_remove(['black'], config=config)
     reqs = yaml.load(config['paths']['requirements'].open())
-    assert 'black>22' not in reqs['dependencies']
+    assert "black[version='>22']" not in reqs['dependencies']
 
 
 def test_check_package_in_list():
@@ -181,41 +181,56 @@ def test_reqs_check(setup_config_files):
     config = setup_config_files
     assert reqs_check(config)
 
-def test_reqs_check_add_manual_equals(setup_config_files):
+def test_reqs_check_add_manual_equals_conda(setup_config_files):
     """
     Test the reqs_check function when packages have been added manually.
     We will create a temporary requirements file, add a package, and add a version pin of that package
-    with an equals sign.
+    with an equals sign. Check that the duplicate package is noticed.
 
-    Expected behaviour is to update the = to ==.
+    This is in the conda section, not the pip section.
     """
     config = setup_config_files
 
     # add dependencies directly to file
     reqs = yaml.load(config['paths']['requirements'].open())
     reqs['dependencies'] += ['python=3.11', 'python']
-    print(reqs)
+
     with open(config['paths']['requirements'], 'w') as f:
         yaml.dump(reqs, f)
 
-    # check that it passes the reqs_check
-    assert reqs_check(config)
+    with pytest.raises(SystemExit):
+        reqs_check(config)
 
-    # check that it modified the package correctly
-    assert 'python==3.11' in reqs['dependencies']
-    assert 'python' not in reqs['dependencies']
-    assert 'python=3.11' not in reqs['dependencies']
-
-def test_reqs_check_add_manual_invalid_package_str(setup_config_files):
+def test_reqs_check_add_manual_equals_conda(setup_config_files):
     """
     Test the reqs_check function when packages have been added manually.
-    We will create a temporary requirements file, add a package manually that is ill specified.
+    We will create a temporary requirements file, add a package, and add a version pin of that package
+    with an equals sign. Check that the duplicate package is noticed.
+
+    This is in the conda section, not the pip section.
     """
     config = setup_config_files
 
     # add dependencies directly to file
     reqs = yaml.load(config['paths']['requirements'].open())
-    reqs['dependencies'].append('python >?3.11')
+    reqs['dependencies'] += ['python=3.11', 'python']
+
+    with open(config['paths']['requirements'], 'w') as f:
+        yaml.dump(reqs, f)
+
+    with pytest.raises(SystemExit):
+        reqs_check(config)
+
+def test_reqs_check_add_manual_invalid_package_str(setup_config_files):
+    """
+    Test the reqs_check function when packages have been added manually.
+    We will create a temporary requirements file, add a package manually that is ill-specified.
+    """
+    config = setup_config_files
+
+    # add dependencies directly to file
+    reqs = yaml.load(config['paths']['requirements'].open())
+    reqs['dependencies'].append('titan>?3.11')
     print(reqs)
     with open(config['paths']['requirements'], 'w') as f:
         yaml.dump(reqs, f)
@@ -229,12 +244,20 @@ def test_clean_package_args():
     """
     Test that package_args works as expected.
     """
-    # valid list to be altered
-    package_args = ['  python', 'numpy pandas', 'black=22 ', 'python=3.11']
-    clean_packages = clean_package_args(package_args)
-    assert clean_packages == sorted(['python==3.11', 'numpy', 'pandas', 'black==22'])
+    # test different channels
+    for channel in ['pip', 'conda-forge', None]:
+        # valid list to be altered
+        package_args = ['numpy pandas', 'black=22 ', ' python=3.11']
 
-    # invalid list to fail on
-    package_args = ['python', 'python >?3.11']
-    with pytest.raises(SystemExit):
-        clean_package_args(package_args)
+        clean_packages = clean_package_args(package_args, channel=channel)
+        assert clean_packages == sorted(['python==3.11', 'numpy', 'pandas', 'black==22'])
+
+        # two copies of python. This should fail.
+        package_args = ['python', 'python=3.11']
+        with pytest.raises(SystemExit):
+            clean_package_args(package_args, channel=channel)
+
+        # invalid spec to fail on
+        package_args = ['python >?3.11']
+        with pytest.raises(SystemExit):
+            clean_package_args(package_args)
