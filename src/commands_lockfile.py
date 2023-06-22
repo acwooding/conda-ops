@@ -19,6 +19,9 @@ before using the functions in this module.
 import json
 import sys
 
+from conda.models.match_spec import MatchSpec
+from packaging.requirements import Requirement
+
 from .commands_reqs import reqs_check
 from .split_requirements import env_split, get_channel_order
 from .utils import yaml, logger
@@ -130,13 +133,14 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
             if channel == "pip":
                 pip_cd = channel_dict.get(channel, None)
                 if pip_cd:
-                    channel_list = channel_dict[channel][channel]
+                    channel_list = [Requirement(x) for x in channel_dict[channel][channel]]
                 else:
                     channel_list = []
             else:
-                channel_list = channel_dict[channel]
+                channel_list = [MatchSpec(x) for x in channel_dict[channel]]
+
             for package in channel_list:
-                if package not in lock_names:
+                if package.name not in lock_names:
                     missing_packages.append(package)
         if len(missing_packages) > 0:
             check = False
