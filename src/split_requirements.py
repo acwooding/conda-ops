@@ -1,11 +1,9 @@
-#!env python
 import json
-import sys
-from ruamel.yaml import YAML
+
 from collections import defaultdict
 from pathlib import Path
 
-yaml = YAML(typ="safe")
+from .utils import yaml
 
 
 def env_split(conda_env, channel_order):
@@ -74,10 +72,10 @@ def create_split_files(file_to_split, base_path, split_pip=True):
 
     # check for acceptable formats
     channel_order = get_channel_order(conda_env)
-    with open(base_path / ".ops.channel-order.include", "w") as f:
-        f.write(" ".join(channel_order[:-1]))  # exclude pip as a channel here
+    with open(base_path / ".ops.channel-order.include", "w") as file_handle:
+        file_handle.write(" ".join(channel_order[:-1]))  # exclude pip as a channel here
 
-    cenv, channel_dict = env_split(conda_env, channel_order)
+    _, channel_dict = env_split(conda_env, channel_order)
 
     for kind in channel_order:
         if kind == "pip":
@@ -91,16 +89,16 @@ def create_split_files(file_to_split, base_path, split_pip=True):
                         else:
                             pypi_list.append(package)
                     filename = ".ops.pypi-requirements.txt"
-                    with open(base_path / filename, "w") as f:
-                        f.write("\n".join(pypi_list))
+                    with open(base_path / filename, "w") as file_handle:
+                        file_handle.write("\n".join(pypi_list))
                     filename = ".ops.sdist-requirements.txt"
-                    with open(base_path / filename, "w") as f:
-                        f.write("\n".join(sdist_list))
+                    with open(base_path / filename, "w") as file_handle:
+                        file_handle.write("\n".join(sdist_list))
                 else:
                     filename = ".ops.pip-requirements.txt"
-                    with open(base_path / filename, "w") as f:
-                        f.write("\n".join(channel_dict["pip"]["pip"]))
+                    with open(base_path / filename, "w") as file_handle:
+                        file_handle.write("\n".join(channel_dict["pip"]["pip"]))
         else:
             filename = f".ops.{kind}-environment.txt"
-            with open(base_path / filename, "w") as f:
-                f.write("\n".join(channel_dict[kind]))
+            with open(base_path / filename, "w") as file_handle:
+                file_handle.write("\n".join(channel_dict[kind]))

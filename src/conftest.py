@@ -1,8 +1,8 @@
 from pathlib import Path
-import pytest
 import os
 import shutil
 import tempfile as tf
+import pytest
 
 
 @pytest.fixture(scope="class")

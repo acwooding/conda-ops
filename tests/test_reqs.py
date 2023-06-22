@@ -1,7 +1,7 @@
 # tests/test_reqs.py
 
-from src.commands import reqs_add, reqs_remove, reqs_create, reqs_check, check_package_in_list, clean_package_args
-from src.commands import yaml, pop_pip_section
+from src.commands_reqs import reqs_add, reqs_remove, reqs_create, reqs_check, pop_pip_section, check_package_in_list, clean_package_args
+from src.utils import yaml
 import pytest
 
 CONDA_OPS_DIR_NAME = ".conda-ops"

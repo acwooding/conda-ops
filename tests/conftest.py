@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from src.commands import yaml
+from src.utils import yaml
 
 CONDA_OPS_DIR_NAME = ".conda-ops"
 

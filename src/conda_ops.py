@@ -4,11 +4,12 @@ import logging
 
 import conda.plugins
 
-from .commands import (
-    consistency_check,
-    pip_step_env_lock,
+from .commands import consistency_check, lockfile_generate
+from .commands_proj import proj_load, proj_create, proj_check
+from .commands_reqs import reqs_create, reqs_add, reqs_check, reqs_remove
+from .commands_lockfile import lockfile_check, lockfile_reqs_check
+from .commands_env import (
     env_activate,
-    proj_load,
     env_deactivate,
     env_regenerate,
     env_create,
@@ -17,16 +18,9 @@ from .commands import (
     env_lockfile_check,
     env_install,
     env_lock,
-    lockfile_generate,
-    proj_create,
-    proj_check,
-    reqs_create,
-    reqs_add,
-    reqs_check,
-    reqs_remove,
-    lockfile_check,
-    lockfile_reqs_check,
+    pip_step_env_lock,
 )
+
 
 logger = logging.getLogger()
 

@@ -1,5 +1,5 @@
 import pytest
-from src.commands import proj_create, proj_load, proj_check
+from src.commands_proj import proj_create, proj_load, proj_check
 
 # Assuming these constants are defined in src
 CONDA_OPS_DIR_NAME = ".conda-ops"
@@ -81,7 +81,7 @@ def test_proj_check_no_config(mocker, shared_temp_dir):
         mocker: Pytest mocker fixture for mocking dependencies.
         shared_temp_dir: Pytest fixture providing a shared temporary directory.
     """
-    mocker.patch("src.commands.proj_load", return_value=None)
+    mocker.patch("src.commands_proj.proj_load", return_value=None)
 
     with pytest.raises(SystemExit):
         proj_check(die_on_error=True)
