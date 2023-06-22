@@ -50,7 +50,7 @@ def conda_ops(argv: list):
     r_remove.add_argument("packages", type=str, nargs="+")
     reqs_subparser.add_parser("check")
 
-    lockfile = subparsers.add_parser("lockfile", help="Accepts generate, regenerate, update, check, reqs-check")
+    lockfile = subparsers.add_parser("lockfile", help="Accepts generate, update, check, reqs-check")
     lockfile.add_argument("kind", type=str)
 
     subparsers.add_parser("test")
@@ -71,15 +71,16 @@ def conda_ops(argv: list):
             proj_load()
     elif args.command == "lockfile":
         if args.kind == "generate":
-            lockfile_generate(config, regenerate=False)
-        elif args.kind == "regenerate":
             lockfile_generate(config, regenerate=True)
+        elif args.kind == "update":
+            if env_lockfile_check(config, die_on_error=False):
+                lockfile_generate(config, regenerate=False)
+            else:
+                logger.error("Cannot update as environment and lockfile are not in sync.")
         elif args.kind == "check":
             check = lockfile_check(config)
             if check:
                 logger.info("Lockfile is consistent")
-        elif args.kind == "update":
-            print("call lockfile_update")
         elif args.kind == "reqs-check":
             check = lockfile_reqs_check(config)
             if check:

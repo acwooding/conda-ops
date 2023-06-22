@@ -44,7 +44,10 @@ def reqs_add(packages, channel=None, config=None):
     """
     requirements_file = config["paths"]["requirements"]
     package_str = " ".join(packages)
-    logger.info(f"adding packages {package_str} from channel {channel} to the requirements file {requirements_file}")
+    if channel:
+        logger.info(f"Adding packages {package_str} from channel {channel} to the requirements file {requirements_file}")
+    else:
+        logger.info(f"Adding packages {package_str} from the conda defaults channel to the requirements file {requirements_file}")
 
     packages = clean_package_args(packages)
 
