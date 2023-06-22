@@ -166,11 +166,11 @@ def test_lockfile_reqs_check_consistent_equals(setup_config_files):
     are not satisfied by the lock file.
     """
     config = setup_config_files
-    reqs_add(["python==3.11"], config=config)
+    reqs_add(["python==3.11"], config=config, channel="pip")
 
     lockfile_data = [
         {
-            "manager": "conda",
+            "manager": "pip",
             "base_url": "http://example.com",
             "platform": "linux",
             "dist_name": "example",

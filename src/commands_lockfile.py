@@ -20,7 +20,9 @@ import json
 import sys
 
 from conda.models.match_spec import MatchSpec
+from conda.models.version import ver_eval
 from packaging.requirements import Requirement
+from packaging.version import parse
 
 from .commands_reqs import reqs_check
 from .split_requirements import env_split, get_channel_order
@@ -140,8 +142,21 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
                 channel_list = [MatchSpec(x) for x in channel_dict[channel]]
 
             for package in channel_list:
-                if package.name not in lock_names:
-                    missing_packages.append(package)
+                missing = True
+                for lock_package in lock_dict:
+                    if package.name == lock_package["name"]:
+                        missing = False
+                        break
+                if missing:
+                    missing_packages.append(str(package))
+                else:
+                    if channel == "pip":
+                        if not parse(lock_package["version"]) in package.specifier:
+                            missing_packages.append(str(package))
+                    else:
+                        if package.version and not ver_eval(lock_package["version"], str(package.version)):
+                            missing_packages.append(str(package))
+
         if len(missing_packages) > 0:
             check = False
             logger.error("The following requirements are not in the lockfile:")
