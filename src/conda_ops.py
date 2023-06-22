@@ -3,7 +3,7 @@ import conda.plugins
 
 from .commands import consistency_check, lockfile_generate
 from .commands_proj import proj_load, proj_create, proj_check
-from .commands_reqs import reqs_create, reqs_add, reqs_check, reqs_remove
+from .commands_reqs import reqs_create, reqs_add, reqs_check, reqs_remove, reqs_list
 from .commands_lockfile import lockfile_check, lockfile_reqs_check
 from .commands_env import (
     env_activate,
@@ -19,6 +19,7 @@ from .commands_env import (
 )
 from .utils import logger
 
+
 def conda_ops(argv: list):
     parent_parser = argparse.ArgumentParser(add_help=False)
     parent_parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], default="INFO", help="Set the log level")
@@ -33,7 +34,7 @@ def conda_ops(argv: list):
     env = subparsers.add_parser("env", help="Accepts create, sync, clean, delete, dump, activate, deactivate, check, lockfile-check, regenerate", parents=[parent_parser])
     env.add_argument("kind", type=str)
 
-    reqs = subparsers.add_parser("reqs", help="Accepts create, add, remove, check", parents=[parent_parser])
+    reqs = subparsers.add_parser("reqs", help="Accepts create, add, remove, check, list", parents=[parent_parser])
     reqs_subparser = reqs.add_subparsers(dest="reqs_command", metavar="reqs_command")
     reqs_subparser.add_parser("create")
     r_add = reqs_subparser.add_parser("add")
@@ -47,6 +48,7 @@ def conda_ops(argv: list):
     r_remove = reqs_subparser.add_parser("remove")
     r_remove.add_argument("packages", type=str, nargs="+")
     reqs_subparser.add_parser("check")
+    reqs_subparser.add_parser("list")
 
     lockfile = subparsers.add_parser("lockfile", help="Accepts generate, update, check, reqs-check", parents=[parent_parser])
     lockfile.add_argument("kind", type=str)
@@ -123,6 +125,8 @@ def conda_ops(argv: list):
         check = reqs_check(config)
         if check:
             logger.info("Requirements file is consistent")
+    elif args.reqs_command == "list":
+        reqs_list(config)
     else:
         logger.error(f"Unhandled conda ops subcommand: '{args.command}'")
 

@@ -298,6 +298,20 @@ def reqs_check(config, die_on_error=True):
     return check
 
 
+def reqs_list(config):
+    """
+    Display the contents of the requirements file.
+    """
+    try:
+        with open(config["paths"]["requirements"], "r", encoding="utf-8") as yamlfile:
+            reqs = yaml.load(yamlfile)
+            print("\n")
+            yaml.dump(reqs, sys.stdout)
+            print("\n")
+    except FileNotFoundError:
+        print(f"Requirements file not found.")
+
+
 ############################################
 #
 # Helper Functions
