@@ -1,7 +1,4 @@
 import argparse
-import logging
-
-
 import conda.plugins
 
 from .commands import consistency_check, lockfile_generate
@@ -20,22 +17,23 @@ from .commands_env import (
     env_lock,
     pip_step_env_lock,
 )
-
-
-logger = logging.getLogger()
-
+from .utils import logger
 
 def conda_ops(argv: list):
+    parent_parser = argparse.ArgumentParser(add_help=False)
+    parent_parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], default="INFO", help="Set the log level")
+
     parser = argparse.ArgumentParser("conda ops")
+    parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], default="DEBUG", help="Set the log level")
     subparsers = parser.add_subparsers(dest="command", metavar="command")
 
     # add additional parsers for hidden commands
-    proj = subparsers.add_parser("proj", help="Accepts create, check and load")
+    proj = subparsers.add_parser("proj", help="Accepts create, check and load", parents=[parent_parser])
     proj.add_argument("kind", type=str)
-    env = subparsers.add_parser("env", help="Accepts create, sync, clean, delete, dump, activate, deactivate, check, lockfile-check, regenerate")
+    env = subparsers.add_parser("env", help="Accepts create, sync, clean, delete, dump, activate, deactivate, check, lockfile-check, regenerate", parents=[parent_parser])
     env.add_argument("kind", type=str)
 
-    reqs = subparsers.add_parser("reqs", help="Accepts create, add, remove, check")
+    reqs = subparsers.add_parser("reqs", help="Accepts create, add, remove, check", parents=[parent_parser])
     reqs_subparser = reqs.add_subparsers(dest="reqs_command", metavar="reqs_command")
     reqs_subparser.add_parser("create")
     r_add = reqs_subparser.add_parser("add")
@@ -50,12 +48,14 @@ def conda_ops(argv: list):
     r_remove.add_argument("packages", type=str, nargs="+")
     reqs_subparser.add_parser("check")
 
-    lockfile = subparsers.add_parser("lockfile", help="Accepts generate, update, check, reqs-check")
+    lockfile = subparsers.add_parser("lockfile", help="Accepts generate, update, check, reqs-check", parents=[parent_parser])
     lockfile.add_argument("kind", type=str)
 
     subparsers.add_parser("test")
 
     args = parser.parse_args(argv)
+
+    logger.setLevel(args.log_level)
 
     if args.command not in ["init", "proj"]:
         config = proj_load(die_on_error=True)
