@@ -96,6 +96,7 @@ def conda_ops(argv: list):
             print("call env_clean")
         elif args.kind == "delete":
             env_delete(config)
+            logger.info("Conda ops environment deleted.")
         elif args.kind == "lock":
             env_lock(config)
         elif args.kind == "activate":
