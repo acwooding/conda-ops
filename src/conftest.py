@@ -4,7 +4,8 @@ import os
 import shutil
 import tempfile as tf
 
-@pytest.fixture(scope='class')
+
+@pytest.fixture(scope="class")
 def manage_config_ini(doctest_namespace):
     path_config_ini = Path("config.ini")
     if path_config_ini.exists():

@@ -58,7 +58,9 @@ def test_reqs_add_pip(setup_config_files):
     config = setup_config_files
     reqs_add(["flask"], channel="pip", config=config)
     reqs = yaml.load(config["paths"]["requirements"].open())
-    assert {"pip": ["flask"]} in reqs["dependencies"]
+    conda_reqs, pip_dict = pop_pip_section(reqs["dependencies"])
+    assert "flask" not in conda_reqs
+    assert "flask" in pip_dict["pip"]
 
 
 def test_reqs_remove_pip(setup_config_files):
@@ -71,6 +73,8 @@ def test_reqs_remove_pip(setup_config_files):
     reqs_add(["flask"], channel="pip", config=config)
     reqs_remove(["flask"], config=config)
     reqs = yaml.load(config["paths"]["requirements"].open())
+    conda_reqs, pip_dict = pop_pip_section(reqs["dependencies"])
+
     assert {"pip": ["flask"]} not in reqs["dependencies"]
 
 
@@ -149,7 +153,7 @@ def test_check_package_in_list():
     assert matching_packages == ["numpy==1.18.3", "numpy>=1.18.0", "numpy<2.0.0"]
 
 
-def test_reqs_add_equals(setup_config_files):
+def test_reqs_add_equals_conda(setup_config_files):
     """
     Test the reqs_add function.
     We will create a temporary requirements file, add a package, and add a version pin of that package
@@ -162,17 +166,21 @@ def test_reqs_add_equals(setup_config_files):
     assert "black==22" in reqs["dependencies"]
 
 
-def test_reqs_add_equals(setup_config_files):
+def test_reqs_add_equals_pip(setup_config_files):
     """
     Test the reqs_add function.
     We will create a temporary requirements file, add a package, and add a version pin of that package
     with an equals sign.
     """
     config = setup_config_files
-    reqs_add(["black=22"], config=config)
+    reqs_add(["black=22"], config=config, channel="pip")
     reqs = yaml.load(config["paths"]["requirements"].open())
-    assert "black=22" not in reqs["dependencies"]
-    assert "black==22" in reqs["dependencies"]
+    conda_reqs, pip_dict = pop_pip_section(reqs["dependencies"])
+
+    assert "black==22" not in conda_reqs
+    assert "black==22" in pip_dict["pip"]
+    assert "black=22" not in conda_reqs
+    assert "black=22" not in pip_dict["pip"]
 
 
 def test_reqs_check(setup_config_files):
@@ -205,19 +213,20 @@ def test_reqs_check_add_manual_equals_conda(setup_config_files):
         reqs_check(config)
 
 
-def test_reqs_check_add_manual_equals_conda(setup_config_files):
+def test_reqs_check_add_manual_equals_pip(setup_config_files):
     """
     Test the reqs_check function when packages have been added manually.
     We will create a temporary requirements file, add a package, and add a version pin of that package
     with an equals sign. Check that the duplicate package is noticed.
 
-    This is in the conda section, not the pip section.
+    This is in the pip section, not the conda section.
     """
     config = setup_config_files
 
     # add dependencies directly to file
     reqs = yaml.load(config["paths"]["requirements"].open())
-    reqs["dependencies"] += ["python=3.11", "python"]
+    pip_dict = {"pip": ["python=3.11"]}
+    reqs["dependencies"] += [pip_dict]
 
     with open(config["paths"]["requirements"], "w") as f:
         yaml.dump(reqs, f)
@@ -236,7 +245,7 @@ def test_reqs_check_add_manual_invalid_package_str(setup_config_files):
     # add dependencies directly to file
     reqs = yaml.load(config["paths"]["requirements"].open())
     reqs["dependencies"].append("titan>?3.11")
-    print(reqs)
+
     with open(config["paths"]["requirements"], "w") as f:
         yaml.dump(reqs, f)
 

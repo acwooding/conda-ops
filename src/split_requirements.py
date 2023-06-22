@@ -104,22 +104,3 @@ def create_split_files(file_to_split, base_path, split_pip=True):
             filename = f".ops.{kind}-environment.txt"
             with open(base_path / filename, "w") as f:
                 f.write("\n".join(channel_dict[kind]))
-
-
-def usage():
-    print(
-        """
-Usage:    split_requirement.py path/to/environment.yml
-    """
-    )
-
-
-if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        usage()
-        exit(1)
-
-    file_to_split = sys.argv[1]
-    base_path = "."
-
-    create_split_files(file_to_split, base_path)
