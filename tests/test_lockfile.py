@@ -2,7 +2,7 @@ import pytest
 import json
 from src.commands import lockfile_generate, lockfile_check, lockfile_reqs_check, reqs_add
 
-CONDA_OPS_DIR_NAME = '.conda-ops'
+CONDA_OPS_DIR_NAME = ".conda-ops"
 
 
 def test_lockfile_generate(setup_config_files):
@@ -13,16 +13,16 @@ def test_lockfile_generate(setup_config_files):
     config = setup_config_files
 
     # make sure there is something from non-defaults channels here
-    reqs_add(['flask'], channel='pip', config=config)
-    reqs_add(['pylint'], channel='conda-forge', config=config)
+    reqs_add(["flask"], channel="pip", config=config)
+    reqs_add(["pylint"], channel="conda-forge", config=config)
 
     lockfile_generate(config)
-    assert config['paths']['lockfile'].exists()
+    assert config["paths"]["lockfile"].exists()
 
     # reset
-    config['paths']['lockfile'].unlink()
+    config["paths"]["lockfile"].unlink()
     lockfile_generate(config, regenerate=True)
-    assert config['paths']['lockfile'].exists()
+    assert config["paths"]["lockfile"].exists()
 
 
 def test_lockfile_generate_no_reqs(setup_config_files):
@@ -31,7 +31,7 @@ def test_lockfile_generate_no_reqs(setup_config_files):
     """
     config = setup_config_files
 
-    config['paths']['requirements'].unlink()
+    config["paths"]["requirements"].unlink()
     with pytest.raises(SystemExit):
         lockfile_generate(config)
 
@@ -125,8 +125,8 @@ def test_lockfile_check_when_file_not_exists(setup_config_files):
     """
     # Setup
     config = setup_config_files
-    if config['paths']['lockfile'].exists():
-        config['paths']['lockfile'].unlink()
+    if config["paths"]["lockfile"].exists():
+        config["paths"]["lockfile"].unlink()
 
     # Test
     result = lockfile_check(config, die_on_error=False)
@@ -149,12 +149,13 @@ def test_lockfile_reqs_check_consistent(setup_config_files):
     assert lockfile_reqs_check(config) is True
 
     # Make requirements newer than the lock file
-    config['paths']['requirements'].touch()
+    config["paths"]["requirements"].touch()
 
     with pytest.raises(SystemExit):
         lockfile_reqs_check(config)
 
     assert lockfile_reqs_check(config, die_on_error=False) is False
+
 
 def test_lockfile_reqs_check_inconsistent_version(setup_config_files):
     """
@@ -163,7 +164,7 @@ def test_lockfile_reqs_check_inconsistent_version(setup_config_files):
     are not satisfied by the lock file.
     """
     config = setup_config_files
-    reqs_add(['python==3.11'], config=config)
+    reqs_add(["python==3.11"], config=config)
 
     lockfile_data = [
         {
@@ -175,7 +176,7 @@ def test_lockfile_reqs_check_inconsistent_version(setup_config_files):
             "md5": "md5hash",
             "url": "http://example.com/linux/example.tar.gz#md5hash",
             "name": "python",
-            "version": "3.10"
+            "version": "3.10",
         },
         {
             "manager": "conda",
@@ -186,8 +187,8 @@ def test_lockfile_reqs_check_inconsistent_version(setup_config_files):
             "md5": "md5hash",
             "url": "http://example.com/linux/example.tar.gz#md5hash",
             "name": "pip",
-            "version": "21.2.2"
-        }
+            "version": "21.2.2",
+        },
     ]
     with open(config["paths"]["lockfile"], "w") as f:
         json.dump(lockfile_data, f)
@@ -198,6 +199,7 @@ def test_lockfile_reqs_check_inconsistent_version(setup_config_files):
 
     # check when die_on_error is False
     assert lockfile_reqs_check(config, die_on_error=False) is False
+
 
 def test_lockfile_reqs_check_inconsistent(setup_config_files, mocker):
     """
@@ -239,7 +241,7 @@ def test_lockfile_reqs_check_inconsistent(setup_config_files, mocker):
     assert lockfile_reqs_check(config, die_on_error=False) is False
 
     # remove lockfile
-    config['paths']['lockfile'].unlink()
+    config["paths"]["lockfile"].unlink()
 
     # test it
     with pytest.raises(SystemExit):
@@ -253,7 +255,7 @@ def test_lockfile_reqs_check_inconsistent(setup_config_files, mocker):
     assert lockfile_reqs_check(config, lockfile_consistent=False, die_on_error=False) is False
 
     # test with patched lockfile_check to be False
-    mocker.patch('src.commands.lockfile_check', return_value=False)
+    mocker.patch("src.commands.lockfile_check", return_value=False)
     with pytest.raises(SystemExit):
         lockfile_reqs_check(config, die_on_error=True)
     assert lockfile_reqs_check(config, die_on_error=False) is False
@@ -264,7 +266,7 @@ def test_lockfile_reqs_check_inconsistent(setup_config_files, mocker):
     assert lockfile_reqs_check(config, reqs_consistent=False, die_on_error=False) is False
 
     # test with patched reqs_check to be False
-    mocker.patch('src.commands.reqs_check', return_value=False)
+    mocker.patch("src.commands.reqs_check", return_value=False)
     with pytest.raises(SystemExit):
         lockfile_reqs_check(config, die_on_error=True)
     assert lockfile_reqs_check(config, die_on_error=False) is False

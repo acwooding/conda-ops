@@ -2,8 +2,8 @@ import pytest
 from src.commands import proj_create, proj_load, proj_check
 
 # Assuming these constants are defined in src
-CONDA_OPS_DIR_NAME = '.conda-ops'
-CONFIG_FILENAME = 'config.ini'
+CONDA_OPS_DIR_NAME = ".conda-ops"
+CONFIG_FILENAME = "config.ini"
 
 
 def test_proj_create(mocker, shared_temp_dir):
@@ -18,13 +18,13 @@ def test_proj_create(mocker, shared_temp_dir):
         shared_temp_dir: Pytest fixture providing a shared temporary directory.
     """
     tmpdir = shared_temp_dir
-    mocker.patch('pathlib.Path.cwd', return_value=tmpdir)
-    mocker.patch('src.input', return_value='n')
+    mocker.patch("pathlib.Path.cwd", return_value=tmpdir)
+    mocker.patch("src.input", return_value="n")
 
     config = proj_create()
 
-    assert 'settings' in config
-    assert 'paths' in config
+    assert "settings" in config
+    assert "paths" in config
     assert (tmpdir / CONDA_OPS_DIR_NAME).is_dir()
     assert (tmpdir / CONDA_OPS_DIR_NAME / CONFIG_FILENAME).exists()
 
@@ -41,14 +41,14 @@ def test_proj_load(mocker, shared_temp_dir):
         shared_temp_dir: Pytest fixture providing a shared temporary directory.
     """
     tmpdir = shared_temp_dir
-    mocker.patch('pathlib.Path.cwd', return_value=tmpdir)
+    mocker.patch("pathlib.Path.cwd", return_value=tmpdir)
 
     config = proj_load(die_on_error=True)
 
-    assert 'settings' in config
-    assert 'paths' in config
-    assert len(config['paths']) == 5
-    assert len(config['settings']) == 1
+    assert "settings" in config
+    assert "paths" in config
+    assert len(config["paths"]) == 5
+    assert len(config["settings"]) == 1
 
 
 def test_proj_check(mocker, shared_temp_dir):
@@ -63,7 +63,7 @@ def test_proj_check(mocker, shared_temp_dir):
         shared_temp_dir: Pytest fixture providing a shared temporary directory.
     """
     tmpdir = shared_temp_dir
-    mocker.patch('pathlib.Path.cwd', return_value=tmpdir)
+    mocker.patch("pathlib.Path.cwd", return_value=tmpdir)
     result = proj_check(die_on_error=True)
 
     assert result
@@ -81,7 +81,7 @@ def test_proj_check_no_config(mocker, shared_temp_dir):
         mocker: Pytest mocker fixture for mocking dependencies.
         shared_temp_dir: Pytest fixture providing a shared temporary directory.
     """
-    mocker.patch('src.commands.proj_load', return_value=None)
+    mocker.patch("src.commands.proj_load", return_value=None)
 
     with pytest.raises(SystemExit):
         proj_check(die_on_error=True)

@@ -12,6 +12,7 @@ from io import StringIO
 from pathlib import Path
 
 from conda.models.match_spec import MatchSpec
+
 # from conda.cli.main_info import get_info_dict
 from packaging.requirements import Requirement
 from ruamel.yaml import YAML
@@ -1241,6 +1242,7 @@ def check_env_active(env_name):
     active_env = conda_info["active_prefix_name"]
 
     return active_env == env_name
+
 
 def get_pypi_package_info(package_name, version, filename):
     """
