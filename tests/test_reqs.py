@@ -358,7 +358,7 @@ def test_open_file_in_editor_windows_default(mocker, capsys):
     subprocess.run.assert_called_with(["notepad", path], check=True)
 
 
-def test_open_file_in_editor_unsupported_platform(mocker, capsys):
+def test_open_file_in_editor_unsupported_platform(mocker, caplog):
     """
     Test opening a file on an unsupported platform.
 
@@ -368,5 +368,4 @@ def test_open_file_in_editor_unsupported_platform(mocker, capsys):
     mocker.patch.object(sys, "platform", "sunos")
     filename = "test.txt"
     open_file_in_editor(filename)
-    captured = capsys.readouterr()
-    assert captured.out.strip() == "Unsupported platform: Cannot open file in editor. Please file an issue to have this fixed."
+    assert "Unsupported platform" in caplog.text
