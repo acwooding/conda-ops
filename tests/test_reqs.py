@@ -355,7 +355,7 @@ def test_open_file_in_editor_windows_default(mocker, capsys):
     mocker.patch.object(sys, "platform", "win32")
     open_file_in_editor(filename)
     path = Path(filename).resolve()
-    subprocess.run.assert_called_with(["notepad.exe", path], check=True)
+    subprocess.run.assert_called_with(["notepad", path], check=True)
 
 
 def test_open_file_in_editor_unsupported_platform(mocker, capsys):
@@ -369,4 +369,4 @@ def test_open_file_in_editor_unsupported_platform(mocker, capsys):
     filename = "test.txt"
     open_file_in_editor(filename)
     captured = capsys.readouterr()
-    assert captured.out.strip() == "Unsupported platform: Cannot open file in editor."
+    assert captured.out.strip() == "Unsupported platform: Cannot open file in editor. Please file an issue to have this fixed."
