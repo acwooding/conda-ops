@@ -465,6 +465,8 @@ def open_file_in_editor(filename, editor=None):
     - On Windows, the function uses the 'EDITOR' environment variable if set. If 'EDITOR' is not set, it falls back
       to 'notepad.exe' as the default text editor.
     - For unsupported platforms, the function displays a message indicating that opening the file in the editor is not supported.
+
+    Here is a reference: https://github.com/pallets/click/blob/2cfb61ebba129dacc902dde94fff8bb16619cf12/src/click/_termui_impl.py#L454
     """
     path = Path(filename).resolve()
 
@@ -478,9 +480,9 @@ def open_file_in_editor(filename, editor=None):
                 else:
                     editor = os.environ.get("EDITOR", "vi")  # Use 'vi' if EDITOR is not set
         elif sys.platform.startswith("win"):
-            editor = os.environ.get("EDITOR", "notepad.exe")  # Use 'notepad.exe' if EDITOR is not set
+            editor = os.environ.get("EDITOR", "notepad")  # Use 'notepad' if EDITOR is not set
         else:
-            print("Unsupported platform: Cannot open file in editor.")
+            logger.error("Unsupported platform: Cannot open file in editor. Please file an issue to have this fixed.")
     try:
         subprocess.run([editor, path], check=True)
     except subprocess.CalledProcessError as exception:
