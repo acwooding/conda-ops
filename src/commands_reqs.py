@@ -21,6 +21,9 @@ The main functions provided by this module are as follows.
 Please note that this module relies on other modules and packages within the project, such as .utils.
 """
 
+from pathlib import Path
+import os
+import subprocess
 import sys
 
 from conda.models.match_spec import MatchSpec
@@ -310,6 +313,17 @@ def reqs_list(config):
             print("\n")
     except FileNotFoundError:
         print(f"Requirements file not found.")
+        sys.exit(1)
+
+
+def reqs_edit(config):
+    """
+    Open the requirements file in the default editor.
+
+    TODO: add the ability to choose a different editor in the configuration.
+    """
+    filename = config["paths"]["requirements"]
+    open_file_in_editor(filename)
 
 
 ############################################
@@ -432,3 +446,42 @@ def check_for_duplicates(package_list):
             item_indices[item] = [i]
     duplicates = {item: indices for item, indices in item_indices.items() if len(indices) > 1}
     return duplicates
+
+
+def open_file_in_editor(filename, editor=None):
+    """
+    Open a file in the default text editor based on the platform.
+
+    Arguments:
+    - filename (str): The name of the file to open in the editor.
+    - editor (str): The name of an editor to open. If set, this takes precedence over any environment variables.
+
+    Raises:
+    - subprocess.CalledProcessError: If opening the file in the editor fails.
+
+    Notes:
+    - On macOS and Linux, the function uses the 'VISUAL' environment variable to determine the default text editor.
+      If 'VISUAL is not set, it falls back to 'EDITOR' and then 'vi'.
+    - On Windows, the function uses the 'EDITOR' environment variable if set. If 'EDITOR' is not set, it falls back
+      to 'notepad.exe' as the default text editor.
+    - For unsupported platforms, the function displays a message indicating that opening the file in the editor is not supported.
+    """
+    path = Path(filename).resolve()
+
+    if editor is None:
+        if sys.platform.startswith("darwin") or sys.platform.startswith("linux"):
+            editor = os.environ.get("VISUAL", None)
+            if editor is None:
+                if sys.platform.startswith("darwin"):
+                    # Use 'vim' instead of 'vi' for proper exit codes if no changes are made
+                    editor = os.environ.get("EDITOR", "vim")
+                else:
+                    editor = os.environ.get("EDITOR", "vi")  # Use 'vi' if EDITOR is not set
+        elif sys.platform.startswith("win"):
+            editor = os.environ.get("EDITOR", "notepad.exe")  # Use 'notepad.exe' if EDITOR is not set
+        else:
+            print("Unsupported platform: Cannot open file in editor.")
+    try:
+        subprocess.run([editor, path], check=True)
+    except subprocess.CalledProcessError as exception:
+        logger.error(f"Failed to open the file in the editor {editor}: {exception}")
