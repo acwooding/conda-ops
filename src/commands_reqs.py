@@ -44,7 +44,10 @@ def reqs_add(packages, channel=None, config=None):
     """
     requirements_file = config["paths"]["requirements"]
     package_str = " ".join(packages)
-    logger.info(f"adding packages {package_str} from channel {channel} to the requirements file {requirements_file}")
+    if channel:
+        logger.info(f"Adding packages {package_str} from channel {channel} to the requirements file {requirements_file}")
+    else:
+        logger.info(f"Adding packages {package_str} from the conda defaults channel to the requirements file {requirements_file}")
 
     packages = clean_package_args(packages)
 
@@ -293,6 +296,20 @@ def reqs_check(config, die_on_error=True):
     if die_on_error and not check:
         sys.exit(1)
     return check
+
+
+def reqs_list(config):
+    """
+    Display the contents of the requirements file.
+    """
+    try:
+        with open(config["paths"]["requirements"], "r", encoding="utf-8") as yamlfile:
+            reqs = yaml.load(yamlfile)
+            print("\n")
+            yaml.dump(reqs, sys.stdout)
+            print("\n")
+    except FileNotFoundError:
+        print(f"Requirements file not found.")
 
 
 ############################################

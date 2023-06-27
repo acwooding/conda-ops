@@ -142,7 +142,7 @@ def env_lock(config=None, lock_file=None, env_name=None, pip_dict=None):
     explicit = [x for x in stdout.split("\n") if "https" in x]
 
     # add additional information to go into the lock file based on the kind of package
-    logger.debug(f"Environment {env_name} to be locked with {len(json_reqs)} packages")
+    logger.debug(f"Environment to be locked with {len(json_reqs)} packages")
     for package in json_reqs:
         if package["channel"] == "pypi":
             package["manager"] = "pip"
@@ -526,13 +526,12 @@ def env_delete(config=None, env_name=None):
         logger.info("To deactivate the environment:")
         logger.info(">>> conda deactivate")
     else:
-        print(f"Deleting the conda environment {env_name}")
+        logger.debug(f"Deleting the conda environment {env_name}")
         stdout, stderr, result_code = run_command("remove", "-n", env_name, "--all", use_exception_handler=True)
         if result_code != 0:
             logger.info(stdout)
             logger.info(stderr)
             sys.exit(result_code)
-        logger.info("Environment deleted.")
 
 
 def env_regenerate(config=None, env_name=None, lock_file=None):

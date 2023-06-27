@@ -43,11 +43,12 @@ def lockfile_generate(config, regenerate=True):
 
     if regenerate:
         # create a blank environment name to create the lockfile from scratch
-        raw_test_env = env_name + "-test"
+        raw_test_env = env_name + "-lockfile-generate"
         for i in range(100):
             test_env = raw_test_env + f"-{i}"
             if not check_env_exists(test_env):
                 break
+        logger.debug(f"Using environment {raw_test_env} to generate the lockfile.")
     else:
         test_env = env_name
 
