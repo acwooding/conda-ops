@@ -2,6 +2,7 @@ import configparser
 import pathlib
 from collections.abc import MutableMapping
 
+
 class KVStore(MutableMapping):
     """Dictionary-like key-value store backed to disk by a ConfigParser (ini) file
 
@@ -56,9 +57,8 @@ class KVStore(MutableMapping):
     >>> dict(c), c.data
     ({}, {})
     """
-    def __init__(self, *args,
-                 config_file=None, config_section="KVStore", overwrite=False, persistent=True,
-                 **kwargs):
+
+    def __init__(self, *args, config_file=None, config_section="KVStore", overwrite=False, persistent=True, **kwargs):
         """Create a new disk-backed key-value store
 
         Arguments
@@ -91,7 +91,7 @@ class KVStore(MutableMapping):
             self._config.add_section(config_section)
             self._config.read_dict(self.data)
 
-        self.update({k:v for k,v in self._config.items(self._config_section, raw=True)}) # `update` comes for free from the abc
+        self.update({k: v for k, v in self._config.items(self._config_section, raw=True)})  # `update` comes for free from the abc
         self.update(dict(*args, **kwargs))
         self._write()
 
@@ -122,17 +122,18 @@ class KVStore(MutableMapping):
 
     def _write(self):
         if self._persistent:
-            with open(self._config_file, 'w') as fw:
+            with open(self._config_file, "w") as fw:
                 self._config.write(fw)
 
     def __repr__(self):
-        kvstr = ", ".join([f"{k}='{v}'" for k,v in self.data.items()])
+        kvstr = ", ".join([f"{k}='{v}'" for k, v in self.data.items()])
         return f"KVStore(config_file='{str(self._config_file)}', config_section='{self._config_section}', {kvstr})"
 
     def __str__(self):
-        return str({k:v for k,v in self._config.items(self._config_section, raw=False)})
+        return str({k: v for k, v in self._config.items(self._config_section, raw=False)})
 
 
 if __name__ == "__main__":
     import doctest
+
     doctest.testmod()
