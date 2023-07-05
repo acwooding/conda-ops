@@ -1,8 +1,15 @@
 # tests/test_reqs.py
 
-from src.commands_reqs import reqs_add, reqs_remove, reqs_create, reqs_check, pop_pip_section, check_package_in_list, clean_package_args
-from src.utils import yaml
+from pathlib import Path
+import os
+import subprocess
+import sys
+
 import pytest
+
+from src.commands_reqs import reqs_add, reqs_remove, reqs_create, reqs_check, pop_pip_section, check_package_in_list, clean_package_args, open_file_in_editor
+from src.utils import yaml
+
 
 CONDA_OPS_DIR_NAME = ".conda-ops"
 
@@ -276,3 +283,89 @@ def test_clean_package_args():
         package_args = ["python >?3.11"]
         with pytest.raises(SystemExit):
             clean_package_args(package_args)
+
+
+def test_open_file_in_editor_mac_linux(mocker, capsys):
+    """
+    Test opening a file in the default editor on macOS and Linux.
+
+    It should use the editor specified by the 'EDITOR' environment variable.
+    """
+    mocker.patch("subprocess.run")
+    mocker.patch.dict(os.environ, {"EDITOR": "nano"})
+    filename = "test.txt"
+    open_file_in_editor(filename)
+    path = Path(filename).resolve()
+    subprocess.run.assert_called_with(["nano", path], check=True)
+
+
+def test_open_file_in_editor_mac_linux_default(mocker, capsys):
+    """
+    Test opening a file in the default editor on macOS and Linux with no 'EDITOR' environment variable.
+
+    It should fall back to using the 'vim' editor.
+    """
+    mocker.patch("subprocess.run")
+    mocker.patch.dict(os.environ, clear=True)
+    filename = "test.txt"
+    open_file_in_editor(filename)
+    path = Path(filename).resolve()
+    subprocess.run.assert_called_with(["vim", path], check=True)
+
+
+def test_open_file_in_editor_mac_linux_with_visual(mocker, capsys):
+    """
+    Test opening a file in the default editor on macOS and Linux using the 'VISUAL' environment variable.
+
+    It should use the editor specified by the 'VISUAL' environment variable when 'EDITOR' is not set.
+    """
+    mocker.patch("subprocess.run")
+    mocker.patch.dict(os.environ, clear=True)
+    mocker.patch.dict(os.environ, {"VISUAL": "mg"})
+    filename = "test.txt"
+    open_file_in_editor(filename)
+    path = Path(filename).resolve()
+    subprocess.run.assert_called_with(["mg", path], check=True)
+
+
+def test_open_file_in_editor_windows(mocker, capsys):
+    """
+    Test opening a file in the default editor on Windows.
+
+    It should use the editor specified by the 'EDITOR' environment variable.
+    """
+    mocker.patch("subprocess.run")
+    mocker.patch.dict(os.environ, {"EDITOR": "notepad++"})
+    filename = "test.txt"
+    mocker.patch.object(sys, "platform", "win32")
+    open_file_in_editor(filename)
+    path = Path(filename).resolve()
+    subprocess.run.assert_called_with(["notepad++", path], check=True)
+
+
+def test_open_file_in_editor_windows_default(mocker, capsys):
+    """
+    Test opening a file in the default editor on Windows with no 'EDITOR' environment variable.
+
+    It should fall back to using the 'notepad.exe' editor.
+    """
+    mocker.patch("subprocess.run")
+    mocker.patch.dict(os.environ, clear=True)
+    filename = "test.txt"
+    mocker.patch.object(sys, "platform", "win32")
+    open_file_in_editor(filename)
+    path = Path(filename).resolve()
+    subprocess.run.assert_called_with(["notepad", path], check=True)
+
+
+def test_open_file_in_editor_unsupported_platform(mocker, caplog):
+    """
+    Test opening a file on an unsupported platform.
+
+    It should display a message indicating that the platform is unsupported.
+    """
+    mocker.patch("subprocess.run")
+    mocker.patch.object(sys, "platform", "sunos")
+    filename = "test.txt"
+    open_file_in_editor(filename)
+    assert "Unsupported platform" in caplog.text

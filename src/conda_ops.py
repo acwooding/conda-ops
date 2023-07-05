@@ -3,7 +3,7 @@ import conda.plugins
 
 from .commands import consistency_check, lockfile_generate
 from .commands_proj import proj_load, proj_create, proj_check
-from .commands_reqs import reqs_create, reqs_add, reqs_check, reqs_remove, reqs_list
+from .commands_reqs import reqs_create, reqs_add, reqs_check, reqs_remove, reqs_list, reqs_edit
 from .commands_lockfile import lockfile_check, lockfile_reqs_check
 from .commands_env import (
     env_activate,
@@ -49,6 +49,7 @@ def conda_ops(argv: list):
     r_remove.add_argument("packages", type=str, nargs="+")
     reqs_subparser.add_parser("check")
     reqs_subparser.add_parser("list")
+    reqs_subparser.add_parser("edit")
 
     lockfile = subparsers.add_parser("lockfile", help="Accepts generate, update, check, reqs-check", parents=[parent_parser])
     lockfile.add_argument("kind", type=str)
@@ -127,6 +128,8 @@ def conda_ops(argv: list):
             logger.info("Requirements file is consistent")
     elif args.reqs_command == "list":
         reqs_list(config)
+    elif args.reqs_command == "edit":
+        reqs_edit(config)
     else:
         logger.error(f"Unhandled conda ops subcommand: '{args.command}'")
 
