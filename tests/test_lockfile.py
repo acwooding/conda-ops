@@ -159,6 +159,45 @@ def test_lockfile_reqs_check_consistent(setup_config_files):
     assert lockfile_reqs_check(config, die_on_error=False) is False
 
 
+def test_lockfile_reqs_check_consistent_equals(setup_config_files):
+    """
+    This checks when the requirments and lock file are individually consistent,
+    the requirements are all in the lock file by name, but the version constrainst
+    are not satisfied by the lock file.
+    """
+    config = setup_config_files
+    reqs_add(["python==3.11"], config=config, channel="pip")
+
+    lockfile_data = [
+        {
+            "manager": "pip",
+            "base_url": "http://example.com",
+            "platform": "linux",
+            "dist_name": "example",
+            "extension": ".tar.gz",
+            "md5": "md5hash",
+            "url": "http://example.com/linux/example.tar.gz#md5hash",
+            "name": "python",
+            "version": "3.11.0",
+        },
+        {
+            "manager": "conda",
+            "base_url": "http://example.com",
+            "platform": "linux",
+            "dist_name": "example",
+            "extension": ".tar.gz",
+            "md5": "md5hash",
+            "url": "http://example.com/linux/example.tar.gz#md5hash",
+            "name": "pip",
+            "version": "21.2.2",
+        },
+    ]
+    with open(config["paths"]["lockfile"], "w") as f:
+        json.dump(lockfile_data, f)
+
+    assert lockfile_reqs_check(config) is True
+
+
 def test_lockfile_reqs_check_inconsistent_version(setup_config_files):
     """
     This checks when the requirments and lock file are individually consistent,
