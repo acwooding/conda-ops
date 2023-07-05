@@ -60,6 +60,7 @@ def proj_create():
         "lockfile": "${ops_dir}/lockfile.json",
         "explicit_lockfile": "${ops_dir}/lockfile.explicit",
         "pip_explicit_lockfile": "${ops_dir}/lockfile.pypi",
+        "conda_config": "{ops_dir}/.condarc",
     }
     _config_settings = {
         "env_name": env_name,
