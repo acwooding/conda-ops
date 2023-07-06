@@ -1,5 +1,12 @@
-from src.utils import logger
+from collections.abc import Mapping
+import sys
+
 from conda.base.context import context
+from conda.common.serialize import yaml_round_trip_load, yaml_round_trip_dump
+from conda.common.iterators import groupby_to_dict as groupby
+from conda.common.compat import isiterable
+
+from src.utils import logger
 
 
 ##################################################################
@@ -214,3 +221,92 @@ def check_config_items_match(config_map=None):
         if len(extra_ops) > 0:
             logger.warning(f"The following configurations settings are missing from conda: {list(extra_ops)}")
     return channel_match and solver_match and total_match
+
+
+def check_condarc_matches_opinions(rc_path=None, config=None):
+    """ """
+    if not rc_path:
+        rc_path = config["paths"]["condarc"]
+    if not rc_path.exists():
+        logger.error(f"The file {rc_path} does not exist. There is nothing to compare against.")
+        sys.exit(1)
+
+
+def condarc_create(rc_path=None, config=None):
+    """
+    Generate a .condarc file consisting of the channel and solver configurations.
+
+    Use the following settings even if it's different than what currently exists in the configuration:
+
+    CONDAOPS_OPINIONS = {
+        "channels": ["defaults"],
+        "channel_priority": "flexible",
+        "override_channels_enabled": True,
+        "pip_interop_enabled": True,
+    }
+
+    Set all the rest of the channel and solver configurations to the current ones from the conda that is running.
+
+    Create a .condarc file in rc_path if specified and in config['paths']['condarc'] if rc_path is not given.
+    It will not overwrite the path if it exists.
+    """
+    if not rc_path:
+        rc_path = config["paths"]["condarc"]
+    if rc_path.exists():
+        logger.error(f"The file {rc_path} already exists. Please remove it if you'd like to create a new one.")
+        sys.exit(1)
+
+    paramater_names = context.list_parameters()
+
+    d = {key: getattr(context, key) for key in paramater_names}
+
+    grouped_paramaters = groupby(
+        lambda p: context.describe_parameter(p)["parameter_type"],
+        context.list_parameters(),
+    )
+    # primitive_parameters = grouped_paramaters["primitive"]
+    sequence_parameters = grouped_paramaters["sequence"]
+    # map_parameters = grouped_paramaters["map"]
+    # all_parameters = primitive_parameters + sequence_parameters + map_parameters
+
+    rc_config = {}
+    for key in WHITELIST_CHANNEL + WHITELIST_SOLVER:
+        if key in CONDAOPS_OPINIONS.keys():
+            if key in sequence_parameters:
+                if list(d[key]) != CONDAOPS_OPINIONS[key]:
+                    logger.warning(f"Setting conda-ops configuration of {key} to {CONDAOPS_OPINIONS[key]}, while existing default is {d[key]}.")
+            elif str(d[key]) != str(CONDAOPS_OPINIONS[key]):
+                logger.warning(f"Setting conda-ops configuration of {key} to {CONDAOPS_OPINIONS[key]}, while existing default is {d[key]}.")
+            rc_config[key] = CONDAOPS_OPINIONS[key]
+        else:
+            # Add in custom formatting
+            # modifications as per conda/cli/main_config.py
+            if key == "custom_channels":
+                rc_config["custom_channels"] = {channel.name: f"{channel.scheme}://{channel.location}" for channel in d["custom_channels"].values()}
+            elif key == "custom_multichannels":
+                rc_config["custom_multichannels"] = {multichannel_name: [str(x) for x in channels] for multichannel_name, channels in d["custom_multichannels"].items()}
+            elif key == "channel_alias":
+                rc_config[key] = str(d[key])
+            elif isinstance(d[key], Mapping):
+                rc_config[key] = {str(k): str(v) for k, v in d[key].items()}
+            elif isiterable(d[key]):
+                rc_config[key] = [str(x) for x in d[key]]
+            elif isinstance(d[key], bool):
+                rc_config[key] = d[key]
+            else:
+                rc_config[key] = str(d[key])
+
+    with open(rc_path, "w") as rc:
+        rc.write(yaml_round_trip_dump(rc_config))
+
+    logger.debug("Created .condarc file")
+
+
+## TODOS
+# create initial config file
+# check the opinionated options
+# add conda ops config --set ability
+# add conda ops config --show ability? (how do we show it)
+# add config info in conda ops status, at least show if the opinionated settings aren't right
+# wrap run_command and any conda calls to set $CONDARC and unset $CONDARC before and after
+# move pip_interop_enabled to the configuration

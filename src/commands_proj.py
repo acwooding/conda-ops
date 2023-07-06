@@ -21,6 +21,7 @@ from .kvstore import KVStore
 from ._paths import PathStore
 
 from .utils import CONDA_OPS_DIR_NAME, CONFIG_FILENAME, logger
+from src.conda_config import condarc_create
 
 
 ##################################################################
@@ -60,7 +61,7 @@ def proj_create():
         "lockfile": "${ops_dir}/lockfile.json",
         "explicit_lockfile": "${ops_dir}/lockfile.explicit",
         "pip_explicit_lockfile": "${ops_dir}/lockfile.pypi",
-        "conda_config": "{ops_dir}/.condarc",
+        "condarc": "${ops_dir}/.condarc",
     }
     _config_settings = {
         "env_name": env_name,
@@ -70,6 +71,9 @@ def proj_create():
 
     config["settings"] = KVStore(_config_settings, config_file=config_file, config_section="OPS_SETTINGS")
     config["paths"] = PathStore(_config_paths, config_file=config_file, config_section="OPS_PATHS")
+
+    # create the .condarc file
+    condarc_create(config=config)
 
     return config
 

@@ -26,6 +26,7 @@ def setup_config_files(shared_temp_dir):
             "lockfile": ops_dir / "lockfile.json",
             "explicit_lockfile": ops_dir / "lockfile.explicit",
             "pip_explicit_lockfile": ops_dir / "lockfile.pypi",
+            "condarc": ops_dir / ".condarc",
         },
         "settings": {
             "env_name": str(shared_temp_dir.name),

@@ -1,6 +1,9 @@
-from src.conda_config import check_config_items_match
-from src.utils import logger
 from pytest_mock import mocker
+
+from conda.common.serialize import yaml_round_trip_load
+
+from src.conda_config import check_config_items_match, CONDAOPS_OPINIONS, condarc_create, WHITELIST_CHANNEL, WHITELIST_SOLVER
+from src.utils import logger
 
 
 def test_check_config_items_match():
@@ -66,3 +69,20 @@ def test_check_config_items_match_total_mismatch(mocker):
 
     assert result is False
     logger.warning.assert_called_with("The following configurations are in conda but unrecognized by conda-ops: ['extra_param']")
+
+
+def test_condarc_create(setup_config_files):
+    """
+    Check that the opinionated entries match the generated file and that only whitelist parameters are included in the file.
+    """
+    config = setup_config_files
+    condarc_create(config=config)
+    rc_path = config["paths"]["condarc"]
+    with open(rc_path, "r") as fh:
+        rc_config = yaml_round_trip_load(fh)
+    WHITELIST = WHITELIST_CHANNEL + WHITELIST_SOLVER
+    assert len(rc_config) == len(WHITELIST)
+    for key in rc_config.keys():
+        assert key in WHITELIST
+    for key, value in CONDAOPS_OPINIONS.items():
+        assert value == rc_config[key]

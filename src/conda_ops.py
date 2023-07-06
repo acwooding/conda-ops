@@ -17,6 +17,7 @@ from .commands_env import (
     env_lock,
     pip_step_env_lock,
 )
+from .conda_config import condarc_create
 from .utils import logger
 
 
@@ -111,7 +112,7 @@ def conda_ops(argv: list):
         elif args.kind == "lockfile-check":
             env_lockfile_check(config)
     elif args.command == "test":
-        pip_step_env_lock(config)
+        condarc_create(config=config)
     elif args.reqs_command == "create":
         reqs_create(config)
     elif args.reqs_command == "add":
