@@ -1,6 +1,6 @@
 from src.utils import check_env_exists
 from src.commands import lockfile_generate
-from src.commands_env import env_create, env_check
+from src.commands_env import env_create, env_check, get_prefix
 from src.python_api import run_command
 import pytest
 import logging
@@ -16,22 +16,28 @@ def test_check_env_exists(shared_temp_dir):
     env_name = "very_unlikely_env_name_that_doesnt_exist"
     assert check_env_exists(env_name) is False
 
-    # create an environment
+    # create an environment and test its existence
     env_name = shared_temp_dir.name
     if check_env_exists(env_name):
-        env_name = shared_temp_dir.name + "test"
+        # remove it if it exists already
+        stdout, stderr, result_code = run_command("remove", "--prefix", get_prefix(env_name), "--all", use_exception_handler=True)
+        if result_code != 0:
+            logger.error(stdout)
+            logger.error(stderr)
+        assert check_env_exists(env_name) is False
 
-    stdout, stderr, result_code = run_command("create", "-n", env_name, use_exception_handler=True)
+    stdout, stderr, result_code = run_command("create", "--prefix", get_prefix(env_name), use_exception_handler=True)
     if result_code != 0:
         logger.error(stdout)
         logger.error(stderr)
     assert check_env_exists(env_name) is True
 
     # clean up
-    stdout, stderr, result_code = run_command("remove", "-n", env_name, "--all", use_exception_handler=True)
+    stdout, stderr, result_code = run_command("remove", "--prefix", get_prefix(env_name), "--all", use_exception_handler=True)
     if result_code != 0:
         logger.error(stdout)
         logger.error(stderr)
+    assert check_env_exists(env_name) is False
 
 
 def test_env_create(setup_config_files):
@@ -46,10 +52,13 @@ def test_env_create(setup_config_files):
 
     # if an env with this name exists, remove it
     if check_env_exists(env_name):
-        stdout, stderr, result_code = run_command("remove", "-n", env_name, "--all", use_exception_handler=True)
+        logger.warning(f"Environment already exists with name {env_name}. Attempting to remove it.")
+        stdout, stderr, result_code = run_command("remove", "--prefix", get_prefix(env_name), "--all", use_exception_handler=True)
         if result_code != 0:
             logger.error(stdout)
             logger.error(stderr)
+    else:
+        logger.warning(f"No environment with name {env_name} found.")
 
     # Call the env_create function
     env_create(config)
@@ -62,13 +71,19 @@ def test_env_create(setup_config_files):
     with pytest.raises(SystemExit):
         env_create(config)
 
+    # clean up
+    stdout, stderr, result_code = run_command("remove", "--prefix", get_prefix(env_name), "--all", use_exception_handler=True)
+    if result_code != 0:
+        logger.error(stdout)
+        logger.error(stderr)
+
 
 def test_env_create_no_lockfile(setup_config_files):
     """
     Test the env_create function when no requirements file is provided.
     """
     config = setup_config_files
-    config["paths"]["lockfile"] = None
+    config["paths"]["lockfile"].unlink()  # remove the lockfile
 
     # Call the env_create function
     with pytest.raises(SystemExit):

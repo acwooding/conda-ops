@@ -73,11 +73,12 @@ def env_create(config=None, env_name=None, lock_file=None):
 
     explicit_lock_file = config["paths"]["explicit_lockfile"]
     logger.info(f"Creating the environment {env_name}")
-    conda_args = ["-n", env_name, "--file", str(explicit_lock_file)]
+    prefix = get_prefix(env_name)
+    conda_args = ["--prefix", prefix, "--file", str(explicit_lock_file)]
     stdout, stderr, result_code = run_command("create", conda_args, use_exception_handler=True)
     if result_code != 0:
-        logger.info(stdout)
-        logger.info(stderr)
+        logger.error(stdout)
+        logger.error(stderr)
         sys.exit(result_code)
     logger.info(stdout)
 
@@ -90,11 +91,11 @@ def env_create(config=None, env_name=None, lock_file=None):
         stdout_backup = sys.stdout
         sys.stdout = capture_output = StringIO()
         with redirect_stdout(capture_output):
-            conda_args = ["-n", env_name, "pip", "install", "-r", str(pip_lock_file), "--verbose"]
+            conda_args = ["--prefix", get_prefix(env_name), "pip", "install", "-r", str(pip_lock_file), "--verbose"]
             stdout, stderr, result_code = run_command("run", conda_args, use_exception_handler=True)
             if result_code != 0:
-                logger.info(stdout)
-                logger.info(stderr)
+                logger.error(stdout)
+                logger.error(stderr)
                 sys.exit(result_code)
         sys.stdout = stdout_backup
         stdout_str = capture_output.getvalue()
@@ -120,24 +121,25 @@ def env_lock(config=None, lock_file=None, env_name=None, pip_dict=None):
     # json requirements
     # need to use a subprocess to get any newly installed python package information
     # that was installed via pip
-    conda_args = ["-n", env_name, "--json"]
+    prefix = get_prefix(env_name)
+    conda_args = ["--prefix", prefix, "--json"]
     result = subprocess.run(["conda", "list"] + conda_args, capture_output=True, check=False)
     result_code = result.returncode
     stdout = result.stdout
     stderr = result.stderr
     if result_code != 0:
-        logger.info(stdout)
-        logger.info(stderr)
+        logger.error(stdout)
+        logger.error(stderr)
         sys.exit(result_code)
 
     json_reqs = json.loads(stdout)
 
     # explicit requirements to get full urls and md5
-    conda_args = ["-n", env_name, "--explicit", "--md5"]
+    conda_args = ["--prefix", prefix, "--explicit", "--md5"]
     stdout, stderr, result_code = run_command("list", conda_args, use_exception_handler=True)
     if result_code != 0:
-        logger.info(stdout)
-        logger.info(stderr)
+        logger.error(stdout)
+        logger.error(stderr)
         sys.exit(1)
     explicit = [x for x in stdout.split("\n") if "https" in x]
 
@@ -196,19 +198,22 @@ def conda_step_env_lock(channel, config, env_name=None):
         logger.warning("No packages to be installed at this step")
         return {}
     if check_env_exists(env_name):
-        conda_args = ["-n", env_name, "-c", channel] + package_list
+        prefix = get_prefix(env_name)
+        conda_args = ["--prefix", prefix, "-c", channel] + package_list
         stdout, stderr, result_code = run_command("install", conda_args, use_exception_handler=True)
         if result_code != 0:
-            logger.info(stdout)
-            logger.info(stderr)
+            logger.error(stdout)
+            logger.error(stderr)
             return None
     else:
         # create the environment directly
-        conda_args = ["-n", env_name, "-c", channel] + package_list
+        prefix = get_prefix(env_name)
+        logger.debug(f"Creating environment {env_name} at {prefix} ")
+        conda_args = ["--prefix", prefix, "-c", channel] + package_list
         stdout, stderr, result_code = run_command("create", conda_args, use_exception_handler=True)
         if result_code != 0:
-            logger.info(stdout)
-            logger.info(stderr)
+            logger.error(stdout)
+            logger.error(stderr)
             return None
 
     channel_lockfile = ops_dir / f".ops.lock.{channel}"
@@ -239,11 +244,11 @@ def pip_step_env_lock(config, env_name=None):
     stdout_backup = sys.stdout
     sys.stdout = capture_output = StringIO()
     with redirect_stdout(capture_output):
-        conda_args = ["-n", env_name, "pip", "install", "-r", str(pypi_reqs_file), "--verbose"]
+        conda_args = ["--prefix", get_prefix(env_name), "pip", "install", "-r", str(pypi_reqs_file), "--verbose"]
         stdout, stderr, result_code = run_command("run", conda_args, use_exception_handler=True)
         if result_code != 0:
-            logger.info(stdout)
-            logger.info(stderr)
+            logger.error(stdout)
+            logger.error(stderr)
             return None
     sys.stdout = stdout_backup
     stdout_str = capture_output.getvalue()
@@ -335,12 +340,13 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
     check = True
 
     logger.debug(f"Enumerating packages from the conda ops environment {env_name}")
-    conda_args = ["-n", env_name, "--explicit", "--md5"]
+
+    conda_args = ["--prefix", get_prefix(env_name), "--explicit", "--md5"]
     stdout, stderr, result_code = run_command("list", conda_args, use_exception_handler=True)
     if result_code != 0:
         logger.error("Could not get packages from the environment")
-        logger.info(stdout)
-        logger.info(stderr)
+        logger.error(stdout)
+        logger.error(stderr)
         if die_on_error:
             sys.exit(result_code)
         else:
@@ -384,7 +390,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
     # check that the pip contents of the lockfile match the conda environment
 
     # need to use a subprocess to ensure we get all of the pip package info
-    conda_args = ["-n", env_name, "--json"]
+    conda_args = ["--prefix", get_prefix(env_name), "--json"]
     result = subprocess.run(["conda", "list"] + conda_args, capture_output=True, check=False)
     result_code = result.returncode
     stdout = result.stdout
@@ -483,11 +489,11 @@ def env_install(config=None):
     explicit_files = generate_explicit_lock_files(config)
 
     logger.info(f"Installing lockfile into the environment {env_name}")
-    conda_args = ["-n", env_name, "--file", str(explicit_lock_file)]
+    conda_args = ["--prefix", get_prfix(env_name), "--file", str(explicit_lock_file)]
     stdout, stderr, result_code = run_command("install", conda_args, use_exception_handler=True)
     if result_code != 0:
-        logger.info(stdout)
-        logger.info(stderr)
+        logger.error(stdout)
+        logger.error(stderr)
         sys.exit(result_code)
     logger.info(stdout)
 
@@ -498,11 +504,11 @@ def env_install(config=None):
         stdout_backup = sys.stdout
         sys.stdout = capture_output = StringIO()
         with redirect_stdout(capture_output):
-            conda_args = ["-n", env_name, "pip", "install", "-r", str(pip_lock_file), "--verbose"]
+            conda_args = ["--prefix", get_prefix(env_name), "pip", "install", "-r", str(pip_lock_file), "--verbose"]
             stdout, stderr, result_code = run_command("run", conda_args, use_exception_handler=True)
             if result_code != 0:
-                logger.info(stdout)
-                logger.info(stderr)
+                logger.error(stdout)
+                logger.error(stderr)
         sys.stdout = stdout_backup
         stdout_str = capture_output.getvalue()
         logger.info(stdout_str)
@@ -527,10 +533,10 @@ def env_delete(config=None, env_name=None):
         logger.info(">>> conda deactivate")
     else:
         logger.debug(f"Deleting the conda environment {env_name}")
-        stdout, stderr, result_code = run_command("remove", "-n", env_name, "--all", use_exception_handler=True)
+        stdout, stderr, result_code = run_command("remove", "--prefix", get_prefix(env_name), "--all", use_exception_handler=True)
         if result_code != 0:
-            logger.info(stdout)
-            logger.info(stderr)
+            logger.error(stdout)
+            logger.error(stderr)
             sys.exit(result_code)
 
 
@@ -578,8 +584,8 @@ def env_pip_interop(config=None, env_name=None, flag=True):
 
     stdout, stderr, result_code = run_command("config", conda_args, use_exception_handler=True)
     if result_code != 0:
-        logger.info(stdout)
-        logger.info(stderr)
+        logger.error(stdout)
+        logger.error(stderr)
         sys.exit(1)
     return True
 
@@ -768,3 +774,20 @@ def extract_pip_installed_filenames(stdout, config=None):
             logger.error("Unimplemented so far...")
             logger.debug(package_stdout)
     return filename_dict
+
+
+def get_prefix(env_name):
+    """
+    When conda is in an environment, the prefix gets computed on top of the active environment prefix which
+    leads to odd behavious. Determine the prefix to use and pass that instead.
+    """
+    conda_info = get_conda_info()
+    active_prefix = conda_info["active_prefix"]
+    env_dirs = conda_info["envs_dirs"]
+    if Path(env_dirs[0]) == Path(active_prefix) / "envs":
+        split = str(env_dirs[0]).split("envs")
+        prefix = Path(split[0]) / "envs"
+    else:
+        prefix = Path(env_dirs[0])
+    logger.debug(prefix)
+    return str(prefix / env_name)

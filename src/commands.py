@@ -101,6 +101,7 @@ def lockfile_generate(config, regenerate=True):
     Path(ops_dir / ".ops.channel-order.include").unlink()
     if regenerate:
         env_delete(env_name=test_env)
+        logger.debug("Deleted intermediate environment")
 
 
 ############################################

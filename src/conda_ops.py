@@ -17,7 +17,7 @@ from .commands_env import (
     env_lock,
     pip_step_env_lock,
 )
-from .conda_config import condarc_create
+from .conda_config import condarc_create, check_config_items_match
 from .utils import logger
 
 

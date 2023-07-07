@@ -1,4 +1,5 @@
 from pytest_mock import mocker
+from pathlib import Path
 
 from conda.common.serialize import yaml_round_trip_load
 
@@ -76,8 +77,8 @@ def test_condarc_create(setup_config_files):
     Check that the opinionated entries match the generated file and that only whitelist parameters are included in the file.
     """
     config = setup_config_files
-    condarc_create(config=config)
-    rc_path = config["paths"]["condarc"]
+    rc_path = Path(str(config["paths"]["condarc"]) + "test")
+    condarc_create(rc_path=rc_path)
     with open(rc_path, "r") as fh:
         rc_config = yaml_round_trip_load(fh)
     WHITELIST = WHITELIST_CHANNEL + WHITELIST_SOLVER
