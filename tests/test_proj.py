@@ -1,5 +1,8 @@
+import os
+
 import pytest
-from src.commands_proj import proj_create, proj_load, proj_check
+
+from src.commands_proj import proj_create, proj_load, proj_check, CondaOpsManagedCondarc
 
 # Assuming these constants are defined in src
 CONDA_OPS_DIR_NAME = ".conda-ops"
@@ -89,3 +92,19 @@ def test_proj_check_no_config(mocker, shared_temp_dir):
     result = proj_check(die_on_error=False)
 
     assert not result
+
+
+def test_condarc_context_handling(mocker, setup_config_files):
+    """
+    Test that the context handler correctly sets and unsets the environment variable CONDARC
+    """
+    config = setup_config_files
+    mocker.patch("src.commands_proj.proj_load", return_value=config)
+
+    original_condarc = os.environ.get("CONDARC")
+    with CondaOpsManagedCondarc():
+        assert os.environ.get("CONDARC") == str(config["paths"]["condarc"])
+
+    # the CONDARC value with the esoteric including the temp dir should never be set outside of a context handler
+    assert os.environ.get("CONDARC") != str(config["paths"]["condarc"])
+    assert os.environ.get("CONDARC") == original_condarc

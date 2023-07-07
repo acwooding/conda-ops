@@ -7,11 +7,11 @@ import sys
 
 # from conda.cli.main_info import get_info_dict
 
-from .utils import logger, check_env_exists
+from .utils import logger
 from .commands_proj import proj_check
 from .commands_reqs import reqs_check
 from .commands_lockfile import lockfile_check, lockfile_reqs_check
-from .commands_env import env_check, env_lockfile_check, conda_step_env_lock, pip_step_env_lock, env_delete
+from .commands_env import env_check, env_lockfile_check, conda_step_env_lock, pip_step_env_lock, env_delete, check_env_exists
 from .split_requirements import create_split_files
 
 ##################################################################

@@ -10,9 +10,9 @@ from contextlib import redirect_stdout
 from packaging.requirements import Requirement
 
 from .python_api import run_command
-from .commands_proj import proj_load
+from .commands_proj import proj_load, get_conda_info, CondaOpsManagedCondarc
 from .commands_lockfile import lockfile_check
-from .utils import logger, get_conda_info, check_env_exists, check_env_active
+from .utils import logger
 
 ##################################################################
 #
@@ -74,12 +74,13 @@ def env_create(config=None, env_name=None, lock_file=None):
     explicit_lock_file = config["paths"]["explicit_lockfile"]
     logger.info(f"Creating the environment {env_name}")
     prefix = get_prefix(env_name)
-    conda_args = ["--prefix", prefix, "--file", str(explicit_lock_file)]
-    stdout, stderr, result_code = run_command("create", conda_args, use_exception_handler=True)
-    if result_code != 0:
-        logger.error(stdout)
-        logger.error(stderr)
-        sys.exit(result_code)
+    with CondaOpsManagedCondarc():
+        conda_args = ["--prefix", prefix, "--file", str(explicit_lock_file)]
+        stdout, stderr, result_code = run_command("create", conda_args)
+        if result_code != 0:
+            logger.error(stdout)
+            logger.error(stderr)
+            sys.exit(result_code)
     logger.info(stdout)
 
     pip_lock_file = config["paths"]["pip_explicit_lockfile"]
@@ -88,18 +89,19 @@ def env_create(config=None, env_name=None, lock_file=None):
 
         # Workaround for the issue in conda version 23.5.0 (and greater?) see issues.
         # We need to capture the pip install output to get the exact filenames of the packages
-        stdout_backup = sys.stdout
-        sys.stdout = capture_output = StringIO()
-        with redirect_stdout(capture_output):
-            conda_args = ["--prefix", get_prefix(env_name), "pip", "install", "-r", str(pip_lock_file), "--verbose"]
-            stdout, stderr, result_code = run_command("run", conda_args, use_exception_handler=True)
-            if result_code != 0:
-                logger.error(stdout)
-                logger.error(stderr)
-                sys.exit(result_code)
-        sys.stdout = stdout_backup
-        stdout_str = capture_output.getvalue()
-        logger.info(stdout_str)
+        with CondaOpsManagedCondarc():
+            stdout_backup = sys.stdout
+            sys.stdout = capture_output = StringIO()
+            with redirect_stdout(capture_output):
+                conda_args = ["--prefix", get_prefix(env_name), "pip", "install", "-r", str(pip_lock_file), "--verbose"]
+                stdout, stderr, result_code = run_command("run", conda_args)
+                if result_code != 0:
+                    logger.error(stdout)
+                    logger.error(stderr)
+                    sys.exit(result_code)
+            sys.stdout = stdout_backup
+            stdout_str = capture_output.getvalue()
+            logger.info(stdout_str)
 
     logger.info("Environment created. To activate the environment:")
     logger.info(f">>> conda activate {env_name}")
@@ -121,26 +123,27 @@ def env_lock(config=None, lock_file=None, env_name=None, pip_dict=None):
     # json requirements
     # need to use a subprocess to get any newly installed python package information
     # that was installed via pip
-    prefix = get_prefix(env_name)
-    conda_args = ["--prefix", prefix, "--json"]
-    result = subprocess.run(["conda", "list"] + conda_args, capture_output=True, check=False)
-    result_code = result.returncode
-    stdout = result.stdout
-    stderr = result.stderr
-    if result_code != 0:
-        logger.error(stdout)
-        logger.error(stderr)
-        sys.exit(result_code)
+    with CondaOpsManagedCondarc():
+        conda_args = ["--prefix", get_prefix(env_name), "--json"]
+        result = subprocess.run(["conda", "list"] + conda_args, capture_output=True, check=False)
+        result_code = result.returncode
+        stdout = result.stdout
+        stderr = result.stderr
+        if result_code != 0:
+            logger.error(stdout)
+            logger.error(stderr)
+            sys.exit(result_code)
 
     json_reqs = json.loads(stdout)
 
     # explicit requirements to get full urls and md5
-    conda_args = ["--prefix", prefix, "--explicit", "--md5"]
-    stdout, stderr, result_code = run_command("list", conda_args, use_exception_handler=True)
-    if result_code != 0:
-        logger.error(stdout)
-        logger.error(stderr)
-        sys.exit(1)
+    with CondaOpsManagedCondarc():
+        conda_args = ["--prefix", get_prefix(env_name), "--explicit", "--md5"]
+        stdout, stderr, result_code = run_command("list", conda_args, use_exception_handler=True)
+        if result_code != 0:
+            logger.error(stdout)
+            logger.error(stderr)
+            sys.exit(1)
     explicit = [x for x in stdout.split("\n") if "https" in x]
 
     # add additional information to go into the lock file based on the kind of package
@@ -197,24 +200,25 @@ def conda_step_env_lock(channel, config, env_name=None):
     if len(package_list) == 0:
         logger.warning("No packages to be installed at this step")
         return {}
+    prefix = get_prefix(env_name)
     if check_env_exists(env_name):
-        prefix = get_prefix(env_name)
         conda_args = ["--prefix", prefix, "-c", channel] + package_list
-        stdout, stderr, result_code = run_command("install", conda_args, use_exception_handler=True)
-        if result_code != 0:
-            logger.error(stdout)
-            logger.error(stderr)
-            return None
+        with CondaOpsManagedCondarc():
+            stdout, stderr, result_code = run_command("install", conda_args)
+            if result_code != 0:
+                logger.error(stdout)
+                logger.error(stderr)
+                return None
     else:
         # create the environment directly
-        prefix = get_prefix(env_name)
         logger.debug(f"Creating environment {env_name} at {prefix} ")
-        conda_args = ["--prefix", prefix, "-c", channel] + package_list
-        stdout, stderr, result_code = run_command("create", conda_args, use_exception_handler=True)
-        if result_code != 0:
-            logger.error(stdout)
-            logger.error(stderr)
-            return None
+        with CondaOpsManagedCondarc():
+            conda_args = ["--prefix", prefix, "-c", channel] + package_list
+            stdout, stderr, result_code = run_command("create", conda_args, use_exception_handler=True)
+            if result_code != 0:
+                logger.error(stdout)
+                logger.error(stderr)
+                return None
 
     channel_lockfile = ops_dir / f".ops.lock.{channel}"
     json_reqs = env_lock(lock_file=channel_lockfile, env_name=env_name)
@@ -232,7 +236,7 @@ def pip_step_env_lock(config, env_name=None):
     if env_name is None:
         env_name = config["settings"]["env_name"]
 
-    env_pip_interop(env_name=env_name, flag=True)
+    env_pip_interop(config=config, flag=True)
 
     ops_dir = config["paths"]["ops_dir"]
     logger.info(f"Generating the intermediate lock file for pip via environment {env_name}")
@@ -241,17 +245,18 @@ def pip_step_env_lock(config, env_name=None):
 
     # Workaround for the issue in cconda version 23.5.0 (and greater?) see issues.
     # We need to capture the pip install output to get the exact filenames of the packages
-    stdout_backup = sys.stdout
-    sys.stdout = capture_output = StringIO()
-    with redirect_stdout(capture_output):
-        conda_args = ["--prefix", get_prefix(env_name), "pip", "install", "-r", str(pypi_reqs_file), "--verbose"]
-        stdout, stderr, result_code = run_command("run", conda_args, use_exception_handler=True)
-        if result_code != 0:
-            logger.error(stdout)
-            logger.error(stderr)
-            return None
-    sys.stdout = stdout_backup
-    stdout_str = capture_output.getvalue()
+    with CondaOpsManagedCondarc():
+        stdout_backup = sys.stdout
+        sys.stdout = capture_output = StringIO()
+        with redirect_stdout(capture_output):
+            conda_args = ["--prefix", get_prefix(env_name), "pip", "install", "-r", str(pypi_reqs_file), "--verbose"]
+            stdout, stderr, result_code = run_command("run", conda_args, use_exception_handler=True)
+            if result_code != 0:
+                logger.error(stdout)
+                logger.error(stderr)
+                return None
+        sys.stdout = stdout_backup
+        stdout_str = capture_output.getvalue()
 
     pip_dict = extract_pip_installed_filenames(stdout_str, config=config)
 
@@ -341,16 +346,17 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
 
     logger.debug(f"Enumerating packages from the conda ops environment {env_name}")
 
-    conda_args = ["--prefix", get_prefix(env_name), "--explicit", "--md5"]
-    stdout, stderr, result_code = run_command("list", conda_args, use_exception_handler=True)
-    if result_code != 0:
-        logger.error("Could not get packages from the environment")
-        logger.error(stdout)
-        logger.error(stderr)
-        if die_on_error:
-            sys.exit(result_code)
-        else:
-            return False
+    with CondaOpsManagedCondarc():
+        conda_args = ["--prefix", get_prefix(env_name), "--explicit", "--md5"]
+        stdout, stderr, result_code = run_command("list", conda_args, use_exception_handler=True)
+        if result_code != 0:
+            logger.error("Could not get packages from the environment")
+            logger.error(stdout)
+            logger.error(stderr)
+            if die_on_error:
+                sys.exit(result_code)
+            else:
+                return False
 
     conda_set = {x for x in stdout.split("\n") if "https" in x}
     logger.debug(f"Found {len(conda_set)} conda package(s) in environment: {env_name}")
@@ -390,19 +396,20 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
     # check that the pip contents of the lockfile match the conda environment
 
     # need to use a subprocess to ensure we get all of the pip package info
-    conda_args = ["--prefix", get_prefix(env_name), "--json"]
-    result = subprocess.run(["conda", "list"] + conda_args, capture_output=True, check=False)
-    result_code = result.returncode
-    stdout = result.stdout
-    stderr = result.stderr
-    if result_code != 0:
-        logger.error(f"Could not get pip packages from the environment {env_name}")
-        logger.info(f"stdout: {stdout}")
-        logger.info(f"stderr: {stderr}")
-        if die_on_error:
-            sys.exit(result_code)
-        else:
-            return False
+    with CondaOpsManagedCondarc():
+        conda_args = ["--prefix", get_prefix(env_name), "--json"]
+        result = subprocess.run(["conda", "list"] + conda_args, capture_output=True, check=False)
+        result_code = result.returncode
+        stdout = result.stdout
+        stderr = result.stderr
+        if result_code != 0:
+            logger.error(f"Could not get pip packages from the environment {env_name}")
+            logger.info(f"stdout: {stdout}")
+            logger.info(f"stderr: {stderr}")
+            if die_on_error:
+                sys.exit(result_code)
+            else:
+                return False
     conda_list = json.loads(stdout)
 
     conda_dict = {}
@@ -413,7 +420,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
     logger.debug(f"Found {len(conda_dict)} pip package(s) in environment: {env_name}")
 
     if len(explicit_files) > 1:
-        env_pip_interop(env_name=env_name, flag=True)
+        env_pip_interop(config=config, flag=True)
 
         logger.info("Checking consistency of pip installed packages...")
         logger.debug("Note that we only compare the package name and version number as this is all conda list gives us")
@@ -489,29 +496,31 @@ def env_install(config=None):
     explicit_files = generate_explicit_lock_files(config)
 
     logger.info(f"Installing lockfile into the environment {env_name}")
-    conda_args = ["--prefix", get_prfix(env_name), "--file", str(explicit_lock_file)]
-    stdout, stderr, result_code = run_command("install", conda_args, use_exception_handler=True)
-    if result_code != 0:
-        logger.error(stdout)
-        logger.error(stderr)
-        sys.exit(result_code)
+    with CondaOpsManagedCondarc():
+        conda_args = ["--prefix", get_prefix(env_name), "--file", str(explicit_lock_file)]
+        stdout, stderr, result_code = run_command("install", conda_args, use_exception_handler=True)
+        if result_code != 0:
+            logger.error(stdout)
+            logger.error(stderr)
+            sys.exit(result_code)
     logger.info(stdout)
 
     pip_lock_file = config["paths"]["pip_explicit_lockfile"]
     if pip_lock_file in explicit_files:
         # Workaround for the issue in conda version 23.5.0 (and greater?) see issues.
         # We need to capture the pip install output to get the exact filenames of the packages
-        stdout_backup = sys.stdout
-        sys.stdout = capture_output = StringIO()
-        with redirect_stdout(capture_output):
-            conda_args = ["--prefix", get_prefix(env_name), "pip", "install", "-r", str(pip_lock_file), "--verbose"]
-            stdout, stderr, result_code = run_command("run", conda_args, use_exception_handler=True)
-            if result_code != 0:
-                logger.error(stdout)
-                logger.error(stderr)
-        sys.stdout = stdout_backup
-        stdout_str = capture_output.getvalue()
-        logger.info(stdout_str)
+        with CondaOpsManagedCondarc():
+            stdout_backup = sys.stdout
+            sys.stdout = capture_output = StringIO()
+            with redirect_stdout(capture_output):
+                conda_args = ["--prefix", get_prefix(env_name), "pip", "install", "-r", str(pip_lock_file), "--verbose"]
+                stdout, stderr, result_code = run_command("run", conda_args, use_exception_handler=True)
+                if result_code != 0:
+                    logger.error(stdout)
+                    logger.error(stderr)
+            sys.stdout = stdout_backup
+            stdout_str = capture_output.getvalue()
+            logger.info(stdout_str)
 
 
 def env_delete(config=None, env_name=None):
@@ -533,6 +542,7 @@ def env_delete(config=None, env_name=None):
         logger.info(">>> conda deactivate")
     else:
         logger.debug(f"Deleting the conda environment {env_name}")
+        # no context handling needed to delete an environment
         stdout, stderr, result_code = run_command("remove", "--prefix", get_prefix(env_name), "--all", use_exception_handler=True)
         if result_code != 0:
             logger.error(stdout)
@@ -560,26 +570,9 @@ def env_regenerate(config=None, env_name=None, lock_file=None):
 
 def env_pip_interop(config=None, env_name=None, flag=True):
     """
-    Set the flag pip_interop_enabled to the value of flag locally for the conda ops managed env_activate
+    Set the flag pip_interop_enabled to the value of flag locally for the conda ops managed environment
     """
-    if env_name is None:
-        env_name = config["settings"]["env_name"]
-
-    if not check_env_exists(env_name):
-        logger.error(f"Cannot set pip_interop_enabled flag locally in environment {env_name} as it does not exist.")
-        logger.info(">>> conda ops env create")
-        sys.exit(1)
-
-    conda_info = get_conda_info()
-
-    env_path = None
-    for env_path in conda_info["envs"]:
-        if Path(env_path).name == env_name:
-            break
-
-    if env_path is None:
-        logger.error(f"Cannot find a path to the environment {env_name}.")
-    condarc_path = Path(env_path) / ".condarc"
+    condarc_path = config["paths"]["condarc"]
     conda_args = ["--set", "pip_interop_enabled", str(flag), "--file", str(condarc_path)]
 
     stdout, stderr, result_code = run_command("config", conda_args, use_exception_handler=True)
@@ -791,3 +784,23 @@ def get_prefix(env_name):
         prefix = Path(env_dirs[0])
     logger.debug(prefix)
     return str(prefix / env_name)
+
+
+def check_env_exists(env_name):
+    """
+    Given the name of a conda environment, check if it exists
+    """
+    json_output = get_conda_info()
+
+    env_list = [Path(x).name for x in json_output["envs"]]
+    return env_name in env_list
+
+
+def check_env_active(env_name):
+    """
+    Given the name of a conda environment, check if it is active
+    """
+    conda_info = get_conda_info()
+    active_env = conda_info["active_prefix_name"]
+
+    return active_env == env_name

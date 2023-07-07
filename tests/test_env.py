@@ -1,6 +1,5 @@
-from src.utils import check_env_exists
 from src.commands import lockfile_generate
-from src.commands_env import env_create, env_check, get_prefix
+from src.commands_env import env_create, env_check, get_prefix, check_env_exists
 from src.python_api import run_command
 import pytest
 import logging
@@ -40,11 +39,12 @@ def test_check_env_exists(shared_temp_dir):
     assert check_env_exists(env_name) is False
 
 
-def test_env_create(setup_config_files):
+def test_env_create(mocker, setup_config_files):
     """
     Test the env_create function.
     """
     config = setup_config_files
+    mocker.patch("src.commands_proj.proj_load", return_value=config)
     env_name = config["settings"]["env_name"]
 
     # Make sure we have a legit lockfile
@@ -83,7 +83,8 @@ def test_env_create_no_lockfile(setup_config_files):
     Test the env_create function when no requirements file is provided.
     """
     config = setup_config_files
-    config["paths"]["lockfile"].unlink()  # remove the lockfile
+    if config["paths"]["lockfile"].exists():
+        config["paths"]["lockfile"].unlink()  # remove the lockfile
 
     # Call the env_create function
     with pytest.raises(SystemExit):

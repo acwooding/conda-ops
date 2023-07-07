@@ -15,6 +15,7 @@ from .commands_env import (
     env_lockfile_check,
     env_install,
     env_lock,
+    get_conda_info,
     pip_step_env_lock,
 )
 from .conda_config import condarc_create, check_config_items_match
@@ -112,7 +113,7 @@ def conda_ops(argv: list):
         elif args.kind == "lockfile-check":
             env_lockfile_check(config)
     elif args.command == "test":
-        condarc_create(config=config)
+        get_conda_info()
     elif args.reqs_command == "create":
         reqs_create(config)
     elif args.reqs_command == "add":

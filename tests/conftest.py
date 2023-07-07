@@ -1,6 +1,7 @@
 import pytest
 from pathlib import Path
 from src.utils import yaml
+from src.conda_config import condarc_create
 
 CONDA_OPS_DIR_NAME = ".conda-ops"
 
@@ -38,9 +39,12 @@ def setup_config_files(shared_temp_dir):
         "channel-order": ["defaults"],
         "dependencies": ["python", "pip"],
     }
+
     ops_dir.mkdir(exist_ok=True)
     with open(config["paths"]["requirements"], "w") as f:
         yaml.dump(requirements_dict, f)
+
+    condarc_create(config=config)
 
     return config
 

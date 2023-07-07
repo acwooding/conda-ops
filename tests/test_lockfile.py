@@ -7,12 +7,13 @@ from src.commands_reqs import reqs_add
 CONDA_OPS_DIR_NAME = ".conda-ops"
 
 
-def test_lockfile_generate(setup_config_files):
+def test_lockfile_generate(mocker, setup_config_files):
     """
     This test checks the function lockfile_generate().
     It creates a temporary directory and checks whether the function generates the lockfile correctly.
     """
     config = setup_config_files
+    mocker.patch("src.commands_proj.proj_load", return_value=config)
 
     # make sure there is something from non-defaults channels here
     reqs_add(["flask"], channel="pip", config=config)
@@ -136,7 +137,7 @@ def test_lockfile_check_when_file_not_exists(setup_config_files):
     assert result is False
 
 
-def test_lockfile_reqs_check_consistent(setup_config_files):
+def test_lockfile_reqs_check_consistent(mocker, setup_config_files):
     """
     This test checks the lockfile_reqs_check function from the commands module.
 
@@ -146,6 +147,7 @@ def test_lockfile_reqs_check_consistent(setup_config_files):
     """
     # Create consistent requirement and lock file
     config = setup_config_files
+    mocker.patch("src.commands_proj.proj_load", return_value=config)
 
     lockfile_generate(config, regenerate=True)
     assert lockfile_reqs_check(config) is True

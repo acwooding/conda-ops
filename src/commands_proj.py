@@ -14,14 +14,19 @@ Please note that this module relies on other modules and packages within the pro
 .utils, and .kvstore. Make sure to install the necessary dependencies before using the functions in this module.
 """
 
+from contextlib import AbstractContextManager
+import json
 from pathlib import Path
+import os
 import sys
+import traceback
 
 from .kvstore import KVStore
 from ._paths import PathStore
 
 from .utils import CONDA_OPS_DIR_NAME, CONFIG_FILENAME, logger
-from src.conda_config import condarc_create
+from .conda_config import condarc_create
+from .python_api import run_command
 
 
 ##################################################################
@@ -191,3 +196,49 @@ def find_upwards(cwd, filename):
         return fullpath if fullpath.exists() else find_upwards(cwd.parent, filename)
     except RecursionError:
         return None
+
+
+def get_conda_info():
+    """Get conda configuration information.
+
+    This currently peeks into the conda internals.
+    XXX Should this maybe be a conda info API call instead?
+    XXX previous get_info_dict, but this does not contain the envs
+    """
+    # Note: we do not want to use the condarc context handler here.
+    stdout, stderr, result_code = run_command("info", "--json", use_exception_handler=False)
+    if result_code != 0:
+        logger.info(stdout)
+        logger.info(stderr)
+        sys.exit(result_code)
+    return json.loads(stdout)
+
+
+class CondaOpsManagedCondarc(AbstractContextManager):
+    """
+    Wrapper for calls to conda that set and unset the CONDARC value.
+
+    Since conda-ops track config settings that matter for the solver (solver and channel configuartion)
+    including pip_interop_enabled, we use the context handler for the following conda commands:
+    * conda create
+    * conda install
+    * conda list (it gives us conda and pip packages)
+    * conda remove/uninstall (except remove --all)
+    * conda run pip <any pip command>
+    """
+
+    def __enter__(self):
+        self.old_condarc = os.environ.get("CONDARC")
+
+        config = proj_load()
+        os.environ["CONDARC"] = str(config["paths"]["condarc"])
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        if self.old_condarc is not None:
+            os.environ["CONDARC"] = self.old_condarc
+        else:
+            del os.environ["CONDARC"]
+        if exc_type is SystemExit:
+            logger.error("System Exiting...")
+            logger.debug(f"exc_value: {exc_value} \n")
+            logger.debug(f"exc_traceback: {traceback.print_tb(exc_traceback)}")

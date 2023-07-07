@@ -254,7 +254,7 @@ def condarc_create(rc_path=None, config=None):
         rc_path = config["paths"]["condarc"]
     if rc_path.exists():
         logger.error(f"The file {rc_path} already exists. Please remove it if you'd like to create a new one.")
-        sys.exit(1)
+        return False
 
     paramater_names = context.list_parameters()
 
@@ -291,8 +291,11 @@ def condarc_create(rc_path=None, config=None):
                 rc_config[key] = {str(k): str(v) for k, v in d[key].items()}
             elif isiterable(d[key]):
                 rc_config[key] = [str(x) for x in d[key]]
-            elif isinstance(d[key], bool):
-                rc_config[key] = d[key]
+            elif isinstance(d[key], bool) or d[key] is None:
+                if key == "repodata_threads":
+                    rc_config[key] = 0
+                else:
+                    rc_config[key] = d[key]
             else:
                 rc_config[key] = str(d[key])
 
@@ -300,6 +303,7 @@ def condarc_create(rc_path=None, config=None):
         rc.write(yaml_round_trip_dump(rc_config))
 
     logger.debug("Created .condarc file")
+    return True
 
 
 ## TODOS
@@ -309,4 +313,4 @@ def condarc_create(rc_path=None, config=None):
 # add conda ops config --show ability? (how do we show it)
 # add config info in conda ops status, at least show if the opinionated settings aren't right
 # wrap run_command and any conda calls to set $CONDARC and unset $CONDARC before and after
-# move pip_interop_enabled to the configuration
+# update pip_interop_enabled to the configuration
