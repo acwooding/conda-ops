@@ -1,4 +1,5 @@
 from collections.abc import Mapping
+import os
 import sys
 
 from conda.base.context import context
@@ -343,10 +344,9 @@ def condaops_config_manage(argv: list, args, config=None):
     * remove
     """
     WHITELIST = WHITELIST_CHANNEL + WHITELIST_SOLVER
-
     # grab arguments directly as it is easier to pass on that way
     argv.remove(str(args.command))
-    conda_args = argv + ["--file", str(config["paths"]["condarc"])]
+    file_args = ["--file", str(config["paths"]["condarc"])]
 
     if args.show is not None:
         print("\n")
@@ -354,6 +354,7 @@ def condaops_config_manage(argv: list, args, config=None):
         print("\n")
     if args.show_sources or args.validate:
         # fall through directly, but add $CONDARC to make sure we use the condaops settings
+        conda_args = argv + file_args
         with CondaOpsManagedCondarc(config["paths"]["condarc"]):
             stdout, stderr, result_code = run_command("config", conda_args)
             if result_code != 0:
@@ -365,29 +366,75 @@ def condaops_config_manage(argv: list, args, config=None):
                     logger.info(f"Conda config validated")
                 if args.show_sources:
                     print(stdout)
-    if args.describe:
-        # if no arguments given, show info for all condaops managed parameters
-        # use $CONDARC
-        pass
-    if args.get:
-        # get the config values of all of the parameters listed. check if they are in the whitelist
-        # use $CONDARC
-        pass
+    if args.describe is not None:
+        # describe the parameters listed. shows default conda values. Default to
+        # describing the parameters in the WHITELIST if no args given.
+        if args.describe:
+            describe_args = args.describe
+        else:
+            describe_args = WHITELIST
+        stdout, stderr, result_code = run_command("config", "--describe", *describe_args)
+        if result_code != 0:
+            logger.error(stdout)
+            logger.error(stderr)
+            sys.exit(result_code)
+        print("\n")
+        print(stdout)
+        print(stderr)
+    if args.get is not None:
+        # get the config values of the parameters listed. default to WHITELIST if no args given.
+        # only checks for values in the conda ops managed list.
+        if args.get:
+            get_args = args.get
+        else:
+            get_args = WHITELIST
+        stdout, stderr, result_code = run_command("config", "--get", *get_args, *file_args)
+        if result_code != 0:
+            logger.error(stdout)
+            logger.error(stderr)
+            sys.exit(result_code)
+        print(stdout)
+        print(stderr)
     if args.append or args.prepend or args.set or args.remove:
         # check that the keys are in the WHITELIST and then pass to conda to edit the .condarc file
         # prepend, append, add
-        pass
-        """
-        for arg, prepend in zip((args.prepend, args.append), (True, False)):
+        not_in_whitelist = []
+        if args.append or args.prepend:
+            for arg, prepend in zip((args.prepend, args.append), (True, False)):
+                for key, item in arg:
+                    key, subkey = key.split(".", 1) if "." in key else (key, None)
+                    if key not in WHITELIST:
+                        index_key = argv.index(key)
+                        if argv[index_key - 1] in ["--append", "--prepend"]:
+                            del argv[index_key - 1 : index_key + 2]
+                        else:
+                            logger.error("Something is wrong here with the parameters being passed:")
+                            logger.error(argv)
+                        not_in_whitelist.append(key)
+        if args.set or args.remove:
+            if args.set:
+                arg = args.set
+            if args.remove:
+                arg = args.remove
             for key, item in arg:
                 key, subkey = key.split(".", 1) if "." in key else (key, None)
-                if key == "channels" and key not in rc_config:
-        # set
-        for key, item in args.set:
-            key, subkey = key.split(".", 1) if "." in key else (key, None)
-            if key in primitive_parameters:
-        # Remove
-        for key, item in args.remove:
-            key, subkey = key.split(".", 1) if "." in key else (key, None)
-            if key not in rc_config:
-        """
+                if key not in WHITELIST:
+                    index_key = argv.index(key)
+                    if argv[index_key - 1] in ["--set", "--remove"]:
+                        del argv[index_key - 1 : index_key + 2]
+                    else:
+                        logger.error("Something is wrong here with the parameters being passed:")
+                        logger.error(argv)
+                    not_in_whitelist.append(key)
+        print(argv)
+        if len(argv) > 0:
+            stdout, stderr, result_code = run_command("config", *argv)
+            if result_code != 0:
+                logger.error(stdout)
+                logger.error(stderr)
+                sys.exit(result_code)
+            print(stdout)
+        if len(not_in_whitelist):
+            gap = "\n- "
+            print("The following parameters are not recognized in the conda ops managed config:\n" f"- {gap.join(not_in_whitelist)}")
+            print("To manage them use `conda config` instead.")

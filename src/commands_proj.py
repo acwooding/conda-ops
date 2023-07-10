@@ -41,7 +41,7 @@ def proj_create():
 
     Return the config dict.
 
-    Note: This does **not** create the configuration file.
+    Note: This does **not** create the .condarc configuration file or the requirements file.
     """
     conda_ops_path = Path.cwd() / CONDA_OPS_DIR_NAME
 

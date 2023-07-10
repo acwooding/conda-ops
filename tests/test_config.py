@@ -1,9 +1,10 @@
 from pytest_mock import mocker
 from pathlib import Path
+import sys
 
 from conda.common.serialize import yaml_round_trip_load
 
-from src.conda_config import check_config_items_match, CONDAOPS_OPINIONS, condarc_create, WHITELIST_CHANNEL, WHITELIST_SOLVER
+from src.conda_config import check_config_items_match, CONDAOPS_OPINIONS, condarc_create, WHITELIST_CHANNEL, WHITELIST_SOLVER, condaops_config_manage
 from src.utils import logger
 
 
@@ -87,3 +88,151 @@ def test_condarc_create(setup_config_files):
         assert key in WHITELIST
     for key, value in CONDAOPS_OPINIONS.items():
         assert value == rc_config[key]
+
+
+def test_condaops_config_manage_show(mocker, setup_config_files):
+    argv = ["config", "--show"]
+    args = mocker.Mock(
+        command="config",
+        show=[],
+        show_sources=False,
+        validate=False,
+        describe=None,
+        get=None,
+        append=[],
+        prepend=[],
+        set=[],
+        remove=[],
+    )
+    config = setup_config_files
+    mocker.patch.object(sys, "exit")
+
+    condaops_config_manage(argv, args, config)
+
+    sys.exit.assert_not_called()
+
+
+def test_condaops_config_manage_show_sources(mocker, setup_config_files):
+    argv = ["config", "--show-sources"]
+    args = mocker.Mock(
+        command="config",
+        show=None,
+        show_sources=True,
+        validate=False,
+        describe=None,
+        get=None,
+        append=[],
+        prepend=[],
+        set=[],
+        remove=[],
+    )
+    config = setup_config_files
+    mocker.patch.object(sys, "exit")
+
+    condaops_config_manage(argv, args, config)
+
+    sys.exit.assert_not_called()
+
+
+def test_condaops_config_manage_validate(mocker, setup_config_files):
+    argv = ["config", "--validate"]
+    args = mocker.Mock(
+        command="config",
+        show=None,
+        show_sources=False,
+        validate=True,
+        describe=None,
+        get=None,
+        append=[],
+        prepend=[],
+        set=[],
+        remove=[],
+    )
+    config = setup_config_files
+    mocker.patch.object(sys, "exit")
+
+    condaops_config_manage(argv, args, config)
+
+    sys.exit.assert_not_called()
+
+
+def test_condaops_config_manage_describe(mocker, setup_config_files):
+    argv = ["config", "--describe"]
+    args = mocker.Mock(
+        command="config",
+        show=None,
+        show_sources=False,
+        validate=False,
+        describe=[],
+        get=None,
+        append=[],
+        prepend=[],
+        set=[],
+        remove=[],
+    )
+    config = setup_config_files
+    mocker.patch.object(sys, "exit")
+
+    condaops_config_manage(argv, args, config)
+
+    sys.exit.assert_not_called()
+
+
+def test_condaops_config_manage_get(mocker, setup_config_files):
+    argv = ["config", "--get", "param1", "param2"]
+    args = mocker.Mock(get=["param1", "param2"], command="config", show=None, show_sources=False, validate=False, describe=None, append=[], prepend=[], set=[], remove=[])
+    config = setup_config_files
+
+    mocker.patch.object(sys, "exit")
+
+    condaops_config_manage(argv, args, config)
+
+    sys.exit.assert_not_called()
+
+
+def test_condaops_config_manage_append(mocker, setup_config_files):
+    argv = ["config", "--append", "key1", "value1"]
+    args = mocker.Mock(append=[("key1", "value1")], command="config", show=None, show_sources=False, validate=False, describe=None, get=None, prepend=[], set=[], remove=[])
+    config = setup_config_files
+    mocker.patch.object(sys, "exit")
+
+    condaops_config_manage(argv, args, config)
+
+    # should remove the values from the list and not call run_command
+    sys.exit.assert_not_called()
+
+
+def test_condaops_config_manage_prepend(mocker, setup_config_files):
+    argv = ["config", "--prepend", "key1", "value1"]
+    args = mocker.Mock(command="config", show=None, show_sources=False, validate=False, describe=None, get=None, append=[], set=[], remove=[], prepend=[("key1", "value1")])
+    config = setup_config_files
+    mocker.patch.object(sys, "exit")
+
+    condaops_config_manage(argv, args, config)
+
+    # should remove the values from the list and not call run_command
+    sys.exit.assert_not_called()
+
+
+def test_condaops_config_manage_set(mocker, setup_config_files):
+    argv = ["config", "--set", "key1", "value1"]
+    args = mocker.Mock(command="config", show=None, show_sources=False, validate=False, describe=None, get=None, append=[], prepend=[], remove=[], set=[("key1", "value1")])
+    config = setup_config_files
+    mocker.patch.object(sys, "exit")
+
+    condaops_config_manage(argv, args, config)
+
+    # should remove the values from the list and not call run_command
+    sys.exit.assert_not_called()
+
+
+def test_condaops_config_manage_remove(mocker, setup_config_files):
+    argv = ["config", "--remove", "param2", "value2"]
+    args = mocker.Mock(command="config", show=None, show_sources=False, validate=False, describe=None, get=None, append=[], prepend=[], set=[], remove=[("param2", "value2")])
+    config = setup_config_files
+    mocker.patch.object(sys, "exit")
+
+    condaops_config_manage(argv, args, config)
+
+    # should remove the values from the list and not call run_command
+    sys.exit.assert_not_called()

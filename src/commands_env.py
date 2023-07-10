@@ -210,6 +210,7 @@ def conda_step_env_lock(channel, config, env_name=None):
                 logger.error(stdout)
                 logger.error(stderr)
                 return None
+            print(stdout)
     else:
         # create the environment directly
         logger.debug(f"Creating environment {env_name} at {prefix} ")
@@ -220,6 +221,7 @@ def conda_step_env_lock(channel, config, env_name=None):
                 logger.error(stdout)
                 logger.error(stderr)
                 return None
+            print(stdout)
 
     channel_lockfile = ops_dir / f".ops.lock.{channel}"
     json_reqs = env_lock(config=config, lock_file=channel_lockfile, env_name=env_name)
@@ -258,6 +260,7 @@ def pip_step_env_lock(config, env_name=None):
                 return None
         sys.stdout = stdout_backup
         stdout_str = capture_output.getvalue()
+        print(stdout_str)
 
     pip_dict = extract_pip_installed_filenames(stdout_str, config=config)
 

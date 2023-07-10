@@ -102,6 +102,7 @@ def lockfile_generate(config, regenerate=True):
     if regenerate:
         env_delete(env_name=test_env)
         logger.debug("Deleted intermediate environment")
+    print(f"Lockfile {lock_file} generated.")
 
 
 ############################################
