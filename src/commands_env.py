@@ -11,6 +11,7 @@ from packaging.requirements import Requirement
 
 from .python_api import run_command
 from .commands_proj import proj_load, get_conda_info, CondaOpsManagedCondarc
+from .conda_config import env_pip_interop
 from .commands_lockfile import lockfile_check
 from .utils import logger
 
@@ -74,7 +75,7 @@ def env_create(config=None, env_name=None, lock_file=None):
     explicit_lock_file = config["paths"]["explicit_lockfile"]
     logger.info(f"Creating the environment {env_name}")
     prefix = get_prefix(env_name)
-    with CondaOpsManagedCondarc():
+    with CondaOpsManagedCondarc(config["paths"]["condarc"]):
         conda_args = ["--prefix", prefix, "--file", str(explicit_lock_file)]
         stdout, stderr, result_code = run_command("create", conda_args)
         if result_code != 0:
@@ -89,7 +90,7 @@ def env_create(config=None, env_name=None, lock_file=None):
 
         # Workaround for the issue in conda version 23.5.0 (and greater?) see issues.
         # We need to capture the pip install output to get the exact filenames of the packages
-        with CondaOpsManagedCondarc():
+        with CondaOpsManagedCondarc(config["paths"]["condarc"]):
             stdout_backup = sys.stdout
             sys.stdout = capture_output = StringIO()
             with redirect_stdout(capture_output):
@@ -107,7 +108,7 @@ def env_create(config=None, env_name=None, lock_file=None):
     logger.info(f">>> conda activate {env_name}")
 
 
-def env_lock(config=None, lock_file=None, env_name=None, pip_dict=None):
+def env_lock(config, lock_file=None, env_name=None, pip_dict=None):
     """
     Generate a lockfile from the contents of the environment.
     """
@@ -123,7 +124,7 @@ def env_lock(config=None, lock_file=None, env_name=None, pip_dict=None):
     # json requirements
     # need to use a subprocess to get any newly installed python package information
     # that was installed via pip
-    with CondaOpsManagedCondarc():
+    with CondaOpsManagedCondarc(config["paths"]["condarc"]):
         conda_args = ["--prefix", get_prefix(env_name), "--json"]
         result = subprocess.run(["conda", "list"] + conda_args, capture_output=True, check=False)
         result_code = result.returncode
@@ -136,14 +137,14 @@ def env_lock(config=None, lock_file=None, env_name=None, pip_dict=None):
 
     json_reqs = json.loads(stdout)
 
-    # explicit requirements to get full urls and md5
-    with CondaOpsManagedCondarc():
+    # explicit requirements to get full urls and md5 of conda packages
+    with CondaOpsManagedCondarc(config["paths"]["condarc"]):
         conda_args = ["--prefix", get_prefix(env_name), "--explicit", "--md5"]
         stdout, stderr, result_code = run_command("list", conda_args, use_exception_handler=True)
         if result_code != 0:
             logger.error(stdout)
             logger.error(stderr)
-            sys.exit(1)
+            sys.exit(result_code)
     explicit = [x for x in stdout.split("\n") if "https" in x]
 
     # add additional information to go into the lock file based on the kind of package
@@ -203,7 +204,7 @@ def conda_step_env_lock(channel, config, env_name=None):
     prefix = get_prefix(env_name)
     if check_env_exists(env_name):
         conda_args = ["--prefix", prefix, "-c", channel] + package_list
-        with CondaOpsManagedCondarc():
+        with CondaOpsManagedCondarc(config["paths"]["condarc"]):
             stdout, stderr, result_code = run_command("install", conda_args)
             if result_code != 0:
                 logger.error(stdout)
@@ -212,7 +213,7 @@ def conda_step_env_lock(channel, config, env_name=None):
     else:
         # create the environment directly
         logger.debug(f"Creating environment {env_name} at {prefix} ")
-        with CondaOpsManagedCondarc():
+        with CondaOpsManagedCondarc(config["paths"]["condarc"]):
             conda_args = ["--prefix", prefix, "-c", channel] + package_list
             stdout, stderr, result_code = run_command("create", conda_args, use_exception_handler=True)
             if result_code != 0:
@@ -221,7 +222,7 @@ def conda_step_env_lock(channel, config, env_name=None):
                 return None
 
     channel_lockfile = ops_dir / f".ops.lock.{channel}"
-    json_reqs = env_lock(lock_file=channel_lockfile, env_name=env_name)
+    json_reqs = env_lock(config=config, lock_file=channel_lockfile, env_name=env_name)
 
     return json_reqs
 
@@ -245,7 +246,7 @@ def pip_step_env_lock(config, env_name=None):
 
     # Workaround for the issue in cconda version 23.5.0 (and greater?) see issues.
     # We need to capture the pip install output to get the exact filenames of the packages
-    with CondaOpsManagedCondarc():
+    with CondaOpsManagedCondarc(config["paths"]["condarc"]):
         stdout_backup = sys.stdout
         sys.stdout = capture_output = StringIO()
         with redirect_stdout(capture_output):
@@ -261,7 +262,7 @@ def pip_step_env_lock(config, env_name=None):
     pip_dict = extract_pip_installed_filenames(stdout_str, config=config)
 
     channel_lockfile = ops_dir / ".ops.lock.pip"
-    json_reqs = env_lock(lock_file=channel_lockfile, env_name=env_name, pip_dict=pip_dict)
+    json_reqs = env_lock(config, lock_file=channel_lockfile, env_name=env_name, pip_dict=pip_dict)
 
     with open(ops_dir / ".ops.sdist-requirements.txt", encoding="utf-8") as reqsfile:
         sdist_list = reqsfile.read().split("\n")
@@ -346,7 +347,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
 
     logger.debug(f"Enumerating packages from the conda ops environment {env_name}")
 
-    with CondaOpsManagedCondarc():
+    with CondaOpsManagedCondarc(config["paths"]["condarc"]):
         conda_args = ["--prefix", get_prefix(env_name), "--explicit", "--md5"]
         stdout, stderr, result_code = run_command("list", conda_args, use_exception_handler=True)
         if result_code != 0:
@@ -396,7 +397,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
     # check that the pip contents of the lockfile match the conda environment
 
     # need to use a subprocess to ensure we get all of the pip package info
-    with CondaOpsManagedCondarc():
+    with CondaOpsManagedCondarc(config["paths"]["condarc"]):
         conda_args = ["--prefix", get_prefix(env_name), "--json"]
         result = subprocess.run(["conda", "list"] + conda_args, capture_output=True, check=False)
         result_code = result.returncode
@@ -496,7 +497,7 @@ def env_install(config=None):
     explicit_files = generate_explicit_lock_files(config)
 
     logger.info(f"Installing lockfile into the environment {env_name}")
-    with CondaOpsManagedCondarc():
+    with CondaOpsManagedCondarc(config["paths"]["condarc"]):
         conda_args = ["--prefix", get_prefix(env_name), "--file", str(explicit_lock_file)]
         stdout, stderr, result_code = run_command("install", conda_args, use_exception_handler=True)
         if result_code != 0:
@@ -509,7 +510,7 @@ def env_install(config=None):
     if pip_lock_file in explicit_files:
         # Workaround for the issue in conda version 23.5.0 (and greater?) see issues.
         # We need to capture the pip install output to get the exact filenames of the packages
-        with CondaOpsManagedCondarc():
+        with CondaOpsManagedCondarc(config["paths"]["condarc"]):
             stdout_backup = sys.stdout
             sys.stdout = capture_output = StringIO()
             with redirect_stdout(capture_output):
@@ -566,21 +567,6 @@ def env_regenerate(config=None, env_name=None, lock_file=None):
 
     env_delete(config=config, env_name=env_name)
     env_create(config=config, env_name=env_name, lock_file=lock_file)
-
-
-def env_pip_interop(config=None, env_name=None, flag=True):
-    """
-    Set the flag pip_interop_enabled to the value of flag locally for the conda ops managed environment
-    """
-    condarc_path = config["paths"]["condarc"]
-    conda_args = ["--set", "pip_interop_enabled", str(flag), "--file", str(condarc_path)]
-
-    stdout, stderr, result_code = run_command("config", conda_args, use_exception_handler=True)
-    if result_code != 0:
-        logger.error(stdout)
-        logger.error(stderr)
-        sys.exit(1)
-    return True
 
 
 ############################################
@@ -782,7 +768,6 @@ def get_prefix(env_name):
         prefix = Path(split[0]) / "envs"
     else:
         prefix = Path(env_dirs[0])
-    logger.debug(prefix)
     return str(prefix / env_name)
 
 

@@ -13,7 +13,6 @@ def test_lockfile_generate(mocker, setup_config_files):
     It creates a temporary directory and checks whether the function generates the lockfile correctly.
     """
     config = setup_config_files
-    mocker.patch("src.commands_proj.proj_load", return_value=config)
 
     # make sure there is something from non-defaults channels here
     reqs_add(["flask"], channel="pip", config=config)
@@ -147,7 +146,6 @@ def test_lockfile_reqs_check_consistent(mocker, setup_config_files):
     """
     # Create consistent requirement and lock file
     config = setup_config_files
-    mocker.patch("src.commands_proj.proj_load", return_value=config)
 
     lockfile_generate(config, regenerate=True)
     assert lockfile_reqs_check(config) is True

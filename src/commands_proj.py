@@ -25,7 +25,6 @@ from .kvstore import KVStore
 from ._paths import PathStore
 
 from .utils import CONDA_OPS_DIR_NAME, CONFIG_FILENAME, logger
-from .conda_config import condarc_create
 from .python_api import run_command
 
 
@@ -40,7 +39,9 @@ def proj_create():
     """
     Initialize the conda ops project by creating a .conda-ops directory and config file.
 
-    Return the config dict
+    Return the config dict.
+
+    Note: This does **not** create the configuration file.
     """
     conda_ops_path = Path.cwd() / CONDA_OPS_DIR_NAME
 
@@ -76,9 +77,6 @@ def proj_create():
 
     config["settings"] = KVStore(_config_settings, config_file=config_file, config_section="OPS_SETTINGS")
     config["paths"] = PathStore(_config_paths, config_file=config_file, config_section="OPS_PATHS")
-
-    # create the .condarc file
-    condarc_create(config=config)
 
     return config
 
@@ -201,11 +199,10 @@ def find_upwards(cwd, filename):
 def get_conda_info():
     """Get conda configuration information.
 
-    This currently peeks into the conda internals.
-    XXX Should this maybe be a conda info API call instead?
-    XXX previous get_info_dict, but this does not contain the envs
+    XXX Should this maybe look into the conda internals instead?
+    XXX previous get_info_dict did this, but the internal call does not contain the envs
     """
-    # Note: we do not want to use the condarc context handler here.
+    # Note: we do not want or need to use the condarc context handler here.
     stdout, stderr, result_code = run_command("info", "--json", use_exception_handler=False)
     if result_code != 0:
         logger.info(stdout)
@@ -216,7 +213,7 @@ def get_conda_info():
 
 class CondaOpsManagedCondarc(AbstractContextManager):
     """
-    Wrapper for calls to conda that set and unset the CONDARC value.
+    Wrapper for calls to conda that set and unset the CONDARC value to the rc_path value.
 
     Since conda-ops track config settings that matter for the solver (solver and channel configuartion)
     including pip_interop_enabled, we use the context handler for the following conda commands:
@@ -227,11 +224,12 @@ class CondaOpsManagedCondarc(AbstractContextManager):
     * conda run pip <any pip command>
     """
 
+    def __init__(self, rc_path):
+        self.rc_path = str(rc_path)
+
     def __enter__(self):
         self.old_condarc = os.environ.get("CONDARC")
-
-        config = proj_load()
-        os.environ["CONDARC"] = str(config["paths"]["condarc"])
+        os.environ["CONDARC"] = self.rc_path
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
         if self.old_condarc is not None:

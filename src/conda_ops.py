@@ -18,7 +18,7 @@ from .commands_env import (
     get_conda_info,
     pip_step_env_lock,
 )
-from .conda_config import condarc_create, check_config_items_match
+from .conda_config import condarc_create, check_config_items_match, condaops_config_manage
 from .utils import logger
 
 
@@ -29,6 +29,8 @@ def conda_ops(argv: list):
     parser = argparse.ArgumentParser("conda ops")
     parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], default="DEBUG", help="Set the log level")
     subparsers = parser.add_subparsers(dest="command", metavar="command")
+
+    config_parser = configure_parser_config(subparsers)
 
     # add additional parsers for hidden commands
     proj = subparsers.add_parser("proj", help="Accepts create, check and load", parents=[parent_parser])
@@ -58,7 +60,7 @@ def conda_ops(argv: list):
 
     subparsers.add_parser("test")
 
-    args = parser.parse_args(argv)
+    args, remaining_args = parser.parse_known_args(argv)
 
     logger.setLevel(args.log_level)
 
@@ -67,6 +69,8 @@ def conda_ops(argv: list):
 
     if args.command in ["status", None]:
         consistency_check(config=config)
+    elif args.command == "config":
+        condaops_config_manage(argv, args, config=config)
     elif args.command == "proj":
         if args.kind == "create":
             proj_create()
@@ -141,6 +145,81 @@ def conda_ops(argv: list):
 # sub-parsers
 #
 # #############################################################################################
+
+
+def configure_parser_config(subparsers):
+    """
+    Largely borrowed and modified from configure_parser_config in conda/cli/conda_argparse.py
+    """
+    descr = """
+    Modify configuration values in conda ops managed .condarc. This will show and modify conda-ops
+    managed configuration settings. To modify other config settings, use `conda config` directly.
+    """
+    p = subparsers.add_parser("config", description=descr, help=descr)
+    _config_subcommands = p.add_argument_group("Config Subcommands")
+    config_subcommands = _config_subcommands.add_mutually_exclusive_group()
+    config_subcommands.add_argument("--show", nargs="*", default=None, help="Display configuration values in the condaops .condarc file. ")
+    config_subcommands.add_argument(
+        "--show-sources",
+        action="store_true",
+        help="Display all identified configuration sources.",
+    )
+    config_subcommands.add_argument(
+        "--validate",
+        action="store_true",
+        help="Validate all configuration sources. Iterates over all .condarc files " "and checks for parsing errors.",
+    )
+    config_subcommands.add_argument(
+        "--describe",
+        nargs="*",
+        default=None,
+        help="Describe given configuration parameters. If no arguments given, show " "information for all condaops managed configuration parameters.",
+    )
+    _config_modifiers = p.add_argument_group("Config Modifiers")
+    config_modifiers = _config_modifiers.add_mutually_exclusive_group()
+    config_modifiers.add_argument(
+        "--get",
+        nargs="*",
+        action="store",
+        help="Get a configuration value.",
+        default=None,
+        metavar="KEY",
+    )
+    config_modifiers.add_argument(
+        "--append",
+        nargs=2,
+        action="append",
+        help="""Add one configuration value to the end of a list key.""",
+        default=[],
+        metavar=("KEY", "VALUE"),
+    )
+    config_modifiers.add_argument(
+        "--prepend",
+        "--add",
+        nargs=2,
+        action="append",
+        help="""Add one configuration value to the beginning of a list key.""",
+        default=[],
+        metavar=("KEY", "VALUE"),
+    )
+    config_modifiers.add_argument(
+        "--set",
+        nargs=2,
+        action="append",
+        help="""Set a boolean or string key.""",
+        default=[],
+        metavar=("KEY", "VALUE"),
+    )
+    config_modifiers.add_argument(
+        "--remove",
+        nargs=2,
+        action="append",
+        help="""Remove a configuration value from a list key.
+                This removes all instances of the value.""",
+        default=[],
+        metavar=("KEY", "VALUE"),
+    )
+    return p
 
 
 @conda.plugins.hookimpl

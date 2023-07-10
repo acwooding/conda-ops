@@ -99,10 +99,9 @@ def test_condarc_context_handling(mocker, setup_config_files):
     Test that the context handler correctly sets and unsets the environment variable CONDARC
     """
     config = setup_config_files
-    mocker.patch("src.commands_proj.proj_load", return_value=config)
 
     original_condarc = os.environ.get("CONDARC")
-    with CondaOpsManagedCondarc():
+    with CondaOpsManagedCondarc(config["paths"]["condarc"]):
         assert os.environ.get("CONDARC") == str(config["paths"]["condarc"])
 
     # the CONDARC value with the esoteric including the temp dir should never be set outside of a context handler

@@ -6,8 +6,9 @@ from conda.common.serialize import yaml_round_trip_load, yaml_round_trip_dump
 from conda.common.iterators import groupby_to_dict as groupby
 from conda.common.compat import isiterable
 
-from src.utils import logger
-
+from .utils import logger
+from .python_api import run_command
+from .commands_proj import CondaOpsManagedCondarc
 
 ##################################################################
 #
@@ -306,11 +307,87 @@ def condarc_create(rc_path=None, config=None):
     return True
 
 
-## TODOS
-# create initial config file
-# check the opinionated options
-# add conda ops config --set ability
-# add conda ops config --show ability? (how do we show it)
-# add config info in conda ops status, at least show if the opinionated settings aren't right
-# wrap run_command and any conda calls to set $CONDARC and unset $CONDARC before and after
-# update pip_interop_enabled to the configuration
+def env_pip_interop(config=None, env_name=None, flag=True):
+    """
+    Set the flag pip_interop_enabled to the value of flag locally for the conda ops managed environment
+    """
+    condarc_path = config["paths"]["condarc"]
+    conda_args = ["--set", "pip_interop_enabled", str(flag), "--file", str(condarc_path)]
+
+    stdout, stderr, result_code = run_command("config", conda_args, use_exception_handler=True)
+    if result_code != 0:
+        logger.error(stdout)
+        logger.error(stderr)
+        sys.exit(1)
+    return True
+
+
+def condaops_config_manage(argv: list, args, config=None):
+    """
+    Allow for modifications of the conda-ops managed .condarc file using same arguments to conda config
+    as conda config. Only modify and track parameters in the WHITELISTs.
+
+    If an attempt is made to modify a parameter *not* on the WHITELIST, error out and suggest using conda config
+    directly.
+
+    Supports:
+    * show
+    * show_sources
+    * validate
+    * describe
+
+    * get
+    * append
+    * prepend, add
+    * set
+    * remove
+    """
+    WHITELIST = WHITELIST_CHANNEL + WHITELIST_SOLVER
+
+    # grab arguments directly as it is easier to pass on that way
+    argv.remove(str(args.command))
+    conda_args = argv + ["--file", str(config["paths"]["condarc"])]
+
+    if args.show is not None:
+        print("\n")
+        print(yaml_round_trip_dump(yaml_round_trip_load(config["paths"]["condarc"])))
+        print("\n")
+    if args.show_sources or args.validate:
+        # fall through directly, but add $CONDARC to make sure we use the condaops settings
+        with CondaOpsManagedCondarc(config["paths"]["condarc"]):
+            stdout, stderr, result_code = run_command("config", conda_args)
+            if result_code != 0:
+                logger.error(stdout)
+                logger.error(stderr)
+                sys.exit(result_code)
+            else:
+                if args.validate:
+                    logger.info(f"Conda config validated")
+                if args.show_sources:
+                    print(stdout)
+    if args.describe:
+        # if no arguments given, show info for all condaops managed parameters
+        # use $CONDARC
+        pass
+    if args.get:
+        # get the config values of all of the parameters listed. check if they are in the whitelist
+        # use $CONDARC
+        pass
+    if args.append or args.prepend or args.set or args.remove:
+        # check that the keys are in the WHITELIST and then pass to conda to edit the .condarc file
+        # prepend, append, add
+        pass
+        """
+        for arg, prepend in zip((args.prepend, args.append), (True, False)):
+            for key, item in arg:
+                key, subkey = key.split(".", 1) if "." in key else (key, None)
+                if key == "channels" and key not in rc_config:
+        # set
+        for key, item in args.set:
+            key, subkey = key.split(".", 1) if "." in key else (key, None)
+            if key in primitive_parameters:
+        # Remove
+        for key, item in args.remove:
+            key, subkey = key.split(".", 1) if "." in key else (key, None)
+            if key not in rc_config:
+        """
