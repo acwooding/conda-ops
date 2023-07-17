@@ -229,7 +229,13 @@ class CondaOpsManagedCondarc(AbstractContextManager):
 
     def __enter__(self):
         self.old_condarc = os.environ.get("CONDARC")
-        os.environ["CONDARC"] = self.rc_path
+        if Path(self.rc_path).exists():
+            os.environ["CONDARC"] = self.rc_path
+        else:
+            logger.error("Conda ops managed .condarc file does not exist")
+            logger.info("To create the managed .condarc file:")
+            logger.info(">>> conda ops config create")
+            sys.exit(1)
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
         if self.old_condarc is not None:

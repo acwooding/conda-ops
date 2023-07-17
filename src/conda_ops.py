@@ -60,7 +60,7 @@ def conda_ops(argv: list):
 
     subparsers.add_parser("test")
 
-    args, remaining_args = parser.parse_known_args(argv)
+    args = parser.parse_args(argv)
 
     logger.setLevel(args.log_level)
 
@@ -70,7 +70,10 @@ def conda_ops(argv: list):
     if args.command in ["status", None]:
         consistency_check(config=config)
     elif args.command == "config":
-        condaops_config_manage(argv, args, config=config)
+        if args.kind == "create":
+            condarc_create(config=config)
+        else:
+            condaops_config_manage(argv, args, config=config)
     elif args.command == "proj":
         if args.kind == "create":
             proj_create()
@@ -156,6 +159,7 @@ def configure_parser_config(subparsers):
     managed configuration settings. To modify other config settings, use `conda config` directly.
     """
     p = subparsers.add_parser("config", description=descr, help=descr)
+    p.add_argument("kind", type=str) # accepts create
     _config_subcommands = p.add_argument_group("Config Subcommands")
     config_subcommands = _config_subcommands.add_mutually_exclusive_group()
     config_subcommands.add_argument("--show", nargs="*", default=None, help="Display configuration values in the condaops .condarc file. ")

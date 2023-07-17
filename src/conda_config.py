@@ -426,7 +426,6 @@ def condaops_config_manage(argv: list, args, config=None):
                         logger.error("Something is wrong here with the parameters being passed:")
                         logger.error(argv)
                     not_in_whitelist.append(key)
-        print(argv)
         if len(argv) > 0:
             stdout, stderr, result_code = run_command("config", *argv)
             if result_code != 0:
