@@ -12,6 +12,7 @@ from .commands_proj import proj_check
 from .commands_reqs import reqs_check
 from .commands_lockfile import lockfile_check, lockfile_reqs_check
 from .commands_env import env_check, env_lockfile_check, conda_step_env_lock, pip_step_env_lock, env_delete, check_env_exists
+from .conda_config import check_condarc_matches_opinions, check_config_items_match
 from .split_requirements import create_split_files
 
 ##################################################################
@@ -126,6 +127,9 @@ def consistency_check(config=None, die_on_error=False):
     lockfile_consistent = lockfile_check(config, die_on_error=die_on_error)
 
     lockfile_reqs_check(config, reqs_consistent=reqs_consistent, lockfile_consistent=lockfile_consistent, die_on_error=die_on_error)
+
+    condarc_parameters_consistent = check_config_items_match()
+    conndarc_consistent = check_condarc_matches_opinions(config=config, die_on_error=die_on_error)
 
     env_consistent = env_check(config, die_on_error=die_on_error)
     env_lockfile_check(config, env_consistent=env_consistent, lockfile_consistent=lockfile_consistent, die_on_error=die_on_error)

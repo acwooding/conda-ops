@@ -225,13 +225,37 @@ def check_config_items_match(config_map=None):
     return channel_match and solver_match and total_match
 
 
-def check_condarc_matches_opinions(rc_path=None, config=None):
-    """ """
+def check_condarc_matches_opinions(rc_path=None, config=None, die_on_error=True):
+    """
+    Check that the conda ops managed .condarc file matches the CONDAOPS_OPINIONS.
+    """
+    check = True
     if not rc_path:
         rc_path = config["paths"]["condarc"]
     if not rc_path.exists():
         logger.error(f"The file {rc_path} does not exist. There is nothing to compare against.")
+        logger.info("To create the managed .condarc file:")
+        logger.info(">>> conda ops config create")
+        check = False
+    else:
+        rc_config = yaml_round_trip_load(rc_path)
+        for key, value in CONDAOPS_OPINIONS.items():
+            if rc_config[key] != value:
+                logger.warning(f"The .condarc value of the the parameter {key}, does not match the recommended conda ops setting of {value}. Unexpected behaviour is possible.")
+                logger.info("To change to the recommended setting:")
+                if key == "channels":
+                    for vrc in rc_config[key]:
+                        if vrc != value[0]:
+                            logger.info(f">>> conda ops config --remove {key} {vrc}")
+                    if "defaults" not in rc_config[key]:
+                        logger.info(f">>> conda ops config --add {key} {value}")
+                else:
+                    logger.info(f">>> conda ops config --set {key} {value}")
+
+    if die_on_error and not check:
         sys.exit(1)
+
+    return check
 
 
 def condarc_create(rc_path=None, config=None):
@@ -266,10 +290,7 @@ def condarc_create(rc_path=None, config=None):
         lambda p: context.describe_parameter(p)["parameter_type"],
         context.list_parameters(),
     )
-    # primitive_parameters = grouped_paramaters["primitive"]
     sequence_parameters = grouped_paramaters["sequence"]
-    # map_parameters = grouped_paramaters["map"]
-    # all_parameters = primitive_parameters + sequence_parameters + map_parameters
 
     rc_config = {}
     for key in WHITELIST_CHANNEL + WHITELIST_SOLVER:
@@ -427,7 +448,7 @@ def condaops_config_manage(argv: list, args, config=None):
                         logger.error(argv)
                     not_in_whitelist.append(key)
         if len(argv) > 0:
-            stdout, stderr, result_code = run_command("config", *argv)
+            stdout, stderr, result_code = run_command("config", *(argv + file_args))
             if result_code != 0:
                 logger.error(stdout)
                 logger.error(stderr)

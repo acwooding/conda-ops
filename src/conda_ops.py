@@ -18,7 +18,7 @@ from .commands_env import (
     get_conda_info,
     pip_step_env_lock,
 )
-from .conda_config import condarc_create, check_config_items_match, condaops_config_manage
+from .conda_config import condarc_create, check_config_items_match, condaops_config_manage, check_condarc_matches_opinions
 from .utils import logger
 
 
@@ -70,7 +70,7 @@ def conda_ops(argv: list):
     if args.command in ["status", None]:
         consistency_check(config=config)
     elif args.command == "config":
-        if args.kind == "create":
+        if args.create:
             condarc_create(config=config)
         else:
             condaops_config_manage(argv, args, config=config)
@@ -120,7 +120,7 @@ def conda_ops(argv: list):
         elif args.kind == "lockfile-check":
             env_lockfile_check(config)
     elif args.command == "test":
-        get_conda_info()
+        check_condarc_matches_opinions(config=config)
     elif args.reqs_command == "create":
         reqs_create(config)
     elif args.reqs_command == "add":
@@ -159,7 +159,7 @@ def configure_parser_config(subparsers):
     managed configuration settings. To modify other config settings, use `conda config` directly.
     """
     p = subparsers.add_parser("config", description=descr, help=descr)
-    p.add_argument("kind", type=str) # accepts create
+    p.add_argument("create", nargs="?", const=True, default=False, help="Create conda ops managed .condarc file.")
     _config_subcommands = p.add_argument_group("Config Subcommands")
     config_subcommands = _config_subcommands.add_mutually_exclusive_group()
     config_subcommands.add_argument("--show", nargs="*", default=None, help="Display configuration values in the condaops .condarc file. ")
