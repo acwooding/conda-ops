@@ -1,5 +1,5 @@
 from src.commands import lockfile_generate
-from src.commands_env import env_create, env_check, get_prefix, check_env_exists
+from src.commands_env import env_create, env_check, get_prefix, check_env_exists, env_lockfile_check, env_regenerate, env_delete
 from src.python_api import run_command
 import pytest
 import logging
@@ -91,7 +91,7 @@ def test_env_create_no_lockfile(setup_config_files):
         env_create(config)
 
 
-def test_env_check_existing(setup_config_files, mocker):
+def test_env_check_existing(setup_config_files, mocker, caplog):
     """
     Test the env_check function when the environment exists but is not active.
     """
@@ -101,10 +101,11 @@ def test_env_check_existing(setup_config_files, mocker):
 
     # Call the env_check function
     # die_on_error by default
-    with pytest.raises(SystemExit):
+    with caplog.at_level(logging.WARNING):
         env_check(config)
 
-    assert env_check(config, die_on_error=False) is False
+    assert "exists but is not active" in caplog.text
+    assert env_check(config, die_on_error=False) is True
 
 
 def test_env_check_non_existing(setup_config_files, mocker):
@@ -133,3 +134,46 @@ def test_env_check_active(setup_config_files, mocker):
 
     assert env_check(config, die_on_error=False) is True
     assert env_check(config) is True
+
+
+def test_env_lockfile_check_missing_lockfile(caplog, setup_config_files):
+    config = setup_config_files
+
+    lockfile_consistent = False
+
+    with caplog.at_level(logging.WARNING):
+        result = env_lockfile_check(config=config, lockfile_consistent=lockfile_consistent, env_consistent=True, die_on_error=False)
+
+    assert result is False
+    assert "Lock file is missing or inconsistent" in caplog.text
+
+
+def test_env_lockfile_check_missing_environment(caplog, setup_config_files):
+    config = setup_config_files
+
+    lockfile_consistent = True
+    env_consistent = False
+
+    with caplog.at_level(logging.WARNING):
+        result = env_lockfile_check(config=config, env_consistent=env_consistent, lockfile_consistent=lockfile_consistent, die_on_error=False)
+
+    assert result is False
+    assert "Environment does not exist" in caplog.text
+
+
+def test_env_lockfile_check_consistent_environment_and_lockfile(caplog, setup_config_files):
+    config = setup_config_files
+    lockfile_generate(config)
+
+    if check_env_exists(config["settings"]["env_name"]):
+        env_regenerate(config)
+    else:
+        env_create(config)
+
+    with caplog.at_level(logging.DEBUG):
+        result = env_lockfile_check(config=config, die_on_error=False)
+
+    assert result is True
+    assert "Conda packages in environment and lock file are in sync" in caplog.text
+    assert "Pip packages in environment and lock file are in sync" in caplog.text
+    env_delete(config)

@@ -276,7 +276,7 @@ def pip_step_env_lock(config, env_name=None):
 
 def env_check(config=None, die_on_error=True):
     """
-    Check that the conda ops environment exists and is active.
+    Check that the conda ops environment exists. Warn (but don't fail) if it is not active.
     """
     if config is None:
         config = proj_load()
@@ -296,7 +296,6 @@ def env_check(config=None, die_on_error=True):
     else:
         env_exists = check_env_exists(env_name)
         if env_exists:
-            check = False
             logger.warning(f"Managed conda environment ('{env_name}') exists but is not active.")
             logger.info("To activate it:")
             logger.info(f">>> conda activate {env_name}")
@@ -338,8 +337,8 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
 
     if not env_consistent:
         logger.warning(
-            "Environment does not exist or is not active. Cannot determine the consistency \
-            of the lockfile and environment."
+            "Environment does not exist. Cannot determine the consistency \
+of the lockfile and environment."
         )
         if die_on_error:
             sys.exit(1)
