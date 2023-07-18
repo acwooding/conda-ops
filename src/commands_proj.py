@@ -49,7 +49,6 @@ def proj_create():
         logger.warning("conda ops has already been initialized")
         if input("Would you like to reinitialize (this will overwrite the existing config)? (y/n) ").lower() != "y":
             sys.exit(0)
-        logger.error("Unimplemented: Reinitialize from the new templates as with git init with no overwriting")
     else:
         conda_ops_path.mkdir()
 
