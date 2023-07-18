@@ -23,6 +23,7 @@ Please note that this module relies on other modules and packages within the pro
 
 from pathlib import Path
 import os
+import re
 import subprocess
 import sys
 
@@ -245,9 +246,6 @@ def reqs_check(config, die_on_error=True):
         for package in conda_deps:
             try:
                 req = MatchSpec(package)
-                if str(req) != package:
-                    update = True
-                    logger.warning(f"Requirement {package} will be updated to the cannonical format {str(req)}")
                 valid_specs.append(str(req))
                 package_name_list.append(req.name)
             except Exception as exception:
@@ -258,21 +256,29 @@ def reqs_check(config, die_on_error=True):
         if pip_dict is not None:
             pip_deps = pip_dict.get("pip", None)
             for package in pip_deps:
-                try:
-                    req = Requirement(package)
-                    if str(req) != package:
-                        update = True
-                        logger.warning(f"Requirement {package} will be updated to the cannonical format {str(req)}")
-                    valid_pip_specs.append(str(req))
-                    package_name_list.append(req.name)
-                except Exception as exception:
-                    check = False
-                    print(exception)
-                    invalid_specs.append(package)
+                if "-e " in package:
+                    pip_package = package.split("-e ")[1]
+                else:
+                    pip_package = package
+                if is_path_requirement(pip_package) or "git+https" in pip_package:
+                    logger.info(f"Does not check path/url requirements yet...assuming {package} is valid")
+                    valid_pip_specs.append(package)
+                else:
+                    try:
+                        req = Requirement(pip_package)
+                        if "-e " in package:
+                            valid_pip_specs.append("-e " + str(req))
+                        else:
+                            valid_pip_specs.append(str(req))
+                        package_name_list.append(req.name)
+                    except Exception as exception:
+                        check = False
+                        print(exception)
+                        invalid_specs.append(package)
         if len(invalid_specs) > 0:
             check = False
             logger.error(f"The following specs are of an invalid format: {invalid_specs}.")
-            logger.info("Please update them accordingly.")
+            logger.info("Please manually update them accordingly.")
 
         # check for duplicate packages
         duplicates = check_for_duplicates(package_name_list)
@@ -282,15 +288,6 @@ def reqs_check(config, die_on_error=True):
             logger.error(f"The packages {list(duplicates.keys())} have been specified more than once.")
             logger.info(f"Please update the requirements file {requirements_file} accordingly.")
 
-        if check and update:
-            # only update the file if the specs are all valid
-            logger.warning("Updating the requirements file")
-            if len(valid_pip_specs) > 0:
-                requirements["dependencies"] = [{"pip": valid_pip_specs}] + valid_specs
-            else:
-                requirements["dependencies"] = valid_specs
-            with open(requirements_file, "r") as yamlfile:
-                yaml.dump(requirements, yamlfile)
     else:
         check = False
         logger.warning("No requirements file present")
@@ -487,3 +484,8 @@ def open_file_in_editor(filename, editor=None):
         subprocess.run([editor, path], check=True)
     except subprocess.CalledProcessError as exception:
         logger.error(f"Failed to open the file in the editor {editor}: {exception}")
+
+
+def is_path_requirement(requirement):
+    # Check if the requirement starts with a file path indicator or is a local directory
+    return requirement.startswith(".") or requirement.startswith("/") or requirement.startswith("~") or re.match(r"^\w+:\\", requirement) is not None

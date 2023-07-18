@@ -59,7 +59,7 @@ def proj_create():
     config_file = conda_ops_path / CONFIG_FILENAME
 
     # currently defaults to creating an env_name based on the location of the project
-    env_name = Path.cwd().name
+    env_name = Path.cwd().name.lower()
 
     _config_paths = {
         "ops_dir": "${catalog_path}",
