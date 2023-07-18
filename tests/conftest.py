@@ -1,6 +1,7 @@
 import pytest
 from pathlib import Path
 from src.utils import yaml
+from src.conda_config import condarc_create
 
 CONDA_OPS_DIR_NAME = ".conda-ops"
 
@@ -26,6 +27,7 @@ def setup_config_files(shared_temp_dir):
             "lockfile": ops_dir / "lockfile.json",
             "explicit_lockfile": ops_dir / "lockfile.explicit",
             "pip_explicit_lockfile": ops_dir / "lockfile.pypi",
+            "condarc": ops_dir / ".condarc",
         },
         "settings": {
             "env_name": str(shared_temp_dir.name),
@@ -37,9 +39,12 @@ def setup_config_files(shared_temp_dir):
         "channel-order": ["defaults"],
         "dependencies": ["python", "pip"],
     }
+
     ops_dir.mkdir(exist_ok=True)
     with open(config["paths"]["requirements"], "w") as f:
         yaml.dump(requirements_dict, f)
+
+    condarc_create(config=config)
 
     return config
 

@@ -14,13 +14,18 @@ Please note that this module relies on other modules and packages within the pro
 .utils, and .kvstore. Make sure to install the necessary dependencies before using the functions in this module.
 """
 
+from contextlib import AbstractContextManager
+import json
 from pathlib import Path
+import os
 import sys
+import traceback
 
 from .kvstore import KVStore
 from ._paths import PathStore
 
 from .utils import CONDA_OPS_DIR_NAME, CONFIG_FILENAME, logger
+from .python_api import run_command
 
 
 ##################################################################
@@ -34,7 +39,9 @@ def proj_create():
     """
     Initialize the conda ops project by creating a .conda-ops directory and config file.
 
-    Return the config dict
+    Return the config dict.
+
+    Note: This does **not** create the .condarc configuration file or the requirements file.
     """
     conda_ops_path = Path.cwd() / CONDA_OPS_DIR_NAME
 
@@ -60,6 +67,7 @@ def proj_create():
         "lockfile": "${ops_dir}/lockfile.json",
         "explicit_lockfile": "${ops_dir}/lockfile.explicit",
         "pip_explicit_lockfile": "${ops_dir}/lockfile.pypi",
+        "condarc": "${ops_dir}/.condarc",
     }
     _config_settings = {
         "env_name": env_name,
@@ -186,3 +194,55 @@ def find_upwards(cwd, filename):
         return fullpath if fullpath.exists() else find_upwards(cwd.parent, filename)
     except RecursionError:
         return None
+
+
+def get_conda_info():
+    """Get conda configuration information.
+
+    XXX Should this maybe look into the conda internals instead?
+    XXX previous get_info_dict did this, but the internal call does not contain the envs
+    """
+    # Note: we do not want or need to use the condarc context handler here.
+    stdout, stderr, result_code = run_command("info", "--json", use_exception_handler=False)
+    if result_code != 0:
+        logger.info(stdout)
+        logger.info(stderr)
+        sys.exit(result_code)
+    return json.loads(stdout)
+
+
+class CondaOpsManagedCondarc(AbstractContextManager):
+    """
+    Wrapper for calls to conda that set and unset the CONDARC value to the rc_path value.
+
+    Since conda-ops track config settings that matter for the solver (solver and channel configuartion)
+    including pip_interop_enabled, we use the context handler for the following conda commands:
+    * conda create
+    * conda install
+    * conda list (it gives us conda and pip packages)
+    * conda remove/uninstall (except remove --all)
+    * conda run pip <any pip command>
+    """
+
+    def __init__(self, rc_path):
+        self.rc_path = str(rc_path)
+
+    def __enter__(self):
+        self.old_condarc = os.environ.get("CONDARC")
+        if Path(self.rc_path).exists():
+            os.environ["CONDARC"] = self.rc_path
+        else:
+            logger.error("Conda ops managed .condarc file does not exist")
+            logger.info("To create the managed .condarc file:")
+            logger.info(">>> conda ops config create")
+            sys.exit(1)
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        if self.old_condarc is not None:
+            os.environ["CONDARC"] = self.old_condarc
+        else:
+            del os.environ["CONDARC"]
+        if exc_type is SystemExit:
+            logger.error("System Exiting...")
+            logger.debug(f"exc_value: {exc_value} \n")
+            logger.debug(f"exc_traceback: {traceback.print_tb(exc_traceback)}")
