@@ -48,8 +48,13 @@ def reqs_add(packages, channel=None, config=None):
     """
     requirements_file = config["paths"]["requirements"]
     package_str = " ".join(packages)
+    if channel is None:
+        channel_str = "defaults"
+    else:
+        channel_str = channel
+
     if channel:
-        logger.info(f"Adding packages {package_str} from channel {channel} to the requirements file {requirements_file}")
+        logger.info(f"Adding packages {package_str} from channel {channel_str} to the requirements file {requirements_file}")
     else:
         logger.info(f"Adding packages {package_str} from the conda defaults channel to the requirements file {requirements_file}")
 
@@ -66,7 +71,7 @@ def reqs_add(packages, channel=None, config=None):
         conflicts = check_package_in_list(package, reqs["dependencies"])
 
         if pip_dict is not None:
-            pip_conflicts = check_package_in_list(package, pip_dict["pip"])
+            pip_conflicts = check_package_in_list(package, pip_dict["pip"], channel="pip")
         else:
             pip_conflicts = []
         if len(conflicts) > 0 or len(pip_conflicts) > 0:
@@ -74,12 +79,13 @@ def reqs_add(packages, channel=None, config=None):
                 f"Package {package} is in the existing requirements as \
                 {' '.join(conflicts)} {' pip::'.join(pip_conflicts)}"
             )
-            logger.warning(f"The existing requirements will be replaced withe {package} from channel {channel}")
+            logger.warning(f"The existing requirements will be replaced withe {package} from channel {channel_str}")
             for conflict in conflicts:
                 reqs["dependencies"].remove(conflict)
             for conflict in pip_conflicts:
                 pip_dict["pip"].remove(conflict)
         # add package
+
         if channel is None:
             if reqs["dependencies"] is None:
                 reqs["dependencies"] = [package]
@@ -336,15 +342,20 @@ def check_package_in_list(package, package_list, channel=None):
     """
     matching_list = []
     if channel == "pip":
-        requirement = Requirement(package)
+        requirement = Requirement(package).name
     else:
-        requirement = MatchSpec(package)
+        requirement = MatchSpec(package).name
     for comp_package in package_list:
         if channel == "pip":
-            req_p = Requirement(comp_package)
+            if "-e " in comp_package:
+                comp_package = comp_package.split("-e ")[1]
+            if is_path_requirement(comp_package) or "git+https" in comp_package:
+                req_p = comp_package
+            else:
+                req_p = Requirement(comp_package).name
         else:
-            req_p = MatchSpec(comp_package)
-        if requirement.name == req_p.name:
+            req_p = MatchSpec(comp_package).name
+        if requirement == req_p:
             matching_list.append(comp_package)
     return matching_list
 
