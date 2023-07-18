@@ -1,6 +1,7 @@
 from collections.abc import Mapping
 import os
 import sys
+import configparser
 
 from conda.base.context import context
 from conda.common.serialize import yaml_round_trip_load, yaml_round_trip_dump
@@ -232,11 +233,11 @@ def check_condarc_matches_opinions(rc_path=None, config=None, die_on_error=True)
     check = True
     if not rc_path:
         rc_path = config["paths"]["condarc"]
-    if not rc_path.exists():
-        logger.error(f"The file {rc_path} does not exist. There is nothing to compare against.")
-        logger.info("To create the managed .condarc file:")
-        logger.info(">>> conda ops config create")
-        check = False
+    elif not rc_path.exists():
+            logger.error(f"The file {rc_path} does not exist. There is nothing to compare against.")
+            logger.info("To create the managed .condarc file:")
+            logger.info(">>> conda ops config create")
+            check = False
     else:
         rc_config = yaml_round_trip_load(rc_path)
         for key, value in CONDAOPS_OPINIONS.items():
