@@ -49,7 +49,6 @@ def proj_create():
         logger.warning("conda ops has already been initialized")
         if input("Would you like to reinitialize (this will overwrite the existing config)? (y/n) ").lower() != "y":
             sys.exit(0)
-        logger.error("Unimplemented: Reinitialize from the new templates as with git init with no overwriting")
     else:
         conda_ops_path.mkdir()
 
@@ -95,10 +94,29 @@ def proj_load(die_on_error=True):
     return config
 
 
-def proj_check(config=None, die_on_error=True):
+def proj_check(config=None, die_on_error=True, required_keys=None):
     """
-    Check the existence and consistency of the project and config object
+    Check the existence and consistency of the project and config object.
+
+    Args:
+        config (dict, optional): Configuration object. If not provided,
+            it will be loaded using `proj_load`.
+        die_on_error (bool, optional): Flag indicating whether to exit the program if error occurs.
+        required_keys (list, optional): List of required keys in the config object.
+            Default is a predefined list of all known keys.
+
+    Returns:
+        bool: True if the project and config object are valid and consistent, False otherwise.
     """
+    if required_keys is None:
+        required_keys = [
+            "ops_dir",
+            "requirements",
+            "lockfile",
+            "explicit_lockfile",
+            "pip_explicit_lockfile",
+            "condarc",
+        ]
     check = True
     if config is None:
         config = proj_load(die_on_error=die_on_error)
@@ -118,13 +136,12 @@ def proj_check(config=None, die_on_error=True):
             logger.info("To reinitialize your conda ops project:")
             logger.info(">>> conda ops proj create")
             # logger.info(">>> conda ops init")
-        paths = config["paths"]
-        if len(paths) < 4:
-            check = False
-            logger.error("Config is missing paths")
-            logger.info("To reinitialize your conda ops project:")
-            logger.info(">>> conda ops proj create")
-            # logger.info(">>> conda ops init")
+        paths = list(config["paths"].keys())
+        for key in required_keys:
+            if key not in paths:
+                logger.error(f"config.ini missing mandatory key: {key}")
+                logger.info("To reinitialize your conda ops project:")
+                logger.info(">>> conda ops proj create")
 
     if die_on_error and not check:
         sys.exit(1)

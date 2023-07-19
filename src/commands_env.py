@@ -323,7 +323,8 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
         lockfile_consistent = lockfile_check(config, die_on_error=die_on_error)
 
     if not lockfile_consistent:
-        logger.warning("Lock file is missing or inconsistent. Cannot determine the consistency of the lockfile and environment.")
+        logger.warning("Lock file is missing or inconsistent.")
+        logger.warning("Cannot determine the consistency of the lockfile and environment.")
         logger.info("To lock the environment:")
         logger.info(">>> conda ops lockfile generate")
         # logger.info(">>> conda ops lock")
@@ -336,10 +337,9 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
         env_consistent = env_check(config, die_on_error=die_on_error)
 
     if not env_consistent:
-        logger.warning(
-            "Environment does not exist. Cannot determine the consistency \
-of the lockfile and environment."
-        )
+        logger.warning("Environment does not exist.")
+        logger.error("Cannot determine the consistency of the lockfile and environment.")
+
         if die_on_error:
             sys.exit(1)
         else:
