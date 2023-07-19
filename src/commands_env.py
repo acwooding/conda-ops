@@ -7,12 +7,11 @@ from io import StringIO
 import urllib
 from contextlib import redirect_stdout
 
-from packaging.requirements import Requirement
-
 from .python_api import run_command
 from .commands_proj import proj_load, get_conda_info, CondaOpsManagedCondarc
 from .conda_config import env_pip_interop
 from .commands_lockfile import lockfile_check
+from .requirements import PackageSpec
 from .utils import logger
 
 ##################################################################
@@ -679,7 +678,7 @@ def extract_pip_installed_filenames(stdout, config=None):
             pattern = r"^(\S+)"
             match = re.search(pattern, package_stdout, re.MULTILINE)
             if match:
-                requirement = Requirement(match.group(1))
+                requirement = PackageSpec(match.group(1), manager="pip")
                 package_name = requirement.name
             else:
                 package_name = None
@@ -707,7 +706,7 @@ def extract_pip_installed_filenames(stdout, config=None):
             pattern = r"satisfied: ([^\s]+)"
             match = re.search(pattern, package_stdout)
             if match:
-                requirement = Requirement(match.group(1))
+                requirement = PackageSpec(match.group(1), manager="pip")
                 package_name = requirement.name
             else:
                 package_name = None
@@ -741,7 +740,7 @@ def extract_pip_installed_filenames(stdout, config=None):
             pattern = r"^(\S+)"
             match = re.search(pattern, package_stdout, re.MULTILINE)
             if match:
-                requirement = Requirement(match.group(1))
+                requirement = PackageSpec(match.group(1), manager="pip")
                 package_name = requirement.name
             else:
                 package_name = None

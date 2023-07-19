@@ -19,12 +19,11 @@ before using the functions in this module.
 import json
 import sys
 
-from conda.models.match_spec import MatchSpec
 from conda.models.version import ver_eval
-from packaging.requirements import Requirement
 from packaging.version import parse
 
-from .commands_reqs import reqs_check, is_path_requirement
+from .commands_reqs import reqs_check
+from .requirements import is_path_requirement, PackageSpec
 from .split_requirements import env_split, get_channel_order
 from .utils import yaml, logger
 
@@ -137,16 +136,11 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
                 if pip_cd:
                     channel_list = []
                     for req in channel_dict[channel][channel]:
-                        if "-e " in req:
-                            req = req.split("-e ")[1]
-                        if is_path_requirement(req) or "git+https" in req:
-                            channel_list.append(req)
-                        else:
-                            channel_list.append(Requirement(req))
+                        channel_list.append(PackageSpec(req, manager="pip"))
                 else:
                     channel_list = []
             else:
-                channel_list = [MatchSpec(x) for x in channel_dict[channel]]
+                channel_list = [PackageSpec(x) for x in channel_dict[channel]]
 
             for package in channel_list:
                 missing = True
@@ -163,7 +157,7 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
                     missing_packages.append(str(package))
                 else:
                     if channel == "pip":
-                        if not parse(lock_package["version"]) in package.specifier:
+                        if not parse(lock_package["version"]) in package.version:
                             missing_packages.append(str(package))
                     else:
                         if package.version and not ver_eval(lock_package["version"], str(package.version)):

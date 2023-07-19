@@ -27,8 +27,7 @@ import re
 import subprocess
 import sys
 
-from conda.models.match_spec import MatchSpec
-from packaging.requirements import Requirement
+from .requirements import PackageSpec
 
 from .utils import yaml, logger
 
@@ -58,7 +57,7 @@ def reqs_add(packages, channel=None, config=None):
     else:
         logger.info(f"Adding packages {package_str} from the conda defaults channel to the requirements file {requirements_file}")
 
-    packages = clean_package_args(packages)
+    packages = clean_package_args(packages, channel=channel)
 
     with open(requirements_file, "r", encoding="utf-8") as yamlfile:
         reqs = yaml.load(yamlfile)
@@ -251,7 +250,7 @@ def reqs_check(config, die_on_error=True):
         update = False
         for package in conda_deps:
             try:
-                req = MatchSpec(package)
+                req = PackageSpec(package, manager="conda")
                 valid_specs.append(str(req))
                 package_name_list.append(req.name)
             except Exception as exception:
@@ -262,25 +261,15 @@ def reqs_check(config, die_on_error=True):
         if pip_dict is not None:
             pip_deps = pip_dict.get("pip", None)
             for package in pip_deps:
-                if "-e " in package:
-                    pip_package = package.split("-e ")[1]
-                else:
-                    pip_package = package
-                if is_path_requirement(pip_package) or "git+https" in pip_package:
-                    logger.info(f"Does not check path/url requirements yet...assuming {package} is valid")
-                    valid_pip_specs.append(package)
-                else:
-                    try:
-                        req = Requirement(pip_package)
-                        if "-e " in package:
-                            valid_pip_specs.append("-e " + str(req))
-                        else:
-                            valid_pip_specs.append(str(req))
+                try:
+                    req = PackageSpec(package, manager="pip")
+                    valid_pip_specs.append(str(req))
+                    if not req.is_pathspec:
                         package_name_list.append(req.name)
-                    except Exception as exception:
-                        check = False
-                        print(exception)
-                        invalid_specs.append(package)
+                except Exception as exception:
+                    check = False
+                    print(exception)
+                    invalid_specs.append(package)
         if len(invalid_specs) > 0:
             check = False
             logger.error(f"The following specs are of an invalid format: {invalid_specs}.")
@@ -341,20 +330,12 @@ def check_package_in_list(package, package_list, channel=None):
     Given a package, return the packages in the package_list that match that requirement.
     """
     matching_list = []
-    if channel == "pip":
-        requirement = Requirement(package).name
-    else:
-        requirement = MatchSpec(package).name
+
+    requirement = PackageSpec(package, channel=channel).name
+
     for comp_package in package_list:
-        if channel == "pip":
-            if "-e " in comp_package:
-                comp_package = comp_package.split("-e ")[1]
-            if is_path_requirement(comp_package) or "git+https" in comp_package:
-                req_p = comp_package
-            else:
-                req_p = Requirement(comp_package).name
-        else:
-            req_p = MatchSpec(comp_package).name
+        req_p = PackageSpec(comp_package, channel=channel).name
+
         if requirement == req_p:
             matching_list.append(comp_package)
     return matching_list
@@ -372,7 +353,7 @@ def clean_package_args(package_args, channel=None):
     # first split packages
     split_packages = []
     for package in package_args:
-        if " " in package:
+        if " " in package and not "-e " in package:
             split_packages.extend(package.split())
         else:
             split_packages.append(package)
@@ -381,32 +362,16 @@ def clean_package_args(package_args, channel=None):
     invalid_packages = []
     cleaned_packages = []
     for package in split_packages:
-        print(package)
-        if "=" in package and "==" not in package:
-            # Change = to ==
-            clean_package = package.replace("=", "==").strip()
-        else:
-            clean_package = package.strip()
-        if channel == "pip":
-            # Check PEP 508 compliance
-
-            try:
-                req = Requirement(clean_package)
-                cleaned_packages.append(req)
-            except Exception as exception:
-                print(exception)
-                invalid_packages.append(package)
-        else:
-            # Check conda requirement format compliance
-            try:
-                req = MatchSpec(clean_package)
-                cleaned_packages.append(req)
-            except Exception as exception:
-                print(exception)
-                invalid_packages.append(package)
+        # Check PEP 508 or conda requirement format compliance
+        try:
+            req = PackageSpec(package, channel=channel)
+            cleaned_packages.append(req)
+        except Exception as exception:
+            print(exception)
+            invalid_packages.append(package)
 
     if len(invalid_packages) > 0:
-        logger.error(f"Invalid package format: {' '.join(invalid_packages)}")
+        logger.error(f"Invalid package format: {', '.join(invalid_packages)}")
         if channel == "pip":
             logger.info("Please fix the entries to be PEP 508 compliant and surrounded by quotes if any version specifications are present")
         else:
@@ -495,8 +460,3 @@ def open_file_in_editor(filename, editor=None):
         subprocess.run([editor, path], check=True)
     except subprocess.CalledProcessError as exception:
         logger.error(f"Failed to open the file in the editor {editor}: {exception}")
-
-
-def is_path_requirement(requirement):
-    # Check if the requirement starts with a file path indicator or is a local directory
-    return requirement.startswith(".") or requirement.startswith("/") or requirement.startswith("~") or re.match(r"^\w+:\\", requirement) is not None
