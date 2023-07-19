@@ -7,7 +7,8 @@ import sys
 
 import pytest
 
-from src.commands_reqs import reqs_add, reqs_remove, reqs_create, reqs_check, pop_pip_section, check_package_in_list, clean_package_args, open_file_in_editor, is_path_requirement
+from src.commands_reqs import reqs_add, reqs_remove, reqs_create, reqs_check, pop_pip_section, check_package_in_list, clean_package_args, open_file_in_editor
+from src.requirements import is_path_requirement
 from src.utils import yaml
 
 
@@ -266,6 +267,9 @@ def test_clean_package_args():
     """
     Test that package_args works as expected.
     """
+    test_paths = ["-e .", "/my/file/path", "git+https://my/url"]
+    assert clean_package_args(test_paths, channel="pip") == test_paths
+
     # test different channels
     for channel in ["pip", "conda-forge", None]:
         # valid list to be altered
