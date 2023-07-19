@@ -71,9 +71,17 @@ def lockfile_generate(config, regenerate=True):
     for i, channel in enumerate(order_list):
         logger.debug(f"Installing from channel {channel}")
         if channel != "pip":
-            json_reqs = conda_step_env_lock(channel, config, env_name=test_env)
+            try:
+                json_reqs = conda_step_env_lock(channel, config, env_name=test_env)
+            except Exception as exception:
+                print(exception)
+                json_reqs = None
         else:
-            json_reqs = pip_step_env_lock(config, env_name=test_env)
+            try:
+                json_reqs = pip_step_env_lock(config, env_name=test_env)
+            except Exception as exception:
+                print(exception)
+                json_reqs = None
         if json_reqs is None:
             if i > 0:
                 logger.warning(f"Last successful channel was {order_list[i-1]}")

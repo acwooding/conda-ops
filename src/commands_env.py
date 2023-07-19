@@ -164,7 +164,7 @@ def env_lock(config, lock_file=None, env_name=None, pip_dict=None):
                     else:
                         package["url"] = pip_dict_entry["url"]
                         package["sha256"] = pip_dict_entry["sha256"]
-                        package["filenmae"] = pip_dict_entry["filename"]
+                        package["filename"] = pip_dict_entry["filename"]
         else:
             starter_str = "/".join([package["base_url"], package["platform"], package["dist_name"]])
             line = None
@@ -252,7 +252,7 @@ def pip_step_env_lock(config, env_name=None):
         stdout_backup = sys.stdout
         sys.stdout = capture_output = StringIO()
         with redirect_stdout(capture_output):
-            conda_args = ["--prefix", get_prefix(env_name), "pip", "install", "-r", str(pypi_reqs_file), "--verbose"]
+            conda_args = ["--prefix", get_prefix(env_name), "pip", "install", "-r", str(pypi_reqs_file), "--verbose", "--no-cache"]
             stdout, stderr, result_code = run_command("run", conda_args, use_exception_handler=True)
             if result_code != 0:
                 logger.error(stdout)
@@ -641,14 +641,14 @@ def get_pypi_package_info(package_name, version, filename):
     try:
         with urllib.request.urlopen(url) as response:
             data = json.loads(response.read().decode())
+            releases = data["urls"]
     except Exception as exception:
+        # try another url pattern if needed "https://pypi.org/pypi/{package_name}/json"
         print(exception)
         logger.error(f"No releases found for url {url}")
         return None, None
 
     # Find the wheel file in the list of distributions
-    releases = data["urls"]
-
     matching_releases = []
     for release in releases:
         if release["filename"] == filename:
@@ -693,7 +693,7 @@ def extract_pip_installed_filenames(stdout, config=None):
                 filename = None
                 logger.error("No match for filename found.")
             if filename is not None:
-                version = filename.split("-")[1]
+                version = filename.split("-")[1].strip(".tar.gz")
             else:
                 version = None
             if version is not None:
@@ -701,7 +701,7 @@ def extract_pip_installed_filenames(stdout, config=None):
             else:
                 url = None
                 sha = None
-            filename_dict[package_name] = {"version": version, "filename": filename, "url": url, "sha256": sha}
+            filename_dict[package_name.lower()] = {"version": version, "filename": filename, "url": url, "sha256": sha}
         elif "satisfied: " in package_stdout:
             # in this case, look in existing lockfile for details
             pattern = r"satisfied: ([^\s]+)"
@@ -713,17 +713,30 @@ def extract_pip_installed_filenames(stdout, config=None):
                 package_name = None
                 logger.error("No match for package_name found.")
             lockfile = config["paths"]["lockfile"]
-            with open(lockfile, "r", encoding="utf-8") as jsonfile:
-                lock_list = json.load(jsonfile)
-            for package in lock_list:
-                if package["name"] == package_name:
-                    filename_dict[package_name] = {
-                        "version": package.get("version", None),
-                        "filename": package.get("filename", None),
-                        "url": package.get("url", None),
-                        "sha256": package.get("sha256", None),
-                    }
-                    break
+            if lockfile.exists():
+                with open(lockfile, "r", encoding="utf-8") as jsonfile:
+                    lock_list = json.load(jsonfile)
+                for package in lock_list:
+                    if package["name"] == package_name:
+                        manager = package.get("manager", None)
+                        if manager == "pip":
+                            filename_dict[package_name.lower()] = {
+                                "version": package.get("version", None),
+                                "filename": package.get("filename", None),
+                                "url": package.get("url", None),
+                                "sha256": package.get("sha256", None),
+                                "manager": "pip",
+                            }
+                        elif manager == "conda":
+                            pass
+                        else:
+                            logger.error(f"Unrecognized manager: {manager}")
+                        break
+            else:
+                # XXX could have an intermediate lockfile and have a package satisfied through
+                # conda channels. Decide what to do here.
+                logger.error(f"No existing lockfile, so no existing information on package {package_name}")
+
         elif "Downloading" in package_stdout:
             pattern = r"^(\S+)"
             match = re.search(pattern, package_stdout, re.MULTILINE)
@@ -742,7 +755,7 @@ def extract_pip_installed_filenames(stdout, config=None):
                 filename = None
                 logger.error("No match for filename found.")
             if filename is not None:
-                version = filename.split("-")[1]
+                version = filename.split("-")[1].strip(".tar.gz")
             else:
                 version = None
             if version is not None:
@@ -750,7 +763,7 @@ def extract_pip_installed_filenames(stdout, config=None):
             else:
                 url = None
                 sha = None
-            filename_dict[package_name] = {"version": version, "filename": filename, "url": url, "sha256": sha}
+            filename_dict[package_name.lower()] = {"version": version, "filename": filename, "url": url, "sha256": sha}
         else:
             logger.error("Unimplemented so far...")
             logger.debug(package_stdout)

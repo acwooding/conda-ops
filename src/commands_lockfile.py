@@ -79,8 +79,8 @@ def lockfile_check(config, die_on_error=True):
                             logger.info(">>> conda ops lockfile regenerate")
                             # logger.info(">>> conda ops lock")
                 if len(no_url) > 0:
-                    logger.error(f"url(s) for {len(no_url)} packages(s) are missing.")
-                    logger.warning(f"The packages {' '.join(no_url)} may not have been added to requirements.")
+                    logger.error(f"url(s) for {len(no_url)} packages(s) are missing from the lockfile.")
+                    logger.warning(f"The packages {' '.join(no_url)} may not have been added correctly.")
                     logger.warning("Please add any missing packages to the requirements and regenerate the lock file.")
                     logger.info("To regenerate the lock file:")
                     logger.info(">>> conda ops lockfile regenerate")
