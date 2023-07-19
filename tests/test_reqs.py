@@ -7,7 +7,7 @@ import sys
 
 import pytest
 
-from src.commands_reqs import reqs_add, reqs_remove, reqs_create, reqs_check, pop_pip_section, check_package_in_list, clean_package_args, open_file_in_editor
+from src.commands_reqs import reqs_add, reqs_remove, reqs_create, reqs_check, pop_pip_section, check_package_in_list, clean_package_args, open_file_in_editor, is_path_requirement
 from src.utils import yaml
 
 
@@ -369,3 +369,17 @@ def test_open_file_in_editor_unsupported_platform(mocker, caplog):
     filename = "test.txt"
     open_file_in_editor(filename)
     assert "Unsupported platform" in caplog.text
+
+
+def test_is_path_requirement_standard_requirements():
+    requirements = ["requests", "numpy==1.18.5"]
+
+    for requirement in requirements:
+        assert not is_path_requirement(requirement)
+
+
+def test_is_path_requirement_path_requirements():
+    requirements = ["../my-package", "~/projects/other-package", ".", ".."]
+
+    for requirement in requirements:
+        assert is_path_requirement(requirement)

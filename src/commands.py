@@ -71,9 +71,17 @@ def lockfile_generate(config, regenerate=True):
     for i, channel in enumerate(order_list):
         logger.debug(f"Installing from channel {channel}")
         if channel != "pip":
-            json_reqs = conda_step_env_lock(channel, config, env_name=test_env)
+            try:
+                json_reqs = conda_step_env_lock(channel, config, env_name=test_env)
+            except Exception as exception:
+                print(exception)
+                json_reqs = None
         else:
-            json_reqs = pip_step_env_lock(config, env_name=test_env)
+            try:
+                json_reqs = pip_step_env_lock(config, env_name=test_env)
+            except Exception as exception:
+                print(exception)
+                json_reqs = None
         if json_reqs is None:
             if i > 0:
                 logger.warning(f"Last successful channel was {order_list[i-1]}")
@@ -118,7 +126,10 @@ def consistency_check(config=None, die_on_error=False):
     Check the consistency of the requirements file vs. lock file vs. conda environment
     """
     proj_check(config, die_on_error=True)  # needed to continue
-    logger.info("Configuration is consistent")
+    logger.info("Project configuration is consistent")
+
+    condarc_parameters_consistent = check_config_items_match()
+    conndarc_consistent = check_condarc_matches_opinions(config=config, die_on_error=die_on_error)
 
     env_name = config["settings"]["env_name"]
     logger.info(f"Managed Conda Environment: {env_name}")
@@ -127,9 +138,6 @@ def consistency_check(config=None, die_on_error=False):
     lockfile_consistent = lockfile_check(config, die_on_error=die_on_error)
 
     lockfile_reqs_check(config, reqs_consistent=reqs_consistent, lockfile_consistent=lockfile_consistent, die_on_error=die_on_error)
-
-    condarc_parameters_consistent = check_config_items_match()
-    conndarc_consistent = check_condarc_matches_opinions(config=config, die_on_error=die_on_error)
 
     env_consistent = env_check(config, die_on_error=die_on_error)
     env_lockfile_check(config, env_consistent=env_consistent, lockfile_consistent=lockfile_consistent, die_on_error=die_on_error)
