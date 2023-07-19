@@ -184,6 +184,9 @@ def test_env_lockfile_check_consistent_environment_and_lockfile(caplog, setup_co
 
 def test_extract_pip_installed_filenames(caplog, setup_config_files):
     config = setup_config_files
+    lockfile = config["paths"]["lockfile"]
+    if lockfile.exists():
+        lockfile.unlink()
     test_case = """Collecting datashape (from datashader->-r /.conda-ops/.ops.pypi-requirements.txt (line 1))
   Downloading datashape-0.5.2.tar.gz (76 kB)
      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 76.5/76.5 kB 9.1 MB/s eta 0:00:00
