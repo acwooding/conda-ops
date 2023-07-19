@@ -6,6 +6,7 @@ from conda.models.match_spec import MatchSpec
 
 from .utils import logger
 
+
 class PackageSpec:
     def __init__(self, spec, manager=None, channel=None):
         self.spec = spec
@@ -24,7 +25,7 @@ class PackageSpec:
     def parse_requirement(spec, manager):
         editable = False
         # look for "=" and not "==" in spec
-        pattern = r'^\s*([\w.-]+)\s*=\s*([\w.-]+)\s*$'
+        pattern = r"^\s*([\w.-]+)\s*=\s*([\w.-]+)\s*$"
         match = re.match(pattern, spec)
         if match:
             # Change = to ==
@@ -64,6 +65,7 @@ class PackageSpec:
             return "-e " + str(self.requirement)
         else:
             return str(self.requirement)
+
 
 class PathSpec:
     def __init__(self, spec, editable=False):
