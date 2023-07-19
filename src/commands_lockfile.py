@@ -24,7 +24,7 @@ from conda.models.version import ver_eval
 from packaging.requirements import Requirement
 from packaging.version import parse
 
-from .commands_reqs import reqs_check
+from .commands_reqs import reqs_check, is_path_requirement
 from .split_requirements import env_split, get_channel_order
 from .utils import yaml, logger
 
@@ -135,7 +135,14 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
             if channel == "pip":
                 pip_cd = channel_dict.get(channel, None)
                 if pip_cd:
-                    channel_list = [Requirement(x) for x in channel_dict[channel][channel]]
+                    channel_list = []
+                    for req in channel_dict[channel][channel]:
+                        if "-e " in req:
+                            req = req.split("-e ")[1]
+                        if is_path_requirement(req) or "git+https" in req:
+                            channel_list.append(req)
+                        else:
+                            channel_list.append(Requirement(req))
                 else:
                     channel_list = []
             else:
@@ -144,7 +151,12 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
             for package in channel_list:
                 missing = True
                 for lock_package in lock_dict:
-                    if package.name == lock_package["name"]:
+                    try:
+                        package_name = package.name
+                    except AttributeError:
+                        ## Unimplimented for now
+                        package_name = None
+                    if package_name == lock_package["name"]:
                         missing = False
                         break
                 if missing:
@@ -160,7 +172,7 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
         if len(missing_packages) > 0:
             check = False
             logger.error("The following requirements are not in the lockfile:")
-            logger.error(f"{' '. join(missing_packages)}")
+            logger.error(f"{', '. join(missing_packages)}")
             logger.info("To update the lock file:")
             logger.info(">>> conda ops lockfile generate")
     else:
