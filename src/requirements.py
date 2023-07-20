@@ -87,3 +87,81 @@ class PathSpec:
 def is_path_requirement(requirement):
     # Check if the requirement starts with a file path indicator or is a local directory
     return requirement.startswith(".") or requirement.startswith("/") or requirement.startswith("~") or re.match(r"^\w+:\\", requirement) is not None or os.path.isabs(requirement)
+
+
+class PipLockSpec:
+    def __init__(self, info_dict, manager="pip"):
+        self.info_dict = info_dict
+        self.info_dict["manager"] = manager
+
+    @classmethod
+    def from_pip_dict(cls, pip_dict):
+        """
+        Parses the output from 'pip install --report' to get desired fields
+        """
+        download_info = pip_dict.get("download_info", None)
+
+        if download_info is None:
+            url = None
+            sha = None
+        else:
+            if "vcs_info" in download_info.keys():
+                vcs = download_info["vcs_info"]["vcs"]
+                if vcs == "git":
+                    url = vcs + "+" + download_info["url"] + "@" + download_info["vcs_info"]["commit_id"]
+                else:
+                    logger.warning(f"Unimplemented vcs {vcs}. Will work with the general url but not specify the revision.")
+                    logger.info("To request support for your vcs, please file an issue.")
+                    url = download_info["url"]
+            else:
+                url = download_info["url"]
+
+            archive_info = pip_dict["download_info"].get("archive_info", None)
+            if archive_info is None:
+                sha = None
+            else:
+                sha = archive_info["hashes"]["sha256"]
+
+        info_dict = {"name": pip_dict["metadata"]["name"].lower(), "version": pip_dict["metadata"]["version"], "url": url, "sha256": sha}
+        return cls(info_dict, manager="pip")
+
+    @classmethod
+    def from_conda_dict(cls, conda_dict):
+        """
+        Parses the output from 'pip install --report' to get desired fields
+        """
+        if conda_dict["channel"] != "pypi":
+            logger.error(f"Wrong parsing mechanism being used")
+            sys.exit(1)
+        info_dict = {"name": conda_dict["name"], "version": conda_dict["version"], "channel": conda_dict["channel"]}
+        return cls(info_dict, manager="pip")
+
+    @property
+    def name(self):
+        return self.info_dict["name"]
+
+    @property
+    def version(self):
+        return self.info_dict["version"]
+
+    @property
+    def manager(self):
+        return self.info_dict["manager"]
+
+    @property
+    def url(self):
+        return self.info_dict.get("url", None)
+
+    @property
+    def channel(self):
+        return self.info_dict.get("channel", None)
+
+    @property
+    def sha256_hash(self):
+        return self.info_dict["sha256"]
+
+    def __str__(self):
+        return str(self.info_dict)
+
+    def __repr__(self):
+        return repr(self.info_dict)

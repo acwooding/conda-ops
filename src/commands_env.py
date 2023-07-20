@@ -11,7 +11,7 @@ from .python_api import run_command
 from .commands_proj import proj_load, get_conda_info, CondaOpsManagedCondarc
 from .conda_config import env_pip_interop
 from .commands_lockfile import lockfile_check
-from .requirements import PackageSpec
+from .requirements import PackageSpec, PipLockSpec
 from .utils import logger
 
 ##################################################################
@@ -148,22 +148,31 @@ def env_lock(config, lock_file=None, env_name=None, pip_dict=None):
 
     # add additional information to go into the lock file based on the kind of package
     logger.debug(f"Environment to be locked with {len(json_reqs)} packages")
+    new_json_reqs = []
     for package in json_reqs:
         if package["channel"] == "pypi":
             package["manager"] = "pip"
+            conda_info = PipLockSpec.from_conda_dict(package)
             if pip_dict is not None:
-                pip_dict_entry = pip_dict.get(package["name"], None)
+                pip_dict_entry = pip_dict.get(conda_info.name, None)
                 if pip_dict_entry is not None:
-                    if pip_dict_entry["version"] != package["version"]:
+                    pip_dict_entry["name"] = conda_info.name
+                    pip_dict_entry["channel"] = conda_info.channel
+                    pip_info = PipLockSpec(pip_dict_entry)
+                    if pip_info.version != conda_info.version:
                         logger.error(
-                            f"The pip extra info entry version {pip_dict_entry['version']} does \
-                            not match the conda package version{package['version']}"
+                            f"The pip extra info entry version {pip_info.version} does \
+                            not match the conda package version {conda_info.version}"
                         )
                         sys.exit(1)
                     else:
-                        package["url"] = pip_dict_entry["url"]
-                        package["sha256"] = pip_dict_entry["sha256"]
-                        package["filename"] = pip_dict_entry["filename"]
+                        new_json_reqs.append(pip_info.info_dict)
+                else:
+                    logger.error(f"No pip dict entry for {conda_info.name}")
+                    new_json_reqs.append(package)
+            else:
+                logger.error("No pip_dict present")
+                new_json_reqs.append(package)
         else:
             starter_str = "/".join([package["base_url"], package["platform"], package["dist_name"]])
             line = None
@@ -176,12 +185,13 @@ def env_lock(config, lock_file=None, env_name=None, pip_dict=None):
                 package["extension"] = md5_split[0].split(f"{package['dist_name']}")[-1]
                 package["url"] = line
                 package["manager"] = "conda"
+            new_json_reqs.append(package)
 
-    blob = json.dumps(json_reqs, indent=2, sort_keys=True)
+    blob = json.dumps(new_json_reqs, indent=2, sort_keys=True)
     with open(lock_file, "w", encoding="utf-8") as jsonfile:
         jsonfile.write(blob)
 
-    return json_reqs
+    return new_json_reqs
 
 
 def conda_step_env_lock(channel, config, env_name=None):
@@ -241,6 +251,7 @@ def pip_step_env_lock(config, env_name=None):
     env_pip_interop(config=config, flag=True)
 
     ops_dir = config["paths"]["ops_dir"]
+    temp_pip_file = ops_dir / ".temp_pip_report.json"
     logger.info(f"Generating the intermediate lock file for pip via environment {env_name}")
 
     pypi_reqs_file = ops_dir / ".ops.pypi-requirements.txt"
@@ -251,7 +262,7 @@ def pip_step_env_lock(config, env_name=None):
         stdout_backup = sys.stdout
         sys.stdout = capture_output = StringIO()
         with redirect_stdout(capture_output):
-            conda_args = ["--prefix", get_prefix(env_name), "pip", "install", "-r", str(pypi_reqs_file), "--verbose", "--no-cache"]
+            conda_args = ["--prefix", get_prefix(env_name), "pip", "install", "-r", str(pypi_reqs_file), "--no-cache", "--report", f"{temp_pip_file}"]
             stdout, stderr, result_code = run_command("run", conda_args, use_exception_handler=True)
             if result_code != 0:
                 logger.error(stdout)
@@ -261,7 +272,7 @@ def pip_step_env_lock(config, env_name=None):
         stdout_str = capture_output.getvalue()
         print(stdout_str)
 
-    pip_dict = extract_pip_installed_filenames(stdout_str, config=config)
+    pip_dict = extract_pip_info(temp_pip_file, config=config)
 
     channel_lockfile = ops_dir / ".ops.lock.pip"
     json_reqs = env_lock(config, lock_file=channel_lockfile, env_name=env_name, pip_dict=pip_dict)
@@ -664,109 +675,29 @@ def get_pypi_package_info(package_name, version, filename):
     return url, sha256_hash
 
 
-def extract_pip_installed_filenames(stdout, config=None):
+def extract_pip_info(json_input, config=None):
     """
-    Take the output of pip install --verbose to get the package name, version and filenames of what was installed.
+    Take the json output from a pip install --report command and extract the relevant information.
+    json_input can be a filename, path or
     """
-    list_stdout = re.split(r"Collecting |Requirement already ", stdout)
+    if type(json_input) is str:
+        pip_info = json.loads(json_input)
+    elif Path(json_input).exists():
+        with open(json_input, "r") as json_handle:
+            pip_info = json.load(json_handle)
+    else:
+        logger.error(f"Unrecognized input format: {json_input}")
+        sys.exit(1)
 
-    filename_dict = {}
-    for package_stdout in list_stdout[1:]:
-        if "Using pip" in package_stdout:
-            pass
-        if "Using cached" in package_stdout:
-            pattern = r"^(\S+)"
-            match = re.search(pattern, package_stdout, re.MULTILINE)
-            if match:
-                requirement = PackageSpec(match.group(1), manager="pip")
-                package_name = requirement.name
-            else:
-                package_name = None
-                logger.error("No match for package_name found.")
-
-            pattern = r"Using cached ([^\s]+)"
-            match = re.search(pattern, package_stdout)
-            if match:
-                filename = match.group(1)
-            else:
-                filename = None
-                logger.error("No match for filename found.")
-            if filename is not None:
-                version = filename.split("-")[1].strip(".tar.gz")
-            else:
-                version = None
-            if version is not None:
-                url, sha = get_pypi_package_info(package_name, version, filename)
-            else:
-                url = None
-                sha = None
-            filename_dict[package_name.lower()] = {"version": version, "filename": filename, "url": url, "sha256": sha}
-        elif "satisfied: " in package_stdout:
-            # in this case, look in existing lockfile for details
-            pattern = r"satisfied: ([^\s]+)"
-            match = re.search(pattern, package_stdout)
-            if match:
-                requirement = PackageSpec(match.group(1), manager="pip")
-                package_name = requirement.name
-            else:
-                package_name = None
-                logger.error("No match for package_name found.")
-            lockfile = config["paths"]["lockfile"]
-            if lockfile.exists():
-                with open(lockfile, "r", encoding="utf-8") as jsonfile:
-                    lock_list = json.load(jsonfile)
-                for package in lock_list:
-                    if package["name"] == package_name:
-                        manager = package.get("manager", None)
-                        if manager == "pip":
-                            filename_dict[package_name.lower()] = {
-                                "version": package.get("version", None),
-                                "filename": package.get("filename", None),
-                                "url": package.get("url", None),
-                                "sha256": package.get("sha256", None),
-                                "manager": "pip",
-                            }
-                        elif manager == "conda":
-                            pass
-                        else:
-                            logger.error(f"Unrecognized manager: {manager}")
-                        break
-            else:
-                # XXX could have an intermediate lockfile and have a package satisfied through
-                # conda channels. Decide what to do here.
-                logger.error(f"No existing lockfile, so no existing information on package {package_name}")
-
-        elif "Downloading" in package_stdout:
-            pattern = r"^(\S+)"
-            match = re.search(pattern, package_stdout, re.MULTILINE)
-            if match:
-                requirement = PackageSpec(match.group(1), manager="pip")
-                package_name = requirement.name
-            else:
-                package_name = None
-                logger.error("No match for package_name found.")
-
-            pattern = r"Downloading ([^\s]+)"
-            match = re.search(pattern, package_stdout)
-            if match:
-                filename = match.group(1)
-            else:
-                filename = None
-                logger.error("No match for filename found.")
-            if filename is not None:
-                version = filename.split("-")[1].strip(".tar.gz")
-            else:
-                version = None
-            if version is not None:
-                url, sha = get_pypi_package_info(package_name, version, filename)
-            else:
-                url = None
-                sha = None
-            filename_dict[package_name.lower()] = {"version": version, "filename": filename, "url": url, "sha256": sha}
-        else:
-            logger.error("Unimplemented so far...")
-            logger.debug(package_stdout)
-    return filename_dict
+    package_dict = {}
+    for package in pip_info["install"]:
+        p_info = PipLockSpec.from_pip_dict(package)
+        p_info_dict = {"version": p_info.version, "url": p_info.url, "manager": "pip"}
+        sha = p_info.sha256_hash
+        if sha:
+            p_info_dict["sha256"] = sha
+        package_dict[p_info.name] = p_info_dict
+    return package_dict
 
 
 def get_prefix(env_name):
