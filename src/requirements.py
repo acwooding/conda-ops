@@ -90,9 +90,8 @@ def is_path_requirement(requirement):
 
 
 class PipLockSpec:
-    def __init__(self, info_dict, manager="pip"):
+    def __init__(self, info_dict):
         self.info_dict = info_dict
-        self.info_dict["manager"] = manager
 
     @classmethod
     def from_pip_dict(cls, pip_dict):
@@ -122,19 +121,19 @@ class PipLockSpec:
             else:
                 sha = archive_info["hashes"]["sha256"]
 
-        info_dict = {"name": pip_dict["metadata"]["name"].lower(), "version": pip_dict["metadata"]["version"], "url": url, "sha256": sha}
-        return cls(info_dict, manager="pip")
+        info_dict = {"name": pip_dict["metadata"]["name"].lower(), "manager": "pip", "channel": "pypi", "version": pip_dict["metadata"]["version"], "url": url, "sha256": sha}
+        return cls(info_dict)
 
     @classmethod
     def from_conda_dict(cls, conda_dict):
         """
-        Parses the output from 'pip install --report' to get desired fields
+        Parses the output from 'conda list --json' to get desired fields
         """
         if conda_dict["channel"] != "pypi":
             logger.error(f"Wrong parsing mechanism being used")
             sys.exit(1)
-        info_dict = {"name": conda_dict["name"], "version": conda_dict["version"], "channel": conda_dict["channel"]}
-        return cls(info_dict, manager="pip")
+        info_dict = {"name": conda_dict["name"], "version": conda_dict["version"], "channel": conda_dict["channel"], "manager": "pip"}
+        return cls(info_dict)
 
     @property
     def name(self):
