@@ -23,7 +23,7 @@ from conda.models.version import ver_eval
 from packaging.version import parse
 
 from .commands_reqs import reqs_check
-from .requirements import is_path_requirement, PackageSpec
+from .requirements import is_path_requirement, PackageSpec, LockSpec
 from .split_requirements import env_split, get_channel_order
 from .utils import yaml, logger
 
@@ -56,27 +56,14 @@ def lockfile_check(config, die_on_error=True):
             no_url = []
             if json_reqs:
                 for package in json_reqs:
-                    if package.get("url", None) is None:
-                        no_url.append(package["name"])
+                    lock_package = LockSpec(package)
+                    if not lock_package.check_consistency():
                         check = False
-                    elif package["manager"] == "conda":
-                        package_url = (
-                            "/".join(
-                                [
-                                    package["base_url"],
-                                    package["platform"],
-                                    (package["dist_name"] + package["extension"]),
-                                ]
-                            ).strip()
-                            + f"#{package['md5']}"
-                        )
-                        if package["url"].strip() != package_url.strip():
-                            check = False
-                            logger.warning(f"package information for {package['name']} is inconsistent")
-                            logger.debug(f"{package_url}, \n{package['url']}")
-                            logger.info("To regenerate the lock file:")
-                            logger.info(">>> conda ops lockfile regenerate")
-                            # logger.info(">>> conda ops lock")
+                        logger.info("To regenerate the lock file:")
+                        logger.info(">>> conda ops lockfile regenerate")
+                    if lock_package.url is None:
+                        no_url.append(lock_package.name)
+                        check = False
                 if len(no_url) > 0:
                     logger.error(f"url(s) for {len(no_url)} packages(s) are missing from the lockfile.")
                     logger.warning(f"The packages {' '.join(no_url)} may not have been added correctly.")

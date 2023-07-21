@@ -1,5 +1,6 @@
 import json
-from src.requirements import PipLockSpec
+from src.requirements import LockSpec
+from src.commands_env import env_delete
 
 
 def test_from_pip_dict_parsing():
@@ -51,7 +52,7 @@ def test_from_pip_dict_parsing():
   """
     )
 
-    p = PipLockSpec.from_pip_dict(test_case)
+    p = LockSpec.from_pip_report(test_case)
 
     assert p.name == "annotated-types"
     assert p.version == "0.5.0"
@@ -74,8 +75,42 @@ def test_from_conda_dict_parsing():
       }"""
     )
 
-    p = PipLockSpec.from_conda_dict(test_case)
+    p = LockSpec.from_conda_list(test_case)
 
     assert p.name == "texttable"
     assert p.version == "1.6.7"
     assert p.manager == "pip"
+
+
+def test_to_explicit():
+    test_cases = json.loads(
+        """[
+  {
+    "channel": "pypi",
+    "manager": "pip",
+    "name": "igraph",
+    "hash": {
+      "sha256": "eb97640e9e71913015e7073341a5f6b4017fe025222950873c507d4ee97670f9"
+    },
+    "url": "https://files.pythonhosted.org/packages/0d/29/e931551821bca836300deba16090ebec37030b285322b3763916843fefcd/igraph-0.10.6-cp39-abi3-macosx_10_9_x86_64.whl",
+    "version": "0.10.6"
+  },
+  {
+    "channel": "pkgs/main",
+    "hash": {
+      "md5": "2cc7f4d64fba19f5be1a594c8cbad73e"
+    },
+    "manager": "conda",
+    "name": "ipython",
+    "url": "https://repo.anaconda.com/pkgs/main/osx-64/ipython-8.12.0-py311hecd8cb5_0.conda",
+    "version": "8.12.0"
+  }]"""
+    )
+    results = []
+    for test in test_cases:
+        results.append(LockSpec(test).to_explicit())
+
+    assert results == [
+        "igraph @ https://files.pythonhosted.org/packages/0d/29/e931551821bca836300deba16090ebec37030b285322b3763916843fefcd/igraph-0.10.6-cp39-abi3-macosx_10_9_x86_64.whl --hash=sha256:eb97640e9e71913015e7073341a5f6b4017fe025222950873c507d4ee97670f9",
+        "https://repo.anaconda.com/pkgs/main/osx-64/ipython-8.12.0-py311hecd8cb5_0.conda#2cc7f4d64fba19f5be1a594c8cbad73e",
+    ]

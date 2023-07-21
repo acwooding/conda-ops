@@ -11,7 +11,7 @@ from .python_api import run_command
 from .commands_proj import proj_load, get_conda_info, CondaOpsManagedCondarc
 from .conda_config import env_pip_interop
 from .commands_lockfile import lockfile_check
-from .requirements import PackageSpec, PipLockSpec
+from .requirements import PackageSpec, LockSpec
 from .utils import logger
 
 ##################################################################
@@ -150,29 +150,29 @@ def env_lock(config, lock_file=None, env_name=None, pip_dict=None):
     logger.debug(f"Environment to be locked with {len(json_reqs)} packages")
     new_json_reqs = []
     for package in json_reqs:
-        if package["channel"] == "pypi":
+        conda_spec = LockSpec.from_conda_list(package)
+        if conda_spec.channel == "pypi":
             package["manager"] = "pip"
-            conda_info = PipLockSpec.from_conda_dict(package)
             if pip_dict is not None:
-                pip_dict_entry = pip_dict.get(conda_info.name, None)
+                pip_dict_entry = pip_dict.get(conda_spec.name, None)
                 if pip_dict_entry is not None:
-                    pip_dict_entry["name"] = conda_info.name
-                    pip_dict_entry["channel"] = conda_info.channel
-                    pip_info = PipLockSpec(pip_dict_entry)
-                    if pip_info.version != conda_info.version:
+                    pip_dict_entry["name"] = conda_spec.name
+                    pip_dict_entry["channel"] = conda_spec.channel
+                    pip_spec = LockSpec(pip_dict_entry)
+                    if pip_spec.version != conda_spec.version:
                         logger.error(
-                            f"The pip extra info entry version {pip_info.version} does \
-                            not match the conda package version {conda_info.version}"
+                            f"The pip extra info entry version {pip_spec.version} does \
+                            not match the conda package version {conda_spec.version}"
                         )
                         sys.exit(1)
                     else:
-                        new_json_reqs.append(pip_info.info_dict)
+                        new_json_reqs.append(pip_spec.info_dict)
                 else:
-                    logger.error(f"No pip dict entry for {conda_info.name}")
-                    new_json_reqs.append(package)
+                    logger.error(f"No pip dict entry for {conda_spec.name}")
+                    new_json_reqs.append(conda_spec.info_dict)
             else:
                 logger.error("No pip_dict present")
-                new_json_reqs.append(package)
+                new_json_reqs.append(conda_spec.info_dict)
         else:
             starter_str = "/".join([package["base_url"], package["platform"], package["dist_name"]])
             line = None
@@ -180,12 +180,8 @@ def env_lock(config, lock_file=None, env_name=None, pip_dict=None):
                 if starter_str in line:
                     break
             if line:
-                md5_split = line.split("#")
-                package["md5"] = md5_split[-1]
-                package["extension"] = md5_split[0].split(f"{package['dist_name']}")[-1]
-                package["url"] = line
-                package["manager"] = "conda"
-            new_json_reqs.append(package)
+                conda_spec.add_conda_explicit_info(line)
+            new_json_reqs.append(conda_spec.info_dict)
 
     blob = json.dumps(new_json_reqs, indent=2, sort_keys=True)
     with open(lock_file, "w", encoding="utf-8") as jsonfile:
@@ -595,16 +591,12 @@ def json_to_explicit(json_list, package_manager="conda"):
     """
     explicit_str = ""
     for package in json_list:
-        if package["manager"] == "conda" == package_manager:
-            explicit_str += package["url"] + "\n"
-        if package["manager"] == "pip" == package_manager:
-            if "url" in package.keys() and "sha256" in package.keys():
-                explicit_str += " ".join([package["name"], "@", package["url"], f"--hash=sha256:{package['sha256']}"]) + "\n"
-            else:
-                logger.error(
-                    f"Unimplemented: package {package} does not have the required information \
-                    for the explicit lockfile. It likely came from a local or vcs pip installation."
-                )
+        lock_package = LockSpec(package)
+        if lock_package.check_consistency():
+            if lock_package.manager == package_manager:
+                explicit_str += lock_package.to_explicit() + "\n"
+        else:
+            sys.exit(1)
     return explicit_str
 
 
@@ -691,11 +683,11 @@ def extract_pip_info(json_input, config=None):
 
     package_dict = {}
     for package in pip_info["install"]:
-        p_info = PipLockSpec.from_pip_dict(package)
+        p_info = LockSpec.from_pip_report(package)
         p_info_dict = {"version": p_info.version, "url": p_info.url, "manager": "pip"}
         sha = p_info.sha256_hash
         if sha:
-            p_info_dict["sha256"] = sha
+            p_info_dict["hash"] = {"sha256": sha}
         package_dict[p_info.name] = p_info_dict
     return package_dict
 
