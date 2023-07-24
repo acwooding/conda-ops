@@ -224,3 +224,38 @@ class LockSpec:
 
     def __repr__(self):
         return repr(self.info_dict)
+
+def get_pypi_package_info(package_name, version, filename):
+    """
+    Get the pypi package information from pypi for a package name.
+
+    If installed, use the matching distribution and platform information from what is installed.
+    """
+    url = f"https://pypi.org/pypi/{package_name}/{version}/json"
+
+    # Fetch the package metadata JSON
+    try:
+        with urllib.request.urlopen(url) as response:
+            data = json.loads(response.read().decode())
+            releases = data["urls"]
+    except Exception as exception:
+        # try another url pattern if needed "https://pypi.org/pypi/{package_name}/json"
+        print(exception)
+        logger.error(f"No releases found for url {url}")
+        return None, None
+
+    # Find the wheel file in the list of distributions
+    matching_releases = []
+    for release in releases:
+        if release["filename"] == filename:
+            matching_releases.append(release)
+
+    if matching_releases:
+        for release in matching_releases:
+            sha256_hash = release["digests"]["sha256"]
+            url = release["url"]
+            logger.debug(f"   The url for the file {filename} of {package_name} {version} is: {url}")
+    else:
+        logger.debug(f"No wheel distribution found for {package_name} {version}.")
+        return None, None
+    return url, sha256_hash

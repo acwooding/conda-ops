@@ -596,6 +596,7 @@ def json_to_explicit(json_list, package_manager="conda"):
             if lock_package.manager == package_manager:
                 explicit_str += lock_package.to_explicit() + "\n"
         else:
+            logger.error("Failed to convert json to explicit lock file")
             sys.exit(1)
     return explicit_str
 
@@ -629,42 +630,6 @@ def generate_explicit_lock_files(config=None, lock_file=None):
             explicitfile.write(pip_reqs)
         return [explicit_lock_file, pip_lock_file]
     return [explicit_lock_file]
-
-
-def get_pypi_package_info(package_name, version, filename):
-    """
-    Get the pypi package information from pypi for a package name.
-
-    If installed, use the matching distribution and platform information from what is installed.
-    """
-    url = f"https://pypi.org/pypi/{package_name}/{version}/json"
-
-    # Fetch the package metadata JSON
-    try:
-        with urllib.request.urlopen(url) as response:
-            data = json.loads(response.read().decode())
-            releases = data["urls"]
-    except Exception as exception:
-        # try another url pattern if needed "https://pypi.org/pypi/{package_name}/json"
-        print(exception)
-        logger.error(f"No releases found for url {url}")
-        return None, None
-
-    # Find the wheel file in the list of distributions
-    matching_releases = []
-    for release in releases:
-        if release["filename"] == filename:
-            matching_releases.append(release)
-
-    if matching_releases:
-        for release in matching_releases:
-            sha256_hash = release["digests"]["sha256"]
-            url = release["url"]
-            logger.debug(f"   The url for the file {filename} of {package_name} {version} is: {url}")
-    else:
-        logger.debug(f"No wheel distribution found for {package_name} {version}.")
-        return None, None
-    return url, sha256_hash
 
 
 def extract_pip_info(json_input, config=None):

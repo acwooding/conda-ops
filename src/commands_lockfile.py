@@ -112,32 +112,23 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
         _, channel_dict = env_split(reqs_env, channel_order)
         with open(lock_file, "r", encoding="utf-8") as jsonfile:
             lock_dict = json.load(jsonfile)
-        lock_names = [package["name"] for package in lock_dict]
 
         # so far we don't check that the channel info is correct, just that the package is there
         missing_packages = []
-
         for channel in channel_order:
-            if channel == "pip":
-                pip_cd = channel_dict.get(channel, None)
-                if pip_cd:
-                    channel_list = []
-                    for req in channel_dict[channel][channel]:
-                        channel_list.append(PackageSpec(req, manager="pip"))
-                else:
-                    channel_list = []
-            else:
-                channel_list = [PackageSpec(x) for x in channel_dict[channel]]
+            channel_list = [PackageSpec(req, channel=channel) for req in channel_dict[channel]]
 
             for package in channel_list:
                 missing = True
                 for lock_package in lock_dict:
                     try:
                         package_name = package.name
-                    except AttributeError:
+                    except AttributeError as e:
+                        print(e)
                         ## Unimplimented for now
                         package_name = None
                     if package_name == lock_package["name"]:
+                        # find the matching package
                         missing = False
                         break
                 if missing:
