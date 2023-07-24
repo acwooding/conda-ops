@@ -1,7 +1,5 @@
 from collections.abc import Mapping
-import os
 import sys
-import configparser
 
 from conda.base.context import context
 from conda.common.serialize import yaml_round_trip_load, yaml_round_trip_dump
@@ -285,7 +283,7 @@ def condarc_create(rc_path=None, config=None):
 
     paramater_names = context.list_parameters()
 
-    d = {key: getattr(context, key) for key in paramater_names}
+    param_dict = {key: getattr(context, key) for key in paramater_names}
 
     grouped_paramaters = groupby(
         lambda p: context.describe_parameter(p)["parameter_type"],
@@ -297,31 +295,31 @@ def condarc_create(rc_path=None, config=None):
     for key in WHITELIST_CHANNEL + WHITELIST_SOLVER:
         if key in CONDAOPS_OPINIONS.keys():
             if key in sequence_parameters:
-                if list(d[key]) != CONDAOPS_OPINIONS[key]:
-                    logger.warning(f"Setting conda-ops configuration of {key} to {CONDAOPS_OPINIONS[key]}, while existing default is {d[key]}.")
-            elif str(d[key]) != str(CONDAOPS_OPINIONS[key]):
-                logger.warning(f"Setting conda-ops configuration of {key} to {CONDAOPS_OPINIONS[key]}, while existing default is {d[key]}.")
+                if list(param_dict[key]) != CONDAOPS_OPINIONS[key]:
+                    logger.warning(f"Setting conda-ops configuration of {key} to {CONDAOPS_OPINIONS[key]}, while existing default is {param_dict[key]}.")
+            elif str(param_dict[key]) != str(CONDAOPS_OPINIONS[key]):
+                logger.warning(f"Setting conda-ops configuration of {key} to {CONDAOPS_OPINIONS[key]}, while existing default is {param_dict[key]}.")
             rc_config[key] = CONDAOPS_OPINIONS[key]
         else:
             # Add in custom formatting
             # modifications as per conda/cli/main_config.py
             if key == "custom_channels":
-                rc_config["custom_channels"] = {channel.name: f"{channel.scheme}://{channel.location}" for channel in d["custom_channels"].values()}
+                rc_config["custom_channels"] = {channel.name: f"{channel.scheme}://{channel.location}" for channel in param_dict["custom_channels"].values()}
             elif key == "custom_multichannels":
-                rc_config["custom_multichannels"] = {multichannel_name: [str(x) for x in channels] for multichannel_name, channels in d["custom_multichannels"].items()}
+                rc_config["custom_multichannels"] = {multichannel_name: [str(x) for x in channels] for multichannel_name, channels in param_dict["custom_multichannels"].items()}
             elif key == "channel_alias":
-                rc_config[key] = str(d[key])
-            elif isinstance(d[key], Mapping):
-                rc_config[key] = {str(k): str(v) for k, v in d[key].items()}
-            elif isiterable(d[key]):
-                rc_config[key] = [str(x) for x in d[key]]
-            elif isinstance(d[key], bool) or d[key] is None:
+                rc_config[key] = str(param_dict[key])
+            elif isinstance(param_dict[key], Mapping):
+                rc_config[key] = {str(k): str(v) for k, v in param_dict[key].items()}
+            elif isiterable(param_dict[key]):
+                rc_config[key] = [str(x) for x in param_dict[key]]
+            elif isinstance(param_dict[key], bool) or param_dict[key] is None:
                 if key == "repodata_threads":
                     rc_config[key] = 0
                 else:
-                    rc_config[key] = d[key]
+                    rc_config[key] = param_dict[key]
             else:
-                rc_config[key] = str(d[key])
+                rc_config[key] = str(param_dict[key])
 
     with open(rc_path, "w") as rc:
         rc.write(yaml_round_trip_dump(rc_config))
@@ -330,7 +328,7 @@ def condarc_create(rc_path=None, config=None):
     return True
 
 
-def env_pip_interop(config=None, env_name=None, flag=True):
+def env_pip_interop(config=None, flag=True):
     """
     Set the flag pip_interop_enabled to the value of flag locally for the conda ops managed environment
     """
@@ -385,7 +383,7 @@ def condaops_config_manage(argv: list, args, config=None):
                 sys.exit(result_code)
             else:
                 if args.validate:
-                    logger.info(f"Conda config validated")
+                    logger.info("Conda config validated")
                 if args.show_sources:
                     print(stdout)
     if args.describe is not None:
@@ -422,9 +420,9 @@ def condaops_config_manage(argv: list, args, config=None):
         # prepend, append, add
         not_in_whitelist = []
         if args.append or args.prepend:
-            for arg, prepend in zip((args.prepend, args.append), (True, False)):
+            for arg in (args.prepend, args.append):
                 for key, item in arg:
-                    key, subkey = key.split(".", 1) if "." in key else (key, None)
+                    key, _ = key.split(".", 1) if "." in key else (key, None)
                     if key not in WHITELIST:
                         index_key = argv.index(key)
                         if argv[index_key - 1] in ["--append", "--prepend"]:
@@ -455,7 +453,7 @@ def condaops_config_manage(argv: list, args, config=None):
                 logger.error(stderr)
                 sys.exit(result_code)
             print(stdout)
-        if len(not_in_whitelist):
+        if len(not_in_whitelist) > 0:
             gap = "\n- "
             print("The following parameters are not recognized in the conda ops managed config:\n" f"- {gap.join(not_in_whitelist)}")
             print("To manage them use `conda config` instead.")

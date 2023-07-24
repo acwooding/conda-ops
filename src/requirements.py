@@ -225,6 +225,7 @@ class LockSpec:
     def __repr__(self):
         return repr(self.info_dict)
 
+
 def get_pypi_package_info(package_name, version, filename):
     """
     Get the pypi package information from pypi for a package name.
