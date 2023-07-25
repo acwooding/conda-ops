@@ -56,14 +56,12 @@ def test_lockfile_check_when_file_exists_and_valid(setup_config_files):
     config = setup_config_files
     lockfile_data = [
         {
+            "channel": "pkgs/main",
+            "hash": {"md5": "d0202dd912bfb45d3422786531717882"},
             "manager": "conda",
-            "base_url": "http://example.com",
-            "platform": "linux",
-            "dist_name": "example",
-            "extension": ".tar.gz",
-            "md5": "md5hash",
-            "url": "http://example.com/linux/example.tar.gz#md5hash",
-            "name": "example",
+            "name": "zlib",
+            "url": "https://repo.anaconda.com/pkgs/main/osx-64/zlib-1.2.13-h4dc903c_0.conda",
+            "version": "1.2.13",
         }
     ]
     with open(config["paths"]["lockfile"], "w") as f:
@@ -93,14 +91,12 @@ def test_lockfile_check_when_file_exists_but_invalid(setup_config_files):
     config = setup_config_files
     lockfile_data = [
         {
+            "channel": "pkgs/main",
+            "hash": {"md5": "d0202dd912bfb45d3422786531717882"},
             "manager": "conda",
-            "base_url": "http://example.com",
-            "platform": "linux",
-            "dist_name": "example",
-            "extension": ".tar.gz",
-            "md5": "md5hash",
-            "url": "http://wrong-url.com",
-            "name": "example",
+            "name": "zlib",
+            "url": "https://wrongurl.com",
+            "version": "1.2.13",
         }
     ]
     with open(config["paths"]["lockfile"], "w") as f:
@@ -162,34 +158,28 @@ def test_lockfile_reqs_check_consistent(mocker, setup_config_files):
 def test_lockfile_reqs_check_consistent_equals(setup_config_files):
     """
     This checks when the requirments and lock file are individually consistent,
-    the requirements are all in the lock file by name, but the version constrainst
-    are not satisfied by the lock file.
+    the requirements are all in the lock file by name, and the version constraint
+    is satisfied by the lock file.
     """
     config = setup_config_files
     reqs_add(["python==3.11"], config=config, channel="pip")
 
     lockfile_data = [
         {
-            "manager": "pip",
-            "base_url": "http://example.com",
-            "platform": "linux",
-            "dist_name": "example",
-            "extension": ".tar.gz",
-            "md5": "md5hash",
-            "url": "http://example.com/linux/example.tar.gz#md5hash",
+            "channel": "pkgs/main",
+            "hash": {"md5": "dc185a3787062b62e27cdbc07040b252"},
+            "manager": "conda",
             "name": "python",
+            "url": "https://repo.anaconda.com/pkgs/main/osx-64/python-3.11.0-h1fd4e5f_3.conda",
             "version": "3.11.0",
         },
         {
+            "channel": "pkgs/main",
+            "hash": {"md5": "1556eaba878214072149829197203fcf"},
             "manager": "conda",
-            "base_url": "http://example.com",
-            "platform": "linux",
-            "dist_name": "example",
-            "extension": ".tar.gz",
-            "md5": "md5hash",
-            "url": "http://example.com/linux/example.tar.gz#md5hash",
             "name": "pip",
-            "version": "21.2.2",
+            "url": "https://repo.anaconda.com/pkgs/main/osx-64/pip-23.1.2-py311hecd8cb5_0.conda",
+            "version": "23.1.2",
         },
     ]
     with open(config["paths"]["lockfile"], "w") as f:
@@ -201,36 +191,31 @@ def test_lockfile_reqs_check_consistent_equals(setup_config_files):
 def test_lockfile_reqs_check_inconsistent_version(setup_config_files):
     """
     This checks when the requirments and lock file are individually consistent,
-    the requirements are all in the lock file by name, but the version constrainst
-    are not satisfied by the lock file.
+    the requirements are all in the lock file by name, but the version constraint
+    is not satisfied by the lock file.
     """
     config = setup_config_files
-    reqs_add(["python==3.11"], config=config)
+    reqs_add(["python==3.10"], config=config)
 
     lockfile_data = [
         {
+            "channel": "pkgs/main",
+            "hash": {"md5": "dc185a3787062b62e27cdbc07040b252"},
             "manager": "conda",
-            "base_url": "http://example.com",
-            "platform": "linux",
-            "dist_name": "example",
-            "extension": ".tar.gz",
-            "md5": "md5hash",
-            "url": "http://example.com/linux/example.tar.gz#md5hash",
             "name": "python",
-            "version": "3.10",
+            "url": "https://repo.anaconda.com/pkgs/main/osx-64/python-3.11.0-h1fd4e5f_3.conda",
+            "version": "3.11.0",
         },
         {
+            "channel": "pkgs/main",
+            "hash": {"md5": "1556eaba878214072149829197203fcf"},
             "manager": "conda",
-            "base_url": "http://example.com",
-            "platform": "linux",
-            "dist_name": "example",
-            "extension": ".tar.gz",
-            "md5": "md5hash",
-            "url": "http://example.com/linux/example.tar.gz#md5hash",
             "name": "pip",
-            "version": "21.2.2",
+            "url": "https://repo.anaconda.com/pkgs/main/osx-64/pip-23.1.2-py311hecd8cb5_0.conda",
+            "version": "23.1.2",
         },
     ]
+
     with open(config["paths"]["lockfile"], "w") as f:
         json.dump(lockfile_data, f)
 

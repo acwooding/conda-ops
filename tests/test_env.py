@@ -3,7 +3,7 @@ from packaging.requirements import Requirement
 import pytest
 
 from src.commands import lockfile_generate
-from src.commands_env import env_create, env_check, get_prefix, check_env_exists, env_lockfile_check, env_regenerate, env_delete, extract_pip_installed_filenames, env_lock
+from src.commands_env import env_create, env_check, get_prefix, check_env_exists, env_lockfile_check, env_regenerate, env_delete, env_lock
 from src.commands_reqs import reqs_add
 from src.python_api import run_command
 
@@ -182,38 +182,6 @@ def test_env_lockfile_check_consistent_environment_and_lockfile(caplog, setup_co
     env_delete(config)
 
 
-def test_extract_pip_installed_filenames(caplog, setup_config_files):
-    config = setup_config_files
-    lockfile = config["paths"]["lockfile"]
-    if lockfile.exists():
-        lockfile.unlink()
-    test_case = """Collecting datashape (from datashader->-r /.conda-ops/.ops.pypi-requirements.txt (line 1))
-  Downloading datashape-0.5.2.tar.gz (76 kB)
-     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 76.5/76.5 kB 9.1 MB/s eta 0:00:00
-Collecting GitPython!=2.1.4,!=2.1.5,!=2.1.6 (from nbdime->-r /.conda-ops/.ops.pypi-requirements.txt (line 5))
-  Downloading GitPython-3.1.32-py3-none-any.whl (188 kB)
-     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 188.5/188.5 kB 28.7 MB/s eta 0:00:00
-Requirement already satisfied: jupyter-server in /miniconda3/envs/test-ops-lockfile-generate-1/lib/python3.11/site-packages (from nbdime->-r /.conda-ops/.ops.pypi-requirements.txt (line 5)) (2.5.0)"""
-    test_result = {
-        "datashape": {
-            "version": "0.5.2",
-            "filename": "datashape-0.5.2.tar.gz",
-            "url": "https://files.pythonhosted.org/packages/a6/5b/95b2ed56b61e649b69c9a5b1ecb32ff0a5cd68b9f69f5aa7774540e6b444/datashape-0.5.2.tar.gz",
-            "sha256": "2356ea690c3cf003c1468a243a9063144235de45b080b3652de4f3d44e57d783",
-        },
-        "gitpython": {
-            "version": "3.1.32",
-            "filename": "GitPython-3.1.32-py3-none-any.whl",
-            "url": "https://files.pythonhosted.org/packages/67/50/742c2fb60989b76ccf7302c7b1d9e26505d7054c24f08cc7ec187faaaea7/GitPython-3.1.32-py3-none-any.whl",
-            "sha256": "e3d59b1c2c6ebb9dfa7a184daf3b6dd4914237e7488a1730a6d8f6f5d0b4187f",
-        },
-    }
-    with caplog.at_level(logging.ERROR):
-        result = extract_pip_installed_filenames(test_case, config=config)
-    assert test_result == result
-    assert "no existing information on package jupyter-server" in caplog.text
-
-
 def test_env_lock_pip_dict(setup_config_files):
     config = setup_config_files
 
@@ -221,13 +189,11 @@ def test_env_lock_pip_dict(setup_config_files):
     pip_dict = {
         "datashape": {
             "version": "0.5.2",
-            "filename": "datashape-0.5.2.tar.gz",
             "url": "https://files.pythonhosted.org/packages/a6/5b/95b2ed56b61e649b69c9a5b1ecb32ff0a5cd68b9f69f5aa7774540e6b444/datashape-0.5.2.tar.gz",
             "sha256": "2356ea690c3cf003c1468a243a9063144235de45b080b3652de4f3d44e57d783",
         },
         "gitpython": {
             "version": "3.1.32",
-            "filename": "GitPython-3.1.32-py3-none-any.whl",
             "url": "https://files.pythonhosted.org/packages/67/50/742c2fb60989b76ccf7302c7b1d9e26505d7054c24f08cc7ec187faaaea7/GitPython-3.1.32-py3-none-any.whl",
             "sha256": "e3d59b1c2c6ebb9dfa7a184daf3b6dd4914237e7488a1730a6d8f6f5d0b4187f",
         },
