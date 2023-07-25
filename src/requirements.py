@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 
 from packaging.requirements import Requirement
 from conda.models.match_spec import MatchSpec
@@ -53,23 +54,22 @@ class PackageSpec:
     def version(self):
         if self.manager == "pip":
             return self.requirement.specifier
-        else:
-            return self.requirement.version
+        return self.requirement.version
 
     @property
     def is_pathspec(self):
-        return type(self.requirement) == PathSpec
+        return isinstance(self.requirement, PathSpec)
 
     def __str__(self):
         if self.editable:
             return "-e " + str(self.requirement)
-        else:
-            return str(self.requirement)
+        return str(self.requirement)
 
 
 class PathSpec:
     def __init__(self, spec, editable=False):
         self.spec = spec
+        self.editable = editable
         logger.info(f"Does not check path/url requirements yet...assuming {spec} is valid")
 
     def __str__(self):
@@ -184,6 +184,7 @@ class LockSpec:
                 for the explicit lockfile. It likely came from a local or vcs pip installation."
             )
             print(e)
+            return None
 
     @property
     def name(self):

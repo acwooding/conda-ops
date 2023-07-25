@@ -23,7 +23,6 @@ Please note that this module relies on other modules and packages within the pro
 
 from pathlib import Path
 import os
-import re
 import subprocess
 import sys
 
@@ -247,7 +246,6 @@ def reqs_check(config, die_on_error=True):
         valid_specs = []
         invalid_specs = []
         package_name_list = []
-        update = False
         for package in conda_deps:
             try:
                 req = PackageSpec(package, manager="conda")

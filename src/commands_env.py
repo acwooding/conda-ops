@@ -1,17 +1,15 @@
 import json
 from pathlib import Path
-import re
 import subprocess
 import sys
 from io import StringIO
-import urllib
 from contextlib import redirect_stdout
 
 from .python_api import run_command
 from .commands_proj import proj_load, get_conda_info, CondaOpsManagedCondarc
 from .conda_config import env_pip_interop
 from .commands_lockfile import lockfile_check
-from .requirements import PackageSpec, LockSpec
+from .requirements import LockSpec
 from .utils import logger
 
 ##################################################################
@@ -465,7 +463,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
                 logger.info(">>> conda ops env install")
                 # logger.info(">>> conda ops sync")
             # Find differing versions
-            differing_versions = {key: (conda_dict[key], lock_dict[key]) for key in conda_dict if key in lock_dict and conda_dict[key] != lock_dict[key]}
+            differing_versions = {key: (value, lock_dict[key]) for key, value in conda_dict.items() if key in lock_dict and value != lock_dict[key]}
             if len(differing_versions) > 0:
                 logger.debug("\nThe following package versions don't match:\n")
                 logger.debug("\n".join([f"{x}: Lock version {lock_dict[x]}, Env version {conda_dict[x]}" for x in differing_versions]))
@@ -637,10 +635,10 @@ def extract_pip_info(json_input, config=None):
     Take the json output from a pip install --report command and extract the relevant information.
     json_input can be a filename, path or
     """
-    if type(json_input) is str:
+    if isinstance(json_input, str):
         pip_info = json.loads(json_input)
     elif Path(json_input).exists():
-        with open(json_input, "r") as json_handle:
+        with open(json_input, "r", encoding="utf-8") as json_handle:
             pip_info = json.load(json_handle)
     else:
         logger.error(f"Unrecognized input format: {json_input}")

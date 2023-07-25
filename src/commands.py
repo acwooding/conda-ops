@@ -128,8 +128,8 @@ def consistency_check(config=None, die_on_error=False):
     proj_check(config, die_on_error=True)  # needed to continue
     logger.info("Project configuration is consistent")
 
-    condarc_parameters_consistent = check_config_items_match()
-    conndarc_consistent = check_condarc_matches_opinions(config=config, die_on_error=die_on_error)
+    check_config_items_match()
+    check_condarc_matches_opinions(config=config, die_on_error=die_on_error)
 
     env_name = config["settings"]["env_name"]
     logger.info(f"Managed Conda Environment: {env_name}")

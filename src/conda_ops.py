@@ -15,10 +15,8 @@ from .commands_env import (
     env_lockfile_check,
     env_install,
     env_lock,
-    get_conda_info,
-    pip_step_env_lock,
 )
-from .conda_config import condarc_create, check_config_items_match, condaops_config_manage, check_condarc_matches_opinions
+from .conda_config import condarc_create, condaops_config_manage, check_condarc_matches_opinions
 from .utils import logger
 
 
