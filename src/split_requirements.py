@@ -27,7 +27,8 @@ def env_split(conda_env, channel_order):
     for k, dep in enumerate(deplist[:]):  # Note: copy list, as we mutate it
         if isinstance(dep, dict):  # nested yaml
             if dep.get("pip", None):
-                channel_dict["pip"] = deplist.pop(k)
+                pip_dict = deplist.pop(k)
+                channel_dict["pip"] = pip_dict["pip"]
         else:
             prefix_check = dep.split("::")
             if len(prefix_check) > 1:
@@ -79,25 +80,24 @@ def create_split_files(file_to_split, base_path, split_pip=True):
 
     for kind in channel_order:
         if kind == "pip":
-            if type(channel_dict["pip"]) is dict:
-                if split_pip:
-                    sdist_list = []
-                    pypi_list = []
-                    for package in channel_dict["pip"]["pip"]:
-                        if package.startswith("-e") or ("/" in package):
-                            sdist_list.append(package)
-                        else:
-                            pypi_list.append(package)
-                    filename = ".ops.pypi-requirements.txt"
-                    with open(base_path / filename, "w") as file_handle:
-                        file_handle.write("\n".join(pypi_list))
-                    filename = ".ops.sdist-requirements.txt"
-                    with open(base_path / filename, "w") as file_handle:
-                        file_handle.write("\n".join(sdist_list))
-                else:
-                    filename = ".ops.pip-requirements.txt"
-                    with open(base_path / filename, "w") as file_handle:
-                        file_handle.write("\n".join(channel_dict["pip"]["pip"]))
+            if split_pip:
+                sdist_list = []
+                pypi_list = []
+                for package in channel_dict["pip"]:
+                    if package.startswith("-e") or ("/" in package):
+                        sdist_list.append(package)
+                    else:
+                        pypi_list.append(package)
+                filename = ".ops.pypi-requirements.txt"
+                with open(base_path / filename, "w") as file_handle:
+                    file_handle.write("\n".join(pypi_list))
+                filename = ".ops.sdist-requirements.txt"
+                with open(base_path / filename, "w") as file_handle:
+                    file_handle.write("\n".join(sdist_list))
+            else:
+                filename = ".ops.pip-requirements.txt"
+                with open(base_path / filename, "w") as file_handle:
+                    file_handle.write("\n".join(channel_dict["pip"]))
         else:
             filename = f".ops.{kind}-environment.txt"
             with open(base_path / filename, "w") as file_handle:

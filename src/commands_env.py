@@ -1,17 +1,15 @@
 import json
 from pathlib import Path
-import re
 import subprocess
 import sys
 from io import StringIO
-import urllib
 from contextlib import redirect_stdout
 
 from .python_api import run_command
 from .commands_proj import proj_load, get_conda_info, CondaOpsManagedCondarc
 from .conda_config import env_pip_interop
 from .commands_lockfile import lockfile_check
-from .requirements import PackageSpec, LockSpec
+from .requirements import LockSpec
 from .utils import logger
 
 ##################################################################
@@ -465,7 +463,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
                 logger.info(">>> conda ops env install")
                 # logger.info(">>> conda ops sync")
             # Find differing versions
-            differing_versions = {key: (conda_dict[key], lock_dict[key]) for key in conda_dict if key in lock_dict and conda_dict[key] != lock_dict[key]}
+            differing_versions = {key: (value, lock_dict[key]) for key, value in conda_dict.items() if key in lock_dict and value != lock_dict[key]}
             if len(differing_versions) > 0:
                 logger.debug("\nThe following package versions don't match:\n")
                 logger.debug("\n".join([f"{x}: Lock version {lock_dict[x]}, Env version {conda_dict[x]}" for x in differing_versions]))
@@ -596,6 +594,7 @@ def json_to_explicit(json_list, package_manager="conda"):
             if lock_package.manager == package_manager:
                 explicit_str += lock_package.to_explicit() + "\n"
         else:
+            logger.error("Failed to convert json to explicit lock file")
             sys.exit(1)
     return explicit_str
 
@@ -631,51 +630,15 @@ def generate_explicit_lock_files(config=None, lock_file=None):
     return [explicit_lock_file]
 
 
-def get_pypi_package_info(package_name, version, filename):
-    """
-    Get the pypi package information from pypi for a package name.
-
-    If installed, use the matching distribution and platform information from what is installed.
-    """
-    url = f"https://pypi.org/pypi/{package_name}/{version}/json"
-
-    # Fetch the package metadata JSON
-    try:
-        with urllib.request.urlopen(url) as response:
-            data = json.loads(response.read().decode())
-            releases = data["urls"]
-    except Exception as exception:
-        # try another url pattern if needed "https://pypi.org/pypi/{package_name}/json"
-        print(exception)
-        logger.error(f"No releases found for url {url}")
-        return None, None
-
-    # Find the wheel file in the list of distributions
-    matching_releases = []
-    for release in releases:
-        if release["filename"] == filename:
-            matching_releases.append(release)
-
-    if matching_releases:
-        for release in matching_releases:
-            sha256_hash = release["digests"]["sha256"]
-            url = release["url"]
-            logger.debug(f"   The url for the file {filename} of {package_name} {version} is: {url}")
-    else:
-        logger.debug(f"No wheel distribution found for {package_name} {version}.")
-        return None, None
-    return url, sha256_hash
-
-
 def extract_pip_info(json_input, config=None):
     """
     Take the json output from a pip install --report command and extract the relevant information.
     json_input can be a filename, path or
     """
-    if type(json_input) is str:
+    if isinstance(json_input, str):
         pip_info = json.loads(json_input)
     elif Path(json_input).exists():
-        with open(json_input, "r") as json_handle:
+        with open(json_input, "r", encoding="utf-8") as json_handle:
             pip_info = json.load(json_handle)
     else:
         logger.error(f"Unrecognized input format: {json_input}")
