@@ -50,7 +50,7 @@ def test_proj_load(mocker, shared_temp_dir):
 
     assert "settings" in config
     assert "paths" in config
-    assert len(config["paths"]) == 6
+    assert len(config["paths"]) == 7
     assert len(config["settings"]) == 1
 
 

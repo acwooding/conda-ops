@@ -26,7 +26,7 @@ import os
 import subprocess
 import sys
 
-from .requirements import PackageSpec
+from .requirements import PackageSpec, is_url_requirement
 
 from .utils import yaml, logger
 
@@ -127,7 +127,6 @@ def reqs_remove(packages, config=None):
     logger.info(f"Removing packages {package_str} from the requirements file {requirements_file}")
 
     packages = clean_package_args(packages)
-
     with open(requirements_file, "r", encoding="utf-8") as yamlfile:
         reqs = yaml.load(yamlfile)
 
@@ -183,7 +182,7 @@ def reqs_remove(packages, config=None):
     with open(requirements_file, "w", encoding="utf-8") as yamlfile:
         yaml.dump(reqs, yamlfile)
 
-    print(f"Removed packages {package_str} to requirements file.")
+    print(f"Removed packages {package_str} from requirements file.")
 
 
 def reqs_create(config):
@@ -362,7 +361,10 @@ def clean_package_args(package_args, channel=None):
     for package in split_packages:
         # Check PEP 508 or conda requirement format compliance
         try:
-            req = PackageSpec(package, channel=channel)
+            if is_url_requirement(package):
+                req = PackageSpec(package, manager="pip")
+            else:
+                req = PackageSpec(package, channel=channel)
             cleaned_packages.append(req)
         except Exception as exception:
             print(exception)
@@ -377,7 +379,8 @@ def clean_package_args(package_args, channel=None):
         sys.exit(1)
 
     # check for duplicate packages
-    str_packages = [x.name for x in cleaned_packages]
+    # only looks for duplicates in named packages
+    str_packages = [x.name for x in cleaned_packages if x.name is not None]
     duplicates = check_for_duplicates(str_packages)
     if len(duplicates) > 0:
         logger.error(f"The packages {duplicates.keys()} have been specified more than once.")

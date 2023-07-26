@@ -33,14 +33,13 @@ class PackageSpec:
             clean_spec = spec.replace("=", "==").strip()
         else:
             clean_spec = spec.strip()
-
         if manager == "conda":
             requirement = MatchSpec(clean_spec)
         elif manager == "pip":
             if "-e " in clean_spec:
                 editable = True
                 clean_spec = clean_spec.split("-e ")[1]
-            if is_path_requirement(clean_spec) or "git+https" in clean_spec:
+            if is_url_requirement(clean_spec):
                 requirement = PathSpec(clean_spec)
             else:
                 requirement = Requirement(clean_spec)
@@ -67,26 +66,29 @@ class PackageSpec:
 
 
 class PathSpec:
-    def __init__(self, spec, editable=False):
+    def __init__(self, spec):
         self.spec = spec
-        self.editable = editable
-        logger.info(f"Does not check path/url requirements yet...assuming {spec} is valid")
 
     def __str__(self):
         return self.spec
 
     @property
     def name(self):
-        return self.spec
+        return None
 
     @property
     def version(self):
         return None
 
 
-def is_path_requirement(requirement):
-    # Check if the requirement starts with a file path indicator or is a local directory
-    return requirement.startswith(".") or requirement.startswith("/") or requirement.startswith("~") or re.match(r"^\w+:\\", requirement) is not None or os.path.isabs(requirement)
+def is_url_requirement(requirement):
+    is_url = False
+    if requirement.startswith(".") or requirement.startswith("/") or requirement.startswith("~") or re.match(r"^\w+:\\", requirement) is not None or os.path.isabs(requirement):
+        is_url = True
+    for protocol in ["+ssh:", "+file:", "+https:"]:
+        if protocol in requirement:
+            is_url = True
+    return is_url
 
 
 class LockSpec:
@@ -99,19 +101,19 @@ class LockSpec:
         Parses the output from and entry in 'pip install --report' to get desired fields
         """
         download_info = pip_dict.get("download_info", None)
-
         if download_info is None:
             url = None
             sha = None
         else:
             if "vcs_info" in download_info.keys():
                 vcs = download_info["vcs_info"]["vcs"]
+                raw_url = download_info["url"]
                 if vcs == "git":
-                    url = vcs + "+" + download_info["url"] + "@" + download_info["vcs_info"]["commit_id"]
+                    url = vcs + "+" + raw_url + "@" + download_info["vcs_info"]["commit_id"]
                 else:
                     logger.warning(f"Unimplemented vcs {vcs}. Will work with the general url but not specify the revision.")
                     logger.info("To request support for your vcs, please file an issue.")
-                    url = download_info["url"]
+                    url = raw_url
             else:
                 url = download_info["url"]
 
@@ -177,7 +179,10 @@ class LockSpec:
             if self.manager == "conda":
                 return self.url + "#" + self.md5_hash
             if self.manager == "pip":
-                return " ".join([self.name, "@", self.url, f"--hash=sha256:{self.sha256_hash}"])
+                if self.hash_exists:
+                    return " ".join([self.name, "@", self.url, f"--hash=sha256:{self.sha256_hash}"])
+                else:
+                    return " ".join([self.name, "@", self.url])
         except Exception as e:
             logger.error(
                 f"Unimplemented: package {self.name} does not have the required information \
@@ -219,6 +224,13 @@ class LockSpec:
         if hash_dict:
             return hash_dict.get("md5", None)
         return None
+
+    @property
+    def hash_exists(self):
+        hash_dict = self.info_dict.get("hash", None)
+        if hash_dict:
+            return True
+        return False
 
     def __str__(self):
         return str(self.info_dict)

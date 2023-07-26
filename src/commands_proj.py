@@ -66,6 +66,7 @@ def proj_create():
         "lockfile": "${ops_dir}/lockfile.json",
         "explicit_lockfile": "${ops_dir}/lockfile.explicit",
         "pip_explicit_lockfile": "${ops_dir}/lockfile.pypi",
+        "nohash_explicit_lockfile": "${ops_dir}/lockfile.nohash",
         "condarc": "${ops_dir}/.condarc",
     }
     _config_settings = {

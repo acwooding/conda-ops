@@ -64,11 +64,12 @@ def test_reqs_add_pip(setup_config_files):
     and then check if the package was correctly added.
     """
     config = setup_config_files
-    reqs_add(["flask"], channel="pip", config=config)
+    reqs_add(["flask", "git+https://github.com/lmcinnes/pynndescent.git"], channel="pip", config=config)
     reqs = yaml.load(config["paths"]["requirements"].open())
     conda_reqs, pip_dict = pop_pip_section(reqs["dependencies"])
     assert "flask" not in conda_reqs
     assert "flask" in pip_dict["pip"]
+    assert "git+https://github.com/lmcinnes/pynndescent.git" in pip_dict["pip"]
 
 
 def test_reqs_remove_pip(setup_config_files):
@@ -375,15 +376,15 @@ def test_open_file_in_editor_unsupported_platform(mocker, caplog):
     assert "Unsupported platform" in caplog.text
 
 
-def test_is_path_requirement_standard_requirements():
+def test_is_url_requirement_standard_requirements():
     requirements = ["requests", "numpy==1.18.5"]
 
     for requirement in requirements:
-        assert not is_path_requirement(requirement)
+        assert not is_url_requirement(requirement)
 
 
-def test_is_path_requirement_path_requirements():
+def test_is_url_requirement_path_requirements():
     requirements = ["../my-package", "~/projects/other-package", ".", ".."]
 
     for requirement in requirements:
-        assert is_path_requirement(requirement)
+        assert is_url_requirement(requirement)
