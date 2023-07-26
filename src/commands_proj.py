@@ -62,7 +62,8 @@ def proj_create():
 
     _config_paths = {
         "ops_dir": "${catalog_path}",
-        "requirements": "${ops_dir}/environment.yml",
+        "project_dir": "${ops_dir}/..",
+        "requirements": "${project_dir}/environment.yml",
         "lockfile": "${ops_dir}/lockfile.json",
         "explicit_lockfile": "${ops_dir}/lockfile.explicit",
         "pip_explicit_lockfile": "${ops_dir}/lockfile.pypi",

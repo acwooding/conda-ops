@@ -51,7 +51,7 @@ def lockfile_check(config, die_on_error=True):
                 logger.error(f"Unable to load lockfile {lock_file}")
                 logger.debug(exception)
                 logger.info("To regenerate the lock file:")
-                logger.info(">>> conda ops lockfile regenerate")
+                logger.info(">>> conda ops lockfile generate")
                 # logger.info(">>> conda ops lock")
             no_url = []
             if json_reqs:
@@ -60,7 +60,7 @@ def lockfile_check(config, die_on_error=True):
                     if not lock_package.check_consistency():
                         check = False
                         logger.info("To regenerate the lock file:")
-                        logger.info(">>> conda ops lockfile regenerate")
+                        logger.info(">>> conda ops lockfile generate")
                     if lock_package.url is None:
                         no_url.append(lock_package.name)
                         check = False
@@ -69,7 +69,7 @@ def lockfile_check(config, die_on_error=True):
                     logger.warning(f"The packages {' '.join(no_url)} may not have been added correctly.")
                     logger.warning("Please add any missing packages to the requirements and regenerate the lock file.")
                     logger.info("To regenerate the lock file:")
-                    logger.info(">>> conda ops lockfile regenerate")
+                    logger.info(">>> conda ops lockfile generate")
 
     else:
         check = False
@@ -104,7 +104,7 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
             check = False
             logger.warning("The requirements file is newer than the lock file.")
             logger.info("To update the lock file:")
-            logger.info(">>> conda ops lockfile regenerate")
+            logger.info(">>> conda ops lockfile generate")
             # logger.info(">>> conda ops lock")
         with open(requirements_file, "r", encoding="utf-8") as yamlfile:
             reqs_env = yaml.load(yamlfile)

@@ -66,7 +66,11 @@ def reqs_add(packages, channel=None, config=None):
 
     for package in packages:
         # check for existing packages and remove them if they have a name match
-        conflicts = check_package_in_list(package, reqs["dependencies"])
+        if not is_url_requirement(package):
+            conflicts = check_package_in_list(package, reqs["dependencies"])
+        else:
+            conflicts = []
+        print("made it")
 
         if pip_dict is not None:
             pip_conflicts = check_package_in_list(package, pip_dict["pip"], channel="pip")
@@ -164,13 +168,11 @@ def reqs_remove(packages, config=None):
 
     # now remove pip dependencies if the section exists
     if pip_dict is not None:
-        pip_dict["pip"] = list(set(pip_dict["pip"] + packages))
         deps = list(set(pip_dict["pip"]))
         for package in packages:
             for dep in deps:
-                if dep.startswith(package):
-                    if dep_check != package:  # probably need a proper reges match to get this right
-                        logger.warning(f"Removing {dep} from requirements")
+                if PackageSpec(dep, manager="pip").name == PackageSpec(package, manager="pip").name:
+                    logger.warning(f"Removing {dep} from requirements")
                     deps.remove(dep)
         pip_dict["pip"] = sorted(deps)
 

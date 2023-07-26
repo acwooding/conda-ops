@@ -664,7 +664,7 @@ def extract_pip_info(json_input, config=None):
         sha = p_info.sha256_hash
         if sha:
             p_info_dict["hash"] = {"sha256": sha}
-        package_dict[p_info.name] = p_info_dict
+        package_dict[p_info.conda_name] = p_info_dict
     return package_dict
 
 
