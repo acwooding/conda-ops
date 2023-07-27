@@ -37,10 +37,12 @@ def test_reqs_add(setup_config_files):
     then check if these packages were correctly added.
     """
     config = setup_config_files
-    reqs_add(["black", "flake8"], config=config)
+    reqs_add(["black", "flake8", "-e .", "git+https://my-url.com"], config=config)
     reqs = yaml.load(config["paths"]["requirements"].open())
     assert "black" in reqs["dependencies"]
     assert "flake8" in reqs["dependencies"]
+    assert "-e ." not in reqs["dependencies"]
+    assert "git+https://my-url.com" not in reqs["dependencies"]
 
 
 def test_reqs_remove(setup_config_files):
@@ -64,12 +66,13 @@ def test_reqs_add_pip(setup_config_files):
     and then check if the package was correctly added.
     """
     config = setup_config_files
-    reqs_add(["flask", "git+https://github.com/lmcinnes/pynndescent.git"], channel="pip", config=config)
+    reqs_add(["flask", "git+https://github.com/lmcinnes/pynndescent.git", "-e ."], channel="pip", config=config)
     reqs = yaml.load(config["paths"]["requirements"].open())
     conda_reqs, pip_dict = pop_pip_section(reqs["dependencies"])
     assert "flask" not in conda_reqs
     assert "flask" in pip_dict["pip"]
     assert "git+https://github.com/lmcinnes/pynndescent.git" in pip_dict["pip"]
+    assert "-e ." in pip_dict["pip"]
 
 
 def test_reqs_remove_pip(setup_config_files):
@@ -79,12 +82,12 @@ def test_reqs_remove_pip(setup_config_files):
     remove it, and then check if the package was correctly removed.
     """
     config = setup_config_files
-    reqs_add(["flask"], channel="pip", config=config)
-    reqs_remove(["flask"], config=config)
+    reqs_add(["flask", "git+https://github.com/lmcinnes/pynndescent.git", "-e ."], channel="pip", config=config)
+    reqs_remove(["flask", "git+https://github.com/lmcinnes/pynndescent.git", "-e ."], config=config)
     reqs = yaml.load(config["paths"]["requirements"].open())
     conda_reqs, pip_dict = pop_pip_section(reqs["dependencies"])
 
-    assert {"pip": ["flask"]} not in reqs["dependencies"]
+    assert pip_dict is None
 
 
 def test_reqs_add_conda_forge(setup_config_files):

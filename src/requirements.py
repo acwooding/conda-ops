@@ -35,6 +35,10 @@ class PackageSpec:
         else:
             clean_spec = spec.strip()
         if manager == "conda":
+            if "-e " in clean_spec:
+                logger.error(f"Spec {clean_spec} seems to be editable")
+                logger.error("Editable modules must use the pip channel")
+                logger.info("To use pip with reqs add, use '-c pip'")
             requirement = MatchSpec(clean_spec)
         elif manager == "pip":
             if "-e " in clean_spec:
@@ -49,6 +53,13 @@ class PackageSpec:
     @property
     def name(self):
         return self.requirement.name
+
+    @property
+    def conda_name(self):
+        if self.manager == "pip":
+            print(pypi_name_to_conda_name(norm_package_name(self.name)))
+            return pypi_name_to_conda_name(norm_package_name(self.name))
+        return self.name
 
     @property
     def version(self):
