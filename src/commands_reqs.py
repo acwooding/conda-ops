@@ -297,6 +297,8 @@ def reqs_check(config, die_on_error=True):
         if len(missing_channel_list) > 0:
             logger.error(f"The following channels are not in the channel order: {missing_channel_list}")
             if input("Would you like to add the missing channels your requirements file (y/n) ").lower() == "y":
+                if pip_dict is not None:
+                    requirements["dependencies"]["pip"] = pip_dict["pip"]
                 requirements["channel-order"] = channel_order + missing_channel_list
                 with open(requirements_file, "w", encoding="utf-8") as yamlfile:
                     yaml.dump(requirements, yamlfile)
