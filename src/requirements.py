@@ -156,7 +156,7 @@ class LockSpec:
         Parses the output from an entry in 'conda list --json' to get desired fields
         """
         info_dict = {"name": conda_dict["name"], "version": conda_dict["version"], "channel": conda_dict["channel"]}
-        if conda_dict["channel"] == "pypi":
+        if conda_dict["channel"] in ["pypi", "<develop>"]:
             info_dict["manager"] = "pip"
         else:
             info_dict["manager"] = "conda"
@@ -187,7 +187,7 @@ class LockSpec:
                             logger.debug(f"{self.url}, {self.version}, {self.channel}")
                             check = False
         if self.channel:
-            if self.manager == "pip" and self.channel != "pypi":
+            if self.manager == "pip" and self.channel not in ["pypi", "<develop>"]:
                 check = False
                 logger.error(f"Channel and manager entries for package {self.name} is inconsistent")
             if self.manager == "conda" and self.channel == "pypi":
