@@ -174,8 +174,8 @@ def test_reqs_add_equals_conda(setup_config_files):
     config = setup_config_files
     reqs_add(["black=22"], config=config)
     reqs = yaml.load(config["paths"]["requirements"].open())
-    assert "black=22" not in reqs["dependencies"]
-    assert "black==22" in reqs["dependencies"]
+    assert "black=22" in reqs["dependencies"]
+    assert "black==22" not in reqs["dependencies"]
 
 
 def test_reqs_add_equals_pip(setup_config_files):
@@ -280,7 +280,10 @@ def test_clean_package_args():
         package_args = ["numpy pandas", "black=22 ", " python=3.11"]
 
         clean_packages = clean_package_args(package_args, channel=channel)
-        assert clean_packages == sorted(["python==3.11", "numpy", "pandas", "black==22"])
+        if channel == "pip":
+            assert clean_packages == sorted(["python==3.11", "numpy", "pandas", "black==22"])
+        else:
+            assert clean_packages == sorted(["python=3.11", "numpy", "pandas", "black=22"])
 
         # two copies of python. This should fail.
         package_args = ["python", "python=3.11"]

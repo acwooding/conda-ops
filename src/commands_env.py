@@ -423,7 +423,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
 
     conda_dict = {}
     for package in conda_list:
-        if package["channel"] == "pypi":
+        if package["channel"] in ["pypi" or "<develop>"]:
             conda_dict[package["name"]] = package["version"]
 
     logger.debug(f"Found {len(conda_dict)} pip package(s) in environment: {env_name}")
@@ -438,7 +438,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
         with open(lockfile, "r", encoding="utf-8") as jsonfile:
             lock_list = json.load(jsonfile)
         for package in lock_list:
-            if package["channel"] == "pypi":
+            if package["manager"] == "pip":
                 lock_dict[package["name"]] = package["version"]
 
         if conda_dict == lock_dict:

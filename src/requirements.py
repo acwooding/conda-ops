@@ -26,14 +26,7 @@ class PackageSpec:
     @staticmethod
     def parse_requirement(spec, manager):
         editable = False
-        # look for "=" and not "==" in spec
-        pattern = r"^\s*([\w.-]+)\s*=\s*([\w.-]+)\s*$"
-        match = re.match(pattern, spec)
-        if match:
-            # Change = to ==
-            clean_spec = spec.replace("=", "==").strip()
-        else:
-            clean_spec = spec.strip()
+        clean_spec = spec.strip()
         if manager == "conda":
             if "-e " in clean_spec:
                 logger.error(f"Spec {clean_spec} seems to be editable")
@@ -41,6 +34,14 @@ class PackageSpec:
                 logger.info("To use pip with reqs add, use '-c pip'")
             requirement = MatchSpec(clean_spec)
         elif manager == "pip":
+            # look for "=" and not "==" in spec
+            # "=" is a valid specifier in conda that doesn't mean ==
+            # but pip only accepts ==
+            pattern = r"^\s*([\w.-]+)\s*=\s*([\w.-]+)\s*$"
+            match = re.match(pattern, spec)
+            if match:
+                # Change = to ==
+                clean_spec = spec.replace("=", "==").strip()
             if "-e " in clean_spec:
                 editable = True
                 clean_spec = clean_spec.split("-e ")[1]
