@@ -57,7 +57,6 @@ class PackageSpec:
     @property
     def conda_name(self):
         if self.manager == "pip":
-            print(pypi_name_to_conda_name(norm_package_name(self.name)))
             return pypi_name_to_conda_name(norm_package_name(self.name))
         return self.name
 
@@ -66,6 +65,17 @@ class PackageSpec:
         if self.manager == "pip":
             return self.requirement.specifier
         return self.requirement.version
+
+    @property
+    def channel(self):
+        if self.manager == "pip":
+            return self.manager
+        else:
+            full_channel = self.requirement.get("channel")
+            if full_channel is None:
+                return "defaults"
+            else:
+                return full_channel.name
 
     @property
     def is_pathspec(self):
@@ -212,7 +222,6 @@ class LockSpec:
     @property
     def conda_name(self):
         if self.manager == "pip":
-            print(pypi_name_to_conda_name(norm_package_name(self.name)))
             return pypi_name_to_conda_name(norm_package_name(self.name))
         return self.name
 

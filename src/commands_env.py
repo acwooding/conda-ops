@@ -149,7 +149,7 @@ def env_lock(config, lock_file=None, env_name=None, pip_dict=None):
     new_json_reqs = []
     for package in json_reqs:
         conda_spec = LockSpec.from_conda_list(package)
-        if conda_spec.channel == "pypi":
+        if conda_spec.channel == "pypi" or conda_spec.channel == "<develop>":
             package["manager"] = "pip"
             if pip_dict is not None:
                 pip_dict_entry = pip_dict.get(conda_spec.name, None)

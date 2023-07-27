@@ -249,16 +249,22 @@ def reqs_check(config, die_on_error=True):
             check = False
         conda_deps, pip_dict = pop_pip_section(deps)
 
+        channel_order = requirements.get("channel-order", [])
+
         # check that the package specifications are valid
         # make the specifications cannonical (warn when changing them)
         valid_specs = []
         invalid_specs = []
         package_name_list = []
+        missing_channel_list = []
         for package in conda_deps:
             try:
                 req = PackageSpec(package, manager="conda")
                 valid_specs.append(str(req))
                 package_name_list.append(req.name)
+                channel = req.channel
+                if channel not in channel_order + missing_channel_list:
+                    missing_channel_list.append(channel)
             except Exception as exception:
                 check = False
                 print(exception)
@@ -288,6 +294,15 @@ def reqs_check(config, die_on_error=True):
             check = False
             logger.error(f"The packages {list(duplicates.keys())} have been specified more than once.")
             logger.info(f"Please update the requirements file {requirements_file} accordingly.")
+        if len(missing_channel_list) > 0:
+            logger.error(f"The following channels are not in the channel order: {missing_channel_list}")
+            if input("Would you like to add the missing channels your requirements file (y/n) ").lower() == "y":
+                requirements["channel-order"] = channel_order + missing_channel_list
+                with open(requirements_file, "w", encoding="utf-8") as yamlfile:
+                    yaml.dump(requirements, yamlfile)
+            else:
+                logger.warning(f"Please update your requirements file {requirements_file} manually.")
+                check = False
 
     else:
         check = False
