@@ -24,7 +24,7 @@ from packaging.version import parse
 
 from .commands_reqs import reqs_check
 from .requirements import PackageSpec, LockSpec
-from .split_requirements import env_split, get_channel_order
+from .split_requirements import env_split, get_conda_channel_order
 from .utils import yaml, logger
 
 
@@ -51,7 +51,7 @@ def lockfile_check(config, die_on_error=True):
                 logger.error(f"Unable to load lockfile {lock_file}")
                 logger.debug(exception)
                 logger.info("To regenerate the lock file:")
-                logger.info(">>> conda ops lockfile regenerate")
+                logger.info(">>> conda ops lockfile generate")
                 # logger.info(">>> conda ops lock")
             no_url = []
             if json_reqs:
@@ -60,7 +60,7 @@ def lockfile_check(config, die_on_error=True):
                     if not lock_package.check_consistency():
                         check = False
                         logger.info("To regenerate the lock file:")
-                        logger.info(">>> conda ops lockfile regenerate")
+                        logger.info(">>> conda ops lockfile generate")
                     if lock_package.url is None:
                         no_url.append(lock_package.name)
                         check = False
@@ -69,7 +69,7 @@ def lockfile_check(config, die_on_error=True):
                     logger.warning(f"The packages {' '.join(no_url)} may not have been added correctly.")
                     logger.warning("Please add any missing packages to the requirements and regenerate the lock file.")
                     logger.info("To regenerate the lock file:")
-                    logger.info(">>> conda ops lockfile regenerate")
+                    logger.info(">>> conda ops lockfile generate")
 
     else:
         check = False
@@ -104,36 +104,44 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
             check = False
             logger.warning("The requirements file is newer than the lock file.")
             logger.info("To update the lock file:")
-            logger.info(">>> conda ops lockfile regenerate")
+            logger.info(">>> conda ops lockfile generate")
             # logger.info(">>> conda ops lock")
         with open(requirements_file, "r", encoding="utf-8") as yamlfile:
             reqs_env = yaml.load(yamlfile)
-        channel_order = get_channel_order(reqs_env)
+        channel_order = get_conda_channel_order(reqs_env)
         _, channel_dict = env_split(reqs_env, channel_order)
         with open(lock_file, "r", encoding="utf-8") as jsonfile:
             lock_dict = json.load(jsonfile)
 
         # so far we don't check that the channel info is correct, just that the package is there
         missing_packages = []
-        for channel in channel_order:
+        for channel in channel_order + ["pip"]:
             channel_list = [PackageSpec(req, channel=channel) for req in channel_dict[channel]]
 
             for package in channel_list:
                 missing = True
+                check_version = False
                 for lock_package in lock_dict:
-                    try:
-                        package_name = package.name
-                    except AttributeError as e:
-                        print(e)
-                        ## Unimplimented for now
-                        package_name = None
-                    if package_name == lock_package["name"]:
-                        # find the matching package
-                        missing = False
-                        break
+                    if package.is_pathspec:
+                        # this is a url based requirement
+                        # look for the spec in the package url
+                        if package.requirement.spec in lock_package["url"]:
+                            missing = False
+                    else:
+                        try:
+                            package_name = package.name
+                        except AttributeError as e:
+                            print(e)
+                            ## Unimplimented for now
+                            package_name = None
+                        if package_name == lock_package["name"]:
+                            # find the matching package
+                            missing = False
+                            check_version = True
+                            break
                 if missing:
                     missing_packages.append(str(package))
-                else:
+                if check_version:
                     if channel == "pip":
                         if not parse(lock_package["version"]) in package.version:
                             missing_packages.append(str(package))

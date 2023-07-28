@@ -65,12 +65,13 @@ def lockfile_generate(config, regenerate=True):
     with open(ops_dir / ".ops.channel-order.include", "r", encoding="utf-8") as order_file:
         order_list = order_file.read().split()
 
-    if (ops_dir / ".ops.pypi-requirements.txt").exists():
-        order_list += ["pip"]
+    pip_channels = ["pypi", "sdist"]
     json_reqs = None
+    extra_pip_dict = None
     for i, channel in enumerate(order_list):
         logger.debug(f"Installing from channel {channel}")
-        if channel != "pip":
+
+        if channel not in pip_channels:
             try:
                 json_reqs = conda_step_env_lock(channel, config, env_name=test_env)
             except Exception as exception:
@@ -78,7 +79,7 @@ def lockfile_generate(config, regenerate=True):
                 json_reqs = None
         else:
             try:
-                json_reqs = pip_step_env_lock(config, env_name=test_env)
+                json_reqs, extra_pip_dict = pip_step_env_lock(channel, config, env_name=test_env, extra_pip_dict=extra_pip_dict)
             except Exception as exception:
                 print(exception)
                 json_reqs = None
@@ -100,9 +101,8 @@ def lockfile_generate(config, regenerate=True):
 
     # clean up
     for channel in order_list:
-        if channel == "pip":
-            Path(ops_dir / ".ops.pypi-requirements.txt").unlink()
-            Path(ops_dir / ".ops.sdist-requirements.txt").unlink()
+        if channel in pip_channels:
+            Path(ops_dir / f".ops.{channel}-requirements.txt").unlink()
         else:
             Path(ops_dir / f".ops.{channel}-environment.txt").unlink()
         Path(ops_dir / f".ops.lock.{channel}").unlink()

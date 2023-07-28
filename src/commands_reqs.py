@@ -26,7 +26,7 @@ import os
 import subprocess
 import sys
 
-from .requirements import PackageSpec
+from .requirements import PackageSpec, is_url_requirement
 
 from .utils import yaml, logger
 
@@ -52,9 +52,9 @@ def reqs_add(packages, channel=None, config=None):
         channel_str = channel
 
     if channel:
-        logger.info(f"Adding packages {package_str} from channel {channel_str} to the requirements file {requirements_file}")
+        logger.info(f"Trying to add packages {package_str} from channel {channel_str} to the requirements file {requirements_file}")
     else:
-        logger.info(f"Adding packages {package_str} from the conda defaults channel to the requirements file {requirements_file}")
+        logger.info(f"Trying to add packages {package_str} from the conda defaults channel to the requirements file {requirements_file}")
 
     packages = clean_package_args(packages, channel=channel)
 
@@ -64,55 +64,70 @@ def reqs_add(packages, channel=None, config=None):
     # pull off the pip section to treat it specially
     reqs["dependencies"], pip_dict = pop_pip_section(reqs["dependencies"])
 
+    invalid_channel = []
     for package in packages:
         # check for existing packages and remove them if they have a name match
-        conflicts = check_package_in_list(package, reqs["dependencies"])
+        # also check for a valid channel
+        if not is_url_requirement(package):
+            conflicts = check_package_in_list(package, reqs["dependencies"])
+        else:
+            if channel != "pip":
+                invalid_channel.append(package)
+                logger.warning(f"Package {package} must use channel pip and will not be added")
+                logger.info("To try again:")
+                logger.info(f'>>> conda ops reqs add "{package}" -c pip')
+            conflicts = []
 
         if pip_dict is not None:
             pip_conflicts = check_package_in_list(package, pip_dict["pip"], channel="pip")
         else:
             pip_conflicts = []
-        if len(conflicts) > 0 or len(pip_conflicts) > 0:
-            logger.warning(
-                f"Package {package} is in the existing requirements as \
-                {' '.join(conflicts)} {' pip::'.join(pip_conflicts)}"
-            )
-            logger.warning(f"The existing requirements will be replaced withe {package} from channel {channel_str}")
-            for conflict in conflicts:
-                reqs["dependencies"].remove(conflict)
-            for conflict in pip_conflicts:
-                pip_dict["pip"].remove(conflict)
-        # add package
+        if package not in invalid_channel:
+            if len(conflicts) > 0 or len(pip_conflicts) > 0:
+                logger.warning(
+                    f"Package {package} is in the existing requirements as \
+                    {' '.join(conflicts)} {' pip::'.join(pip_conflicts)}"
+                )
+                logger.warning(f"The existing requirements will be replaced withe {package} from channel {channel_str}")
+                for conflict in conflicts:
+                    reqs["dependencies"].remove(conflict)
+                for conflict in pip_conflicts:
+                    pip_dict["pip"].remove(conflict)
 
-        if channel is None:
-            if reqs["dependencies"] is None:
-                reqs["dependencies"] = [package]
-            else:
-                reqs["dependencies"] = sorted(reqs["dependencies"] + [package])
-        elif channel == "pip":
-            if pip_dict is None:
-                pip_dict = {"pip": [package]}
-            else:
-                if len(pip_dict["pip"]) == 0:
-                    pip_dict["pip"] = [package]
+            # add package
+
+            if channel is None:
+                if reqs["dependencies"] is None:
+                    reqs["dependencies"] = [package]
                 else:
-                    pip_dict["pip"] = sorted(pip_dict["pip"] + [package])
-        else:  # interpret channel as a conda channel
-            if reqs["dependencies"] is None:
-                reqs["dependencies"] = [f"{channel}::{package}"]
-            else:
-                reqs["dependencies"] = sorted(reqs["dependencies"] + [f"{channel}::{package}"])
-            if channel not in reqs["channel-order"]:
-                reqs["channel-order"].append(channel)
+                    reqs["dependencies"] = sorted(reqs["dependencies"] + [package])
+            elif channel == "pip":
+                if pip_dict is None:
+                    pip_dict = {"pip": [package]}
+                else:
+                    if len(pip_dict["pip"]) == 0:
+                        pip_dict["pip"] = [package]
+                    else:
+                        pip_dict["pip"] = sorted(pip_dict["pip"] + [package])
+            else:  # interpret channel as a conda channel
+                if reqs["dependencies"] is None:
+                    reqs["dependencies"] = [f"{channel}::{package}"]
+                else:
+                    reqs["dependencies"] = sorted(reqs["dependencies"] + [f"{channel}::{package}"])
+                if channel not in reqs["channel-order"]:
+                    reqs["channel-order"].append(channel)
 
     # add back the pip section
     if pip_dict is not None:
         reqs["dependencies"] = [pip_dict] + reqs["dependencies"]
 
-    with open(requirements_file, "w", encoding="utf-8") as yamlfile:
-        yaml.dump(reqs, yamlfile)
-
-    print(f"Added packages {package_str} to requirements file.")
+    added_packages = list(set(packages).difference(invalid_channel))
+    if len(added_packages) > 0:
+        with open(requirements_file, "w", encoding="utf-8") as yamlfile:
+            yaml.dump(reqs, yamlfile)
+        print(f"Added packages {added_packages} to requirements file.")
+    else:
+        print("No packages added to the requirements file.")
 
 
 def reqs_remove(packages, config=None):
@@ -127,7 +142,6 @@ def reqs_remove(packages, config=None):
     logger.info(f"Removing packages {package_str} from the requirements file {requirements_file}")
 
     packages = clean_package_args(packages)
-
     with open(requirements_file, "r", encoding="utf-8") as yamlfile:
         reqs = yaml.load(yamlfile)
 
@@ -138,15 +152,11 @@ def reqs_remove(packages, config=None):
 
     deps = list(set(reqs["dependencies"]))
     for package in packages:
-        for dep in deps:
-            if "::" in dep:
-                dep_check = dep.split("::")[-1].strip()
-            else:
-                dep_check = dep.strip()
-            if dep_check.startswith(package):  # probably need a regex match to get this right
-                if dep_check != package:
+        if not is_url_requirement(package):
+            for dep in deps:
+                if PackageSpec(dep, manager="conda").conda_name == PackageSpec(package, manager="conda").conda_name:
                     logger.warning(f"Removing {dep} from requirements")
-                deps.remove(dep)
+                    deps.remove(dep)
     reqs["dependencies"] = sorted(deps)
 
     # remove any channels that aren't needed anymore
@@ -165,13 +175,11 @@ def reqs_remove(packages, config=None):
 
     # now remove pip dependencies if the section exists
     if pip_dict is not None:
-        pip_dict["pip"] = list(set(pip_dict["pip"] + packages))
         deps = list(set(pip_dict["pip"]))
         for package in packages:
             for dep in deps:
-                if dep.startswith(package):
-                    if dep_check != package:  # probably need a proper reges match to get this right
-                        logger.warning(f"Removing {dep} from requirements")
+                if PackageSpec(dep, manager="pip").conda_name == PackageSpec(package, manager="pip").conda_name:
+                    logger.warning(f"Removing {dep} from requirements")
                     deps.remove(dep)
         pip_dict["pip"] = sorted(deps)
 
@@ -183,7 +191,7 @@ def reqs_remove(packages, config=None):
     with open(requirements_file, "w", encoding="utf-8") as yamlfile:
         yaml.dump(reqs, yamlfile)
 
-    print(f"Removed packages {package_str} to requirements file.")
+    print(f"Removed packages {package_str} from requirements file.")
 
 
 def reqs_create(config):
@@ -241,16 +249,22 @@ def reqs_check(config, die_on_error=True):
             check = False
         conda_deps, pip_dict = pop_pip_section(deps)
 
+        channel_order = requirements.get("channel-order", [])
+
         # check that the package specifications are valid
         # make the specifications cannonical (warn when changing them)
         valid_specs = []
         invalid_specs = []
         package_name_list = []
+        missing_channel_list = []
         for package in conda_deps:
             try:
                 req = PackageSpec(package, manager="conda")
                 valid_specs.append(str(req))
                 package_name_list.append(req.name)
+                channel = req.channel
+                if channel not in channel_order + missing_channel_list:
+                    missing_channel_list.append(channel)
             except Exception as exception:
                 check = False
                 print(exception)
@@ -280,6 +294,17 @@ def reqs_check(config, die_on_error=True):
             check = False
             logger.error(f"The packages {list(duplicates.keys())} have been specified more than once.")
             logger.info(f"Please update the requirements file {requirements_file} accordingly.")
+        if len(missing_channel_list) > 0:
+            logger.error(f"The following channels are not in the channel order: {missing_channel_list}")
+            if input("Would you like to add the missing channels your requirements file (y/n) ").lower() == "y":
+                if pip_dict is not None:
+                    requirements["dependencies"] = [pip_dict] + conda_deps
+                requirements["channel-order"] = channel_order + missing_channel_list
+                with open(requirements_file, "w", encoding="utf-8") as yamlfile:
+                    yaml.dump(requirements, yamlfile)
+            else:
+                logger.warning(f"Please update your requirements file {requirements_file} manually.")
+                check = False
 
     else:
         check = False
@@ -328,14 +353,16 @@ def check_package_in_list(package, package_list, channel=None):
     Given a package, return the packages in the package_list that match that requirement.
     """
     matching_list = []
-
-    requirement = PackageSpec(package, channel=channel).name
+    requirement = PackageSpec(package, channel=channel)
 
     for comp_package in package_list:
-        req_p = PackageSpec(comp_package, channel=channel).name
-
-        if requirement == req_p:
-            matching_list.append(comp_package)
+        req_p = PackageSpec(comp_package, channel=channel)
+        if requirement.is_pathspec:
+            if requirement.spec == req_p.spec:
+                matching_list.append(comp_package)
+        else:
+            if requirement.name == req_p.name:
+                matching_list.append(comp_package)
     return matching_list
 
 
@@ -362,7 +389,10 @@ def clean_package_args(package_args, channel=None):
     for package in split_packages:
         # Check PEP 508 or conda requirement format compliance
         try:
-            req = PackageSpec(package, channel=channel)
+            if is_url_requirement(package):
+                req = PackageSpec(package, manager="pip")
+            else:
+                req = PackageSpec(package, channel=channel)
             cleaned_packages.append(req)
         except Exception as exception:
             print(exception)
@@ -377,7 +407,8 @@ def clean_package_args(package_args, channel=None):
         sys.exit(1)
 
     # check for duplicate packages
-    str_packages = [x.name for x in cleaned_packages]
+    # only looks for duplicates in named packages
+    str_packages = [x.name for x in cleaned_packages if x.name is not None]
     duplicates = check_for_duplicates(str_packages)
     if len(duplicates) > 0:
         logger.error(f"The packages {duplicates.keys()} have been specified more than once.")

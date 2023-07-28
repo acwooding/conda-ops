@@ -6,7 +6,7 @@ from pathlib import Path
 from .utils import yaml
 
 
-def env_split(conda_env, channel_order):
+def env_split(conda_env, conda_channel_order):
     """Given a conda_environment dict, and a channel order, split into versions for each channel.
 
     Returns:
@@ -33,7 +33,7 @@ def env_split(conda_env, channel_order):
             prefix_check = dep.split("::")
             if len(prefix_check) > 1:
                 channel = prefix_check[0]
-                if channel not in channel_order:
+                if channel not in conda_channel_order:
                     raise Exception(
                         f"the channel {channel} required for {dep} is not specified in a channel-order \
                         section of the environment file"
@@ -46,7 +46,7 @@ def env_split(conda_env, channel_order):
     return conda_env, channel_dict
 
 
-def get_channel_order(conda_env):
+def get_conda_channel_order(conda_env):
     """
     Given a conda_environment dict, get the channels from the channel order.
     """
@@ -56,7 +56,6 @@ def get_channel_order(conda_env):
         channel_order = ["defaults"]
     if "defaults" not in channel_order:
         channel_order.insert(0, "defaults")
-    channel_order.append("pip")
     return channel_order
 
 
@@ -72,13 +71,11 @@ def create_split_files(file_to_split, base_path, split_pip=True):
     base_path = Path(base_path)
 
     # check for acceptable formats
-    channel_order = get_channel_order(conda_env)
-    with open(base_path / ".ops.channel-order.include", "w") as file_handle:
-        file_handle.write(" ".join(channel_order[:-1]))  # exclude pip as a channel here
+    channel_order = get_conda_channel_order(conda_env)
 
     _, channel_dict = env_split(conda_env, channel_order)
 
-    for kind in channel_order:
+    for kind in channel_order + ["pip"]:
         if kind == "pip":
             if split_pip:
                 sdist_list = []
@@ -88,12 +85,16 @@ def create_split_files(file_to_split, base_path, split_pip=True):
                         sdist_list.append(package)
                     else:
                         pypi_list.append(package)
-                filename = ".ops.pypi-requirements.txt"
-                with open(base_path / filename, "w") as file_handle:
-                    file_handle.write("\n".join(pypi_list))
-                filename = ".ops.sdist-requirements.txt"
-                with open(base_path / filename, "w") as file_handle:
-                    file_handle.write("\n".join(sdist_list))
+                if len(pypi_list) > 0:
+                    filename = ".ops.pypi-requirements.txt"
+                    with open(base_path / filename, "w") as file_handle:
+                        file_handle.write("\n".join(pypi_list))
+                    channel_order += ["pypi"]
+                if len(sdist_list) > 0:
+                    filename = ".ops.sdist-requirements.txt"
+                    with open(base_path / filename, "w") as file_handle:
+                        file_handle.write("\n".join(sdist_list))
+                    channel_order += ["sdist"]
             else:
                 filename = ".ops.pip-requirements.txt"
                 with open(base_path / filename, "w") as file_handle:
@@ -102,3 +103,6 @@ def create_split_files(file_to_split, base_path, split_pip=True):
             filename = f".ops.{kind}-environment.txt"
             with open(base_path / filename, "w") as file_handle:
                 file_handle.write("\n".join(channel_dict[kind]))
+
+    with open(base_path / ".ops.channel-order.include", "w") as file_handle:
+        file_handle.write(" ".join(channel_order))

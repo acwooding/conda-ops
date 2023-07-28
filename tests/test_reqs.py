@@ -8,7 +8,7 @@ import sys
 import pytest
 
 from src.commands_reqs import reqs_add, reqs_remove, reqs_create, reqs_check, pop_pip_section, check_package_in_list, clean_package_args, open_file_in_editor
-from src.requirements import is_path_requirement
+from src.requirements import is_url_requirement
 from src.utils import yaml
 
 
@@ -37,10 +37,12 @@ def test_reqs_add(setup_config_files):
     then check if these packages were correctly added.
     """
     config = setup_config_files
-    reqs_add(["black", "flake8"], config=config)
+    reqs_add(["black", "flake8", "-e .", "git+https://my-url.com"], config=config)
     reqs = yaml.load(config["paths"]["requirements"].open())
     assert "black" in reqs["dependencies"]
     assert "flake8" in reqs["dependencies"]
+    assert "-e ." not in reqs["dependencies"]
+    assert "git+https://my-url.com" not in reqs["dependencies"]
 
 
 def test_reqs_remove(setup_config_files):
@@ -64,11 +66,13 @@ def test_reqs_add_pip(setup_config_files):
     and then check if the package was correctly added.
     """
     config = setup_config_files
-    reqs_add(["flask"], channel="pip", config=config)
+    reqs_add(["flask", "git+https://github.com/lmcinnes/pynndescent.git", "-e ."], channel="pip", config=config)
     reqs = yaml.load(config["paths"]["requirements"].open())
     conda_reqs, pip_dict = pop_pip_section(reqs["dependencies"])
     assert "flask" not in conda_reqs
     assert "flask" in pip_dict["pip"]
+    assert "git+https://github.com/lmcinnes/pynndescent.git" in pip_dict["pip"]
+    assert "-e ." in pip_dict["pip"]
 
 
 def test_reqs_remove_pip(setup_config_files):
@@ -78,12 +82,12 @@ def test_reqs_remove_pip(setup_config_files):
     remove it, and then check if the package was correctly removed.
     """
     config = setup_config_files
-    reqs_add(["flask"], channel="pip", config=config)
-    reqs_remove(["flask"], config=config)
+    reqs_add(["flask", "git+https://github.com/lmcinnes/pynndescent.git", "-e ."], channel="pip", config=config)
+    reqs_remove(["flask", "git+https://github.com/lmcinnes/pynndescent.git", "-e ."], config=config)
     reqs = yaml.load(config["paths"]["requirements"].open())
     conda_reqs, pip_dict = pop_pip_section(reqs["dependencies"])
 
-    assert {"pip": ["flask"]} not in reqs["dependencies"]
+    assert pip_dict is None
 
 
 def test_reqs_add_conda_forge(setup_config_files):
@@ -170,8 +174,8 @@ def test_reqs_add_equals_conda(setup_config_files):
     config = setup_config_files
     reqs_add(["black=22"], config=config)
     reqs = yaml.load(config["paths"]["requirements"].open())
-    assert "black=22" not in reqs["dependencies"]
-    assert "black==22" in reqs["dependencies"]
+    assert "black=22" in reqs["dependencies"]
+    assert "black==22" not in reqs["dependencies"]
 
 
 def test_reqs_add_equals_pip(setup_config_files):
@@ -276,7 +280,10 @@ def test_clean_package_args():
         package_args = ["numpy pandas", "black=22 ", " python=3.11"]
 
         clean_packages = clean_package_args(package_args, channel=channel)
-        assert clean_packages == sorted(["python==3.11", "numpy", "pandas", "black==22"])
+        if channel == "pip":
+            assert clean_packages == sorted(["python==3.11", "numpy", "pandas", "black==22"])
+        else:
+            assert clean_packages == sorted(["python=3.11", "numpy", "pandas", "black=22"])
 
         # two copies of python. This should fail.
         package_args = ["python", "python=3.11"]
@@ -375,15 +382,15 @@ def test_open_file_in_editor_unsupported_platform(mocker, caplog):
     assert "Unsupported platform" in caplog.text
 
 
-def test_is_path_requirement_standard_requirements():
+def test_is_url_requirement_standard_requirements():
     requirements = ["requests", "numpy==1.18.5"]
 
     for requirement in requirements:
-        assert not is_path_requirement(requirement)
+        assert not is_url_requirement(requirement)
 
 
-def test_is_path_requirement_path_requirements():
+def test_is_url_requirement_path_requirements():
     requirements = ["../my-package", "~/projects/other-package", ".", ".."]
 
     for requirement in requirements:
-        assert is_path_requirement(requirement)
+        assert is_url_requirement(requirement)

@@ -3,6 +3,7 @@ import re
 import sys
 
 from packaging.requirements import Requirement
+from conda.common.pkg_formats.python import pypi_name_to_conda_name, norm_package_name
 from conda.models.match_spec import MatchSpec
 
 from .utils import logger
@@ -25,22 +26,26 @@ class PackageSpec:
     @staticmethod
     def parse_requirement(spec, manager):
         editable = False
-        # look for "=" and not "==" in spec
-        pattern = r"^\s*([\w.-]+)\s*=\s*([\w.-]+)\s*$"
-        match = re.match(pattern, spec)
-        if match:
-            # Change = to ==
-            clean_spec = spec.replace("=", "==").strip()
-        else:
-            clean_spec = spec.strip()
-
+        clean_spec = spec.strip()
         if manager == "conda":
+            if "-e " in clean_spec:
+                logger.error(f"Spec {clean_spec} seems to be editable")
+                logger.error("Editable modules must use the pip channel")
+                logger.info("To use pip with reqs add, use '-c pip'")
             requirement = MatchSpec(clean_spec)
         elif manager == "pip":
+            # look for "=" and not "==" in spec
+            # "=" is a valid specifier in conda that doesn't mean ==
+            # but pip only accepts ==
+            pattern = r"^\s*([\w.-]+)\s*=\s*([\w.-]+)\s*$"
+            match = re.match(pattern, spec)
+            if match:
+                # Change = to ==
+                clean_spec = spec.replace("=", "==").strip()
             if "-e " in clean_spec:
                 editable = True
                 clean_spec = clean_spec.split("-e ")[1]
-            if is_path_requirement(clean_spec) or "git+https" in clean_spec:
+            if is_url_requirement(clean_spec):
                 requirement = PathSpec(clean_spec)
             else:
                 requirement = Requirement(clean_spec)
@@ -51,10 +56,27 @@ class PackageSpec:
         return self.requirement.name
 
     @property
+    def conda_name(self):
+        if self.manager == "pip":
+            return pypi_name_to_conda_name(norm_package_name(self.name))
+        return self.name
+
+    @property
     def version(self):
         if self.manager == "pip":
             return self.requirement.specifier
         return self.requirement.version
+
+    @property
+    def channel(self):
+        if self.manager == "pip":
+            return self.manager
+        else:
+            full_channel = self.requirement.get("channel")
+            if full_channel is None:
+                return "defaults"
+            else:
+                return full_channel.name
 
     @property
     def is_pathspec(self):
@@ -67,26 +89,31 @@ class PackageSpec:
 
 
 class PathSpec:
-    def __init__(self, spec, editable=False):
+    def __init__(self, spec):
         self.spec = spec
-        self.editable = editable
-        logger.info(f"Does not check path/url requirements yet...assuming {spec} is valid")
 
     def __str__(self):
         return self.spec
 
     @property
     def name(self):
-        return self.spec
+        return None
 
     @property
     def version(self):
         return None
 
 
-def is_path_requirement(requirement):
-    # Check if the requirement starts with a file path indicator or is a local directory
-    return requirement.startswith(".") or requirement.startswith("/") or requirement.startswith("~") or re.match(r"^\w+:\\", requirement) is not None or os.path.isabs(requirement)
+def is_url_requirement(requirement):
+    is_url = False
+    if "-e " in requirement:
+        is_url = True
+    if requirement.startswith(".") or requirement.startswith("/") or requirement.startswith("~") or re.match(r"^\w+:\\", requirement) is not None or os.path.isabs(requirement):
+        is_url = True
+    for protocol in ["+ssh:", "+file:", "+https:"]:
+        if protocol in requirement:
+            is_url = True
+    return is_url
 
 
 class LockSpec:
@@ -99,29 +126,57 @@ class LockSpec:
         Parses the output from and entry in 'pip install --report' to get desired fields
         """
         download_info = pip_dict.get("download_info", None)
-
         if download_info is None:
             url = None
             sha = None
         else:
             if "vcs_info" in download_info.keys():
                 vcs = download_info["vcs_info"]["vcs"]
+                raw_url = download_info["url"]
                 if vcs == "git":
-                    url = vcs + "+" + download_info["url"] + "@" + download_info["vcs_info"]["commit_id"]
+                    url = vcs + "+" + raw_url + "@" + download_info["vcs_info"]["commit_id"]
                 else:
                     logger.warning(f"Unimplemented vcs {vcs}. Will work with the general url but not specify the revision.")
                     logger.info("To request support for your vcs, please file an issue.")
-                    url = download_info["url"]
+                    url = raw_url
             else:
                 url = download_info["url"]
 
-            archive_info = pip_dict["download_info"].get("archive_info", None)
+            archive_info = download_info.get("archive_info", None)
             if archive_info is None:
                 sha = None
             else:
-                sha = archive_info["hashes"]["sha256"]
+                hashes = archive_info.get("hashes", None)
+                hash_val = archive_info.get("hash", None)
+                if hashes is not None:
+                    sha = hashes["sha256"]
+                elif hash_val is not None:
+                    if "sha256=" in hash_val:
+                        sha = hash_val.split("sha256=")[1]
+                    else:
+                        sha = None
+                else:
+                    sha = None
+                if sha is None:
+                    logger.error(f"No hash info found for {pip_dict['metadata']['name']} in {archive_info}")
 
-        info_dict = {"name": pip_dict["metadata"]["name"].lower(), "manager": "pip", "channel": "pypi", "version": pip_dict["metadata"]["version"], "url": url, "hash": {"sha256": sha}}
+            dir_info = download_info.get("dir_info", None)
+            if dir_info is None:
+                editable = False
+            else:
+                editable = dir_info.get("editable", False)
+            name = pypi_name_to_conda_name(norm_package_name(pip_dict["metadata"]["name"]))
+        info_dict = {
+            "name": name,
+            "manager": "pip",
+            "channel": "pypi",
+            "version": pip_dict["metadata"]["version"],
+            "url": url,
+            "hash": {"sha256": sha},
+            "requested": pip_dict["requested"],
+            "editable": editable,
+            "pip_name": pip_dict["metadata"]["name"],
+        }
         return cls(info_dict)
 
     @classmethod
@@ -130,7 +185,7 @@ class LockSpec:
         Parses the output from an entry in 'conda list --json' to get desired fields
         """
         info_dict = {"name": conda_dict["name"], "version": conda_dict["version"], "channel": conda_dict["channel"]}
-        if conda_dict["channel"] == "pypi":
+        if conda_dict["channel"] in ["pypi", "<develop>"]:
             info_dict["manager"] = "pip"
         else:
             info_dict["manager"] = "conda"
@@ -161,7 +216,7 @@ class LockSpec:
                             logger.debug(f"{self.url}, {self.version}, {self.channel}")
                             check = False
         if self.channel:
-            if self.manager == "pip" and self.channel != "pypi":
+            if self.manager == "pip" and self.channel not in ["pypi", "<develop>"]:
                 check = False
                 logger.error(f"Channel and manager entries for package {self.name} is inconsistent")
             if self.manager == "conda" and self.channel == "pypi":
@@ -177,18 +232,30 @@ class LockSpec:
             if self.manager == "conda":
                 return self.url + "#" + self.md5_hash
             if self.manager == "pip":
-                return " ".join([self.name, "@", self.url, f"--hash=sha256:{self.sha256_hash}"])
+                if self.hash_exists:
+                    return " ".join([self.name, "@", self.url, f"--hash=sha256:{self.sha256_hash}"])
+                elif not self.editable:
+                    return " ".join([self.name, "@", self.url])
+                else:
+                    return " ".join(["-e", self.url])
         except Exception as e:
             logger.error(
                 f"Unimplemented: package {self.name} does not have the required information \
                 for the explicit lockfile. It likely came from a local or vcs pip installation."
             )
             print(e)
+            print(self)
             return None
 
     @property
     def name(self):
         return self.info_dict["name"]
+
+    @property
+    def conda_name(self):
+        if self.manager == "pip":
+            return pypi_name_to_conda_name(norm_package_name(self.name))
+        return self.name
 
     @property
     def version(self):
@@ -219,6 +286,23 @@ class LockSpec:
         if hash_dict:
             return hash_dict.get("md5", None)
         return None
+
+    @property
+    def hash_exists(self):
+        hash_dict = self.info_dict.get("hash", None)
+        if hash_dict is not None:
+            for key, value in hash_dict.items():
+                if value is not None:
+                    return True
+        return False
+
+    @property
+    def editable(self):
+        return self.info_dict.get("editable", False)
+
+    @editable.setter
+    def editable(self, value):
+        self.info_dict["editable"] = value
 
     def __str__(self):
         return str(self.info_dict)

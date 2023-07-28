@@ -146,6 +146,10 @@ def test_lockfile_reqs_check_consistent(mocker, setup_config_files):
     lockfile_generate(config, regenerate=True)
     assert lockfile_reqs_check(config) is True
 
+    reqs_add(["git+https://github.com/lmcinnes/pynndescent.git"], config=config, channel="pip")
+    lockfile_generate(config, regenerate=True)
+    assert lockfile_reqs_check(config) is True
+
     # Make requirements newer than the lock file
     config["paths"]["requirements"].touch()
 
@@ -157,7 +161,7 @@ def test_lockfile_reqs_check_consistent(mocker, setup_config_files):
 
 def test_lockfile_reqs_check_consistent_equals(setup_config_files):
     """
-    This checks when the requirments and lock file are individually consistent,
+    This checks when the requirements and lock file are individually consistent,
     the requirements are all in the lock file by name, and the version constraint
     is satisfied by the lock file.
     """
