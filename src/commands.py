@@ -58,6 +58,9 @@ def lockfile_generate(config, regenerate=True):
         logger.info("To create a minimal default requirements file:")
         logger.info(">>> conda ops reqs create")
         sys.exit(1)
+    if not reqs_check(config, die_on_error=False):
+        logger.error("Requirements file is not in the correct format. Update it and try again.")
+        sys.exit(1)
 
     logger.info("Generating multi-step requirements files")
     create_split_files(requirements_file, ops_dir)
