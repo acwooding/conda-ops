@@ -142,11 +142,24 @@ class LockSpec:
             else:
                 url = download_info["url"]
 
-            archive_info = pip_dict["download_info"].get("archive_info", None)
+            archive_info = download_info.get("archive_info", None)
             if archive_info is None:
                 sha = None
             else:
-                sha = archive_info["hashes"]["sha256"]
+                hashes = archive_info.get("hashes", None)
+                hash_val = archive_info.get("hash", None)
+                if hashes is not None:
+                    sha = hashes["sha256"]
+                elif hash_val is not None:
+                    if "sha256=" in hash_val:
+                        sha = hash_val.strip("sha256=")
+                    else:
+                        sha = None
+                else:
+                    sha = None
+                if sha is None:
+                    logger.error(f"No hash info found for {pip_dict['metadata']['name']} in {archive_info}")
+
 
         info_dict = {"name": pip_dict["metadata"]["name"].lower(), "manager": "pip", "channel": "pypi", "version": pip_dict["metadata"]["version"], "url": url, "hash": {"sha256": sha}}
         return cls(info_dict)

@@ -122,7 +122,7 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
                 missing = True
                 check_version = False
                 for lock_package in lock_dict:
-                    if package.name is None:
+                    if package.is_pathspec:
                         # this is a url based requirement
                         # look for the spec in the package url
                         if package.requirement.spec in lock_package["url"]:

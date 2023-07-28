@@ -690,8 +690,9 @@ def check_env_exists(env_name):
     """
     json_output = get_conda_info()
 
-    env_list = [Path(x).name for x in json_output["envs"]]
-    return env_name in env_list
+    env_list = [Path(x) for x in json_output["envs"]]
+    env_prefix = Path(get_prefix(env_name))
+    return env_prefix in env_list
 
 
 def check_env_active(env_name):
