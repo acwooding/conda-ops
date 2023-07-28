@@ -152,14 +152,13 @@ class LockSpec:
                     sha = hashes["sha256"]
                 elif hash_val is not None:
                     if "sha256=" in hash_val:
-                        sha = hash_val.strip("sha256=")
+                        sha = hash_val.split("sha256=")[1]
                     else:
                         sha = None
                 else:
                     sha = None
                 if sha is None:
                     logger.error(f"No hash info found for {pip_dict['metadata']['name']} in {archive_info}")
-
 
         info_dict = {"name": pip_dict["metadata"]["name"].lower(), "manager": "pip", "channel": "pypi", "version": pip_dict["metadata"]["version"], "url": url, "hash": {"sha256": sha}}
         return cls(info_dict)
