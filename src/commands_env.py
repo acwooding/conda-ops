@@ -423,7 +423,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
 
     conda_dict = {}
     for package in conda_list:
-        if package["channel"] in ["pypi" or "<develop>"]:
+        if package["channel"] in ["pypi", "<develop>"]:
             conda_dict[package["name"]] = package["version"]
 
     logger.debug(f"Found {len(conda_dict)} pip package(s) in environment: {env_name}")
