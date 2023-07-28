@@ -160,7 +160,13 @@ class LockSpec:
                 if sha is None:
                     logger.error(f"No hash info found for {pip_dict['metadata']['name']} in {archive_info}")
 
-        info_dict = {"name": pip_dict["metadata"]["name"].lower(), "manager": "pip", "channel": "pypi", "version": pip_dict["metadata"]["version"], "url": url, "hash": {"sha256": sha}}
+            dir_info = download_info.get("dir_info", None)
+            if dir_info is None:
+                editable = False
+            else:
+                editable = dir_info.get("editable", False)
+            name =  pypi_name_to_conda_name(norm_package_name(pip_dict["metadata"]["name"]))
+        info_dict = {"name": name, "manager": "pip", "channel": "pypi", "version": pip_dict["metadata"]["version"], "url": url, "hash": {"sha256": sha}, "requested":pip_dict["requested"], "editable":editable, "pip_name": pip_dict["metadata"]["name"]}
         return cls(info_dict)
 
     @classmethod
@@ -271,9 +277,19 @@ class LockSpec:
     @property
     def hash_exists(self):
         hash_dict = self.info_dict.get("hash", None)
-        if hash_dict:
-            return True
+        if hash_dict is not None:
+            for key, value in hash_dict.items():
+                if value is not None:
+                    return True
         return False
+
+    @property
+    def editable(self):
+        return self.info_dict.get("editable", False)
+
+    @editable.setter
+    def editable(self, value):
+        self.info_dict["editable"] = value
 
     def __str__(self):
         return str(self.info_dict)

@@ -9,7 +9,7 @@ from .python_api import run_command
 from .commands_proj import proj_load, get_conda_info, CondaOpsManagedCondarc
 from .conda_config import env_pip_interop
 from .commands_lockfile import lockfile_check
-from .requirements import LockSpec
+from .requirements import LockSpec, PackageSpec
 from .utils import logger
 
 ##################################################################
@@ -660,11 +660,7 @@ def extract_pip_info(json_input, config=None):
     package_dict = {}
     for package in pip_info["install"]:
         p_info = LockSpec.from_pip_report(package)
-        p_info_dict = {"version": p_info.version, "url": p_info.url, "manager": "pip"}
-        sha = p_info.sha256_hash
-        if sha:
-            p_info_dict["hash"] = {"sha256": sha}
-        package_dict[p_info.conda_name] = p_info_dict
+        package_dict[p_info.conda_name] = p_info.info_dict
     return package_dict
 
 
