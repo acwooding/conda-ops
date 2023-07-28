@@ -165,8 +165,18 @@ class LockSpec:
                 editable = False
             else:
                 editable = dir_info.get("editable", False)
-            name =  pypi_name_to_conda_name(norm_package_name(pip_dict["metadata"]["name"]))
-        info_dict = {"name": name, "manager": "pip", "channel": "pypi", "version": pip_dict["metadata"]["version"], "url": url, "hash": {"sha256": sha}, "requested":pip_dict["requested"], "editable":editable, "pip_name": pip_dict["metadata"]["name"]}
+            name = pypi_name_to_conda_name(norm_package_name(pip_dict["metadata"]["name"]))
+        info_dict = {
+            "name": name,
+            "manager": "pip",
+            "channel": "pypi",
+            "version": pip_dict["metadata"]["version"],
+            "url": url,
+            "hash": {"sha256": sha},
+            "requested": pip_dict["requested"],
+            "editable": editable,
+            "pip_name": pip_dict["metadata"]["name"],
+        }
         return cls(info_dict)
 
     @classmethod
@@ -224,14 +234,17 @@ class LockSpec:
             if self.manager == "pip":
                 if self.hash_exists:
                     return " ".join([self.name, "@", self.url, f"--hash=sha256:{self.sha256_hash}"])
-                else:
+                elif not self.editable:
                     return " ".join([self.name, "@", self.url])
+                else:
+                    return " ".join(["-e", self.url])
         except Exception as e:
             logger.error(
                 f"Unimplemented: package {self.name} does not have the required information \
                 for the explicit lockfile. It likely came from a local or vcs pip installation."
             )
             print(e)
+            print(self)
             return None
 
     @property
