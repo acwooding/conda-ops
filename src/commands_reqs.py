@@ -84,10 +84,7 @@ def reqs_add(packages, channel=None, config=None):
             pip_conflicts = []
         if package not in invalid_channel:
             if len(conflicts) > 0 or len(pip_conflicts) > 0:
-                logger.warning(
-                    f"Package {package} is in the existing requirements as "\
-                    f"{' '.join(conflicts)} {' pip::'.join(pip_conflicts)}"
-                )
+                logger.warning(f"Package {package} is in the existing requirements as {' '.join(conflicts)} {' pip::'.join(pip_conflicts)}")
                 logger.warning(f"The existing requirements will be replaced with {package} from channel {channel_str}")
                 for conflict in conflicts:
                     reqs["dependencies"].remove(conflict)
