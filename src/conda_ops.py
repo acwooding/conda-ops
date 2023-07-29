@@ -24,8 +24,7 @@ def conda_ops(argv: list):
     parent_parser = argparse.ArgumentParser(add_help=False)
     parent_parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], default="INFO", help="Set the log level")
 
-    parser = argparse.ArgumentParser("conda ops")
-    parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], default="DEBUG", help="Set the log level")
+    parser = argparse.ArgumentParser("conda ops", parents=[parent_parser])
     subparsers = parser.add_subparsers(dest="command", metavar="command")
 
     init = configure_parser_init(subparsers, parents=[parent_parser])

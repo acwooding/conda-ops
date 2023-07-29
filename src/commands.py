@@ -129,10 +129,9 @@ def consistency_check(config=None, die_on_error=False):
     Check the consistency of the requirements file vs. lock file vs. conda environment
     """
     proj_check(config, die_on_error=True)  # needed to continue
-    logger.info("Project configuration is consistent")
 
-    check_config_items_match()
-    check_condarc_matches_opinions(config=config, die_on_error=die_on_error)
+    config_match = check_config_items_match()
+    config_opinions = check_condarc_matches_opinions(config=config, die_on_error=die_on_error)
 
     env_name = config["settings"]["env_name"]
     logger.info(f"Managed Conda Environment: {env_name}")
@@ -140,7 +139,12 @@ def consistency_check(config=None, die_on_error=False):
     reqs_consistent = reqs_check(config, die_on_error=die_on_error)
     lockfile_consistent = lockfile_check(config, die_on_error=die_on_error)
 
-    lockfile_reqs_check(config, reqs_consistent=reqs_consistent, lockfile_consistent=lockfile_consistent, die_on_error=die_on_error)
+    if lockfile_consistent:
+        lockfile_reqs_consistent = lockfile_reqs_check(config, reqs_consistent=reqs_consistent, lockfile_consistent=lockfile_consistent, die_on_error=die_on_error)
 
-    env_consistent = env_check(config, die_on_error=die_on_error)
-    env_lockfile_check(config, env_consistent=env_consistent, lockfile_consistent=lockfile_consistent, die_on_error=die_on_error)
+        env_consistent = env_check(config, die_on_error=die_on_error)
+        if env_consistent:
+            env_lockfile_consistent = env_lockfile_check(config, env_consistent=env_consistent, lockfile_consistent=lockfile_consistent, die_on_error=die_on_error)
+
+    if config_match and config_opinions and reqs_consistent and lockfile_consistent and env_consistent and lockfile_reqs_consistent and env_lockfile_consistent:
+        logger.info(f"The conda ops project {env_name} is consistent")

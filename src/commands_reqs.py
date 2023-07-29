@@ -226,8 +226,6 @@ def reqs_check(config, die_on_error=True):
 
     check = True
     if requirements_file.exists():
-        logger.debug("Requirements file present")
-
         with open(requirements_file, "r", encoding="utf-8") as yamlfile:
             requirements = yaml.load(yamlfile)
         if not requirements["name"] == env_name:
