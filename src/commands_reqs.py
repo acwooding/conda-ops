@@ -52,9 +52,9 @@ def reqs_add(packages, channel=None, config=None):
         channel_str = channel
 
     if channel:
-        logger.info(f"Trying to add packages {package_str} from channel {channel_str} to the requirements file {requirements_file}")
+        logger.info(f"Trying to add packages {package_str} from channel {channel_str} to the requirements file.")
     else:
-        logger.info(f"Trying to add packages {package_str} from the conda defaults channel to the requirements file {requirements_file}")
+        logger.info(f"Trying to add packages {package_str} from the conda defaults channel to the requirements file.")
 
     packages = clean_package_args(packages, channel=channel)
 
@@ -85,10 +85,10 @@ def reqs_add(packages, channel=None, config=None):
         if package not in invalid_channel:
             if len(conflicts) > 0 or len(pip_conflicts) > 0:
                 logger.warning(
-                    f"Package {package} is in the existing requirements as \
-                    {' '.join(conflicts)} {' pip::'.join(pip_conflicts)}"
+                    f"Package {package} is in the existing requirements as "\
+                    f"{' '.join(conflicts)} {' pip::'.join(pip_conflicts)}"
                 )
-                logger.warning(f"The existing requirements will be replaced withe {package} from channel {channel_str}")
+                logger.warning(f"The existing requirements will be replaced with {package} from channel {channel_str}")
                 for conflict in conflicts:
                     reqs["dependencies"].remove(conflict)
                 for conflict in pip_conflicts:
@@ -208,7 +208,7 @@ def reqs_create(config):
             "channel-order": ["defaults"],
             "dependencies": sorted(["pip", "python"]),
         }
-        logger.info("writing")
+        logger.info(f"Creating requirements file: {requirements_file}")
         with open(requirements_file, "w", encoding="utf-8") as yamlfile:
             yaml.dump(requirements_dict, yamlfile)
     else:
