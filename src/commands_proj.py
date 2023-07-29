@@ -47,8 +47,8 @@ def proj_create():
 
     if conda_ops_path.exists():
         logger.warning("conda ops has already been initialized")
-        if input("Would you like to reinitialize (this will overwrite the existing config)? (y/n) ").lower() != "y":
-            sys.exit(0)
+        if input("Would you like to reinitialize (this will overwrite the existing conda-ops basic setup)? (y/n) ").lower() != "y":
+            return proj_load()
     else:
         conda_ops_path.mkdir()
 
@@ -126,8 +126,7 @@ def proj_check(config=None, die_on_error=True, required_keys=None):
         check = False
         logger.error("No managed conda environment found.")
         logger.info("To place the current directory under conda ops management:")
-        logger.info(">>> conda ops proj create")
-        # logger.info(">>> conda ops init")
+        logger.info(">>> conda ops init")
         logger.info("To change to a managed directory:")
         logger.info(">>> cd path/to/managed/conda/project")
     else:
@@ -136,14 +135,13 @@ def proj_check(config=None, die_on_error=True, required_keys=None):
             check = False
             logger.error("Config is missing an environment name")
             logger.info("To reinitialize your conda ops project:")
-            logger.info(">>> conda ops proj create")
-            # logger.info(">>> conda ops init")
+            logger.info(">>> conda ops init")
         paths = list(config["paths"].keys())
         for key in required_keys:
             if key not in paths:
                 logger.error(f"config.ini missing mandatory key: {key}")
                 logger.info("To reinitialize your conda ops project:")
-                logger.info(">>> conda ops proj create")
+                logger.info(">>> conda ops init")
 
     if die_on_error and not check:
         sys.exit(1)
@@ -177,8 +175,7 @@ def find_conda_ops_dir(die_on_error=True):
         else:
             logger.warning(message)
         logger.info("To place the current directory under conda ops management:")
-        logger.info(">>> conda ops proj create")
-        # logger.info(">>> conda ops init")
+        logger.info(">>> conda ops init")
         logger.info("To change to a managed directory:")
         logger.info(">>> cd path/to/managed/conda/project")
 
