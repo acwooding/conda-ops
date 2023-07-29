@@ -2,8 +2,8 @@ import argparse
 import conda.plugins
 
 from .commands import consistency_check, lockfile_generate
-from .commands_proj import proj_load, proj_create, proj_check
-from .commands_reqs import reqs_create, reqs_add, reqs_check, reqs_remove, reqs_list, reqs_edit
+from .commands_proj import proj_load, proj_create
+from .commands_reqs import reqs_create, reqs_add, reqs_remove, reqs_list, reqs_edit
 from .commands_lockfile import lockfile_check, lockfile_reqs_check
 from .commands_env import (
     env_activate,
@@ -24,45 +24,25 @@ def conda_ops(argv: list):
     parent_parser = argparse.ArgumentParser(add_help=False)
     parent_parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], default="INFO", help="Set the log level")
 
-    parser = argparse.ArgumentParser("conda ops")
-    parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], default="DEBUG", help="Set the log level")
+    parser = argparse.ArgumentParser("conda ops", parents=[parent_parser])
     subparsers = parser.add_subparsers(dest="command", metavar="command")
 
-    config_parser = configure_parser_config(subparsers)
+    init = configure_parser_init(subparsers, parents=[parent_parser])
+    config_parser = configure_parser_config(subparsers, parents=[parent_parser])
+    reqs = configure_parser_reqs(subparsers, parents=[parent_parser])
+    lockfile = subparsers.add_parser("lockfile", help="Operations for managing the lockfile. Accepts generate, check, reqs-check.", parents=[parent_parser])
+    lockfile.add_argument("kind", choices=["generate", "check", "reqs-check"])
+    env = subparsers.add_parser("env", help="Operations for managing the environment. Accepts create, install, delete, regenerate, check, lockfile-check.", parents=[parent_parser])
+    env.add_argument("kind", choices=["create", "delete", "activate", "deactivate", "check", "lockfile-check", "regenerate", "install"])
 
-    # add additional parsers for hidden commands
-    proj = subparsers.add_parser("proj", help="Accepts create, check and load", parents=[parent_parser])
-    proj.add_argument("kind", type=str)
-    env = subparsers.add_parser("env", help="Accepts create, sync, clean, delete, dump, activate, deactivate, check, lockfile-check, regenerate", parents=[parent_parser])
-    env.add_argument("kind", type=str)
-
-    reqs = subparsers.add_parser("reqs", help="Accepts create, add, remove, check, list", parents=[parent_parser])
-    reqs_subparser = reqs.add_subparsers(dest="reqs_command", metavar="reqs_command")
-    reqs_subparser.add_parser("create")
-    r_add = reqs_subparser.add_parser("add")
-    r_add.add_argument("packages", type=str, nargs="+")
-    r_add.add_argument(
-        "-c",
-        "--channel",
-        help="indicate the channel that the packages are coming from, set this to 'pip' \
-        if the packages you are adding are to be installed via pip",
-    )
-    r_remove = reqs_subparser.add_parser("remove")
-    r_remove.add_argument("packages", type=str, nargs="+")
-    reqs_subparser.add_parser("check")
-    reqs_subparser.add_parser("list")
-    reqs_subparser.add_parser("edit")
-
-    lockfile = subparsers.add_parser("lockfile", help="Accepts generate, update, check, reqs-check", parents=[parent_parser])
-    lockfile.add_argument("kind", type=str)
-
+    # hidden parser for testing purposes
     subparsers.add_parser("test")
 
     args = parser.parse_args(argv)
 
     logger.setLevel(args.log_level)
 
-    if args.command not in ["init", "proj"]:
+    if args.command not in ["init"]:
         config = proj_load(die_on_error=True)
 
     if args.command in ["status", None]:
@@ -72,21 +52,17 @@ def conda_ops(argv: list):
             condarc_create(config=config)
         else:
             condaops_config_manage(argv, args, config=config)
-    elif args.command == "proj":
-        if args.kind == "create":
-            proj_create()
-        elif args.kind == "check":
-            proj_check()
-        elif args.kind == "load":
-            proj_load()
+    elif args.command == "init":
+        proj_create()
+        config = proj_load()
+        condarc_create(config=config)
+        if not config["paths"]["requirements"].exists():
+            reqs_create(config=config)
+        else:
+            logger.info("Requirements file already exists")
     elif args.command == "lockfile":
         if args.kind == "generate":
             lockfile_generate(config, regenerate=True)
-        elif args.kind == "update":
-            if env_lockfile_check(config, die_on_error=False):
-                lockfile_generate(config, regenerate=False)
-            else:
-                logger.error("Cannot update as environment and lockfile are not in sync.")
         elif args.kind == "check":
             check = lockfile_check(config)
             if check:
@@ -102,13 +78,9 @@ def conda_ops(argv: list):
             env_regenerate(config=config)
         elif args.kind == "install":
             env_install(config)
-        elif args.kind == "clean":
-            print("call env_clean")
         elif args.kind == "delete":
             env_delete(config)
             logger.info("Conda ops environment deleted.")
-        elif args.kind == "lock":
-            env_lock(config)
         elif args.kind == "activate":
             env_activate(config=config)
         elif args.kind == "deactivate":
@@ -148,7 +120,34 @@ def conda_ops(argv: list):
 # #############################################################################################
 
 
-def configure_parser_config(subparsers):
+def configure_parser_init(subparsers, parents):
+    descr = "Create a conda ops project in the current directory"
+    p = subparsers.add_parser("init", description=descr, help=descr, parents=parents)
+    return p
+
+
+def configure_parser_reqs(subparsers, parents):
+    descr = "Operations for managing the requirements file. Accepts arguments create, add, remove, check, list, edit."
+    p = subparsers.add_parser("reqs", help=descr, parents=parents)
+    reqs_subparser = p.add_subparsers(dest="reqs_command", metavar="reqs_command")
+    reqs_subparser.add_parser("create")
+    r_add = reqs_subparser.add_parser("add")
+    r_add.add_argument("packages", type=str, nargs="+")
+    r_add.add_argument(
+        "-c",
+        "--channel",
+        help="indicate the channel that the packages are coming from, set this to 'pip' \
+        if the packages you are adding are to be installed via pip",
+    )
+    r_remove = reqs_subparser.add_parser("remove")
+    r_remove.add_argument("packages", type=str, nargs="+")
+    reqs_subparser.add_parser("check")
+    reqs_subparser.add_parser("list")
+    reqs_subparser.add_parser("edit")
+    return p
+
+
+def configure_parser_config(subparsers, parents):
     """
     Largely borrowed and modified from configure_parser_config in conda/cli/conda_argparse.py
     """
@@ -156,7 +155,7 @@ def configure_parser_config(subparsers):
     Modify configuration values in conda ops managed .condarc. This will show and modify conda-ops
     managed configuration settings. To modify other config settings, use `conda config` directly.
     """
-    p = subparsers.add_parser("config", description=descr, help=descr)
+    p = subparsers.add_parser("config", description=descr, help=descr, parents=parents)
     p.add_argument("create", nargs="?", const=True, default=False, help="Create conda ops managed .condarc file.")
     _config_subcommands = p.add_argument_group("Config Subcommands")
     config_subcommands = _config_subcommands.add_mutually_exclusive_group()

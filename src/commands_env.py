@@ -368,7 +368,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
                 return False
 
     conda_set = {x for x in stdout.split("\n") if "https" in x}
-    logger.debug(f"Found {len(conda_set)} conda package(s) in environment: {env_name}")
+    logger.info(f"Found {len(conda_set)} conda package(s) in environment: {env_name}")
 
     # generate the explicit lock file and load it
     explicit_files = generate_explicit_lock_files(config)
@@ -386,18 +386,18 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
         in_env = conda_set.difference(lock_set)
         in_lock = lock_set.difference(conda_set)
         if len(in_env) > 0:
-            logger.debug("\nThe following packages are in the environment but not in the lock file:\n")
-            logger.debug("\n".join(in_env))
-            logger.debug("\n")
+            logger.info("\nThe following packages are in the environment but not in the lock file:\n")
+            logger.info("\n".join(in_env))
+            logger.info("\n")
             logger.info("To restore the environment to the state of the lock file")
             logger.info(">>> conda deactivate")
             logger.info(">>> conda ops env regenerate")
             logger.info(f">>> conda activate {env_name}")
             # logger.info(">>> conda ops sync")
         if len(in_lock) > 0:
-            logger.debug("\nThe following packages are in the lock file but not in the environment:\n")
-            logger.debug("\n".join(in_lock))
-            logger.debug("\n")
+            logger.info("\nThe following packages are in the lock file but not in the environment:\n")
+            logger.info("\n".join(in_lock))
+            logger.info("\n")
             logger.info("To add these packages to the environment:")
             logger.info(">>> conda ops env install")
             # logger.info(">>> conda ops sync")
@@ -426,13 +426,12 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
         if package["channel"] in ["pypi", "<develop>"]:
             conda_dict[package["name"]] = package["version"]
 
-    logger.debug(f"Found {len(conda_dict)} pip package(s) in environment: {env_name}")
+    logger.info(f"Found {len(conda_dict)} pip package(s) in environment: {env_name}")
 
     if len(explicit_files) > 1:
         env_pip_interop(config=config, flag=True)
 
-        logger.info("Checking consistency of pip installed packages...")
-        logger.debug("Note that we only compare the package name and version number as this is all conda list gives us")
+        logger.debug("Checking consistency of pip installed packages...")
         lock_dict = {}
         lockfile = config["paths"]["lockfile"]
         with open(lockfile, "r", encoding="utf-8") as jsonfile:

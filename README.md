@@ -1,5 +1,6 @@
 # conda-ops
 
+## Installation
 Requires modern conda with plugin support (and likely python/pip). e.g.
 
 ```
@@ -10,6 +11,19 @@ Requires modern conda with plugin support (and likely python/pip). e.g.
 To install the plugin locally, run `pip install -e .` from your base `conda` install. (If you install it into a conda environment, you will have to use that environment's `conda` installation to pick up the plugin, so installing conda into that envrionment and running `path/to/environment/conda/bin ops` instead of `conda ops`).
 
 To uninstall, `pip uninstall conda-ops`.
+
+## Basic Usage
+
+The interface for conda ops is still experimental and may change between commits. The best way to see what can be done at a given moment is to use the help menu:
+```
+conda ops --help
+```
+or to check the status of your conda ops project via
+```
+conda ops
+```
+and follow the prompts from there.
+
 
 ## Testing and Linting
 To set up testing or linting, you'll need the depedencies specified under `[project.optional-dependencies]` in the `pyproject.toml` installed into your environment.
