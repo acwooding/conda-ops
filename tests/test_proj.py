@@ -2,9 +2,9 @@ import os
 
 import pytest
 
-from src.commands_proj import proj_create, proj_load, proj_check, CondaOpsManagedCondarc
+from conda_ops.commands_proj import proj_create, proj_load, proj_check, CondaOpsManagedCondarc
 
-# Assuming these constants are defined in src
+# Assuming these constants are defined in conda_ops
 CONDA_OPS_DIR_NAME = ".conda-ops"
 CONFIG_FILENAME = "config.ini"
 
@@ -22,7 +22,7 @@ def test_proj_create(mocker, shared_temp_dir):
     """
     tmpdir = shared_temp_dir
     mocker.patch("pathlib.Path.cwd", return_value=tmpdir)
-    mocker.patch("src.input", return_value="n")
+    mocker.patch("conda_ops.input", return_value="n")
 
     config = proj_create()
 
@@ -84,7 +84,7 @@ def test_proj_check_no_config(mocker, shared_temp_dir):
         mocker: Pytest mocker fixture for mocking dependencies.
         shared_temp_dir: Pytest fixture providing a shared temporary directory.
     """
-    mocker.patch("src.commands_proj.proj_load", return_value=None)
+    mocker.patch("conda_ops.commands_proj.proj_load", return_value=None)
 
     with pytest.raises(SystemExit):
         proj_check(die_on_error=True)

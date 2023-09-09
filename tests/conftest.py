@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
-from src.utils import yaml
-from src.conda_config import condarc_create
+from conda_ops.utils import yaml
+from conda_ops.conda_config import condarc_create
 
 CONDA_OPS_DIR_NAME = ".conda-ops"
 

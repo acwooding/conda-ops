@@ -1,8 +1,8 @@
 import pytest
 import json
-from src.commands import lockfile_generate
-from src.commands_lockfile import lockfile_check, lockfile_reqs_check
-from src.commands_reqs import reqs_add
+from conda_ops.commands import lockfile_generate
+from conda_ops.commands_lockfile import lockfile_check, lockfile_reqs_check
+from conda_ops.commands_reqs import reqs_add
 
 CONDA_OPS_DIR_NAME = ".conda-ops"
 
@@ -285,7 +285,7 @@ def test_lockfile_reqs_check_inconsistent(setup_config_files, mocker):
     assert lockfile_reqs_check(config, lockfile_consistent=False, die_on_error=False) is False
 
     # test with patched lockfile_check to be False
-    mocker.patch("src.commands_lockfile.lockfile_check", return_value=False)
+    mocker.patch("conda_ops.commands_lockfile.lockfile_check", return_value=False)
     with pytest.raises(SystemExit):
         lockfile_reqs_check(config, die_on_error=True)
     assert lockfile_reqs_check(config, die_on_error=False) is False
@@ -296,7 +296,7 @@ def test_lockfile_reqs_check_inconsistent(setup_config_files, mocker):
     assert lockfile_reqs_check(config, reqs_consistent=False, die_on_error=False) is False
 
     # test with patched reqs_check to be False
-    mocker.patch("src.commands_reqs.reqs_check", return_value=False)
+    mocker.patch("conda_ops.commands_reqs.reqs_check", return_value=False)
     with pytest.raises(SystemExit):
         lockfile_reqs_check(config, die_on_error=True)
     assert lockfile_reqs_check(config, die_on_error=False) is False
