@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "conda-ops"
-version = "1.1"
+version = "1.2"
 authors = [
   { name="Amy Wooding", email="amy@wooding.org" },
 ]
@@ -27,6 +27,3 @@ addopts = "--doctest-modules --doctest-continue-on-failure"
 
 [project.entry-points.conda]
 conda-ops = "conda_ops.conda_ops_parser"
-
-[tool.setuptools]
-py-modules = ["conda_ops"]
