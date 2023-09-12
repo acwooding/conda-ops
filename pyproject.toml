@@ -4,10 +4,19 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "conda-ops"
-version = "1.0"
-description = "My conda ops subcommand plugin"
+version = "0.1"
+authors = [
+  { name="Amy Wooding", email="amy@wooding.org" },
+]
+readme = "README.md"
+license = {file = "LICENSE"}
+description = "Conda plugin to maintain environments and projects reproducibly."
 requires-python = ">=3.7"
-dependencies = ["conda", "ruamel.yaml"]
+dependencies = ["conda"]
+
+[project.urls]
+"Homepage" = "https://github.com/acwooding/conda-ops"
+"Bug Tracker" = "https://github.com/acwooding/conda-ops/issues"
 
 [project.optional-dependencies]
 test = ["pytest>=6.0", "coverage", "pytest-mock"]
@@ -17,7 +26,4 @@ linting = ["black", "flake8", "pylint"]
 addopts = "--doctest-modules --doctest-continue-on-failure"
 
 [project.entry-points.conda]
-conda-ops = "src.conda_ops"
-
-[tool.setuptools]
-py-modules = ["src"]
+conda-ops = "conda_ops.conda_ops_parser"

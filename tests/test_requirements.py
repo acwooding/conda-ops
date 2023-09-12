@@ -1,6 +1,6 @@
 import json
-from src.requirements import LockSpec, PackageSpec
-from src.commands_env import env_delete
+from conda_ops.requirements import LockSpec, PackageSpec
+from conda_ops.commands_env import env_delete
 
 
 def test_from_pip_dict_parsing():

@@ -7,9 +7,9 @@ import sys
 
 import pytest
 
-from src.commands_reqs import reqs_add, reqs_remove, reqs_create, reqs_check, pop_pip_section, check_package_in_list, clean_package_args, open_file_in_editor
-from src.requirements import is_url_requirement
-from src.utils import yaml
+from conda_ops.commands_reqs import reqs_add, reqs_remove, reqs_create, reqs_check, pop_pip_section, check_package_in_list, clean_package_args, open_file_in_editor
+from conda_ops.requirements import is_url_requirement
+from conda_ops.utils import yaml
 
 
 CONDA_OPS_DIR_NAME = ".conda-ops"

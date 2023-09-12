@@ -2,10 +2,10 @@ import logging
 from packaging.requirements import Requirement
 import pytest
 
-from src.commands import lockfile_generate
-from src.commands_env import env_create, env_check, get_prefix, check_env_exists, env_lockfile_check, env_regenerate, env_delete, env_lock
-from src.commands_reqs import reqs_add
-from src.python_api import run_command
+from conda_ops.commands import lockfile_generate
+from conda_ops.commands_env import env_create, env_check, get_prefix, check_env_exists, env_lockfile_check, env_regenerate, env_delete, env_lock
+from conda_ops.commands_reqs import reqs_add
+from conda_ops.python_api import run_command
 
 logger = logging.getLogger()
 
@@ -47,7 +47,7 @@ def test_env_create(mocker, setup_config_files):
     Test the env_create function.
     """
     config = setup_config_files
-    mocker.patch("src.commands_proj.proj_load", return_value=config)
+    mocker.patch("conda_ops.commands_proj.proj_load", return_value=config)
     env_name = config["settings"]["env_name"]
 
     # Make sure we have a legit lockfile
@@ -99,8 +99,8 @@ def test_env_check_existing(setup_config_files, mocker, caplog):
     Test the env_check function when the environment exists but is not active.
     """
     config = setup_config_files
-    mocker.patch("src.commands_env.check_env_exists", return_value=True)
-    mocker.patch("src.commands_env.check_env_active", return_value=False)
+    mocker.patch("conda_ops.commands_env.check_env_exists", return_value=True)
+    mocker.patch("conda_ops.commands_env.check_env_active", return_value=False)
 
     # Call the env_check function
     # die_on_error by default
@@ -116,8 +116,8 @@ def test_env_check_non_existing(setup_config_files, mocker):
     Test the env_check function when the environment does not exist.
     """
     config = setup_config_files
-    mocker.patch("src.commands_env.check_env_exists", return_value=False)
-    mocker.patch("src.commands_env.check_env_active", return_value=False)
+    mocker.patch("conda_ops.commands_env.check_env_exists", return_value=False)
+    mocker.patch("conda_ops.commands_env.check_env_active", return_value=False)
 
     # Call the env_check function
     # die_on_error by default
@@ -132,8 +132,8 @@ def test_env_check_active(setup_config_files, mocker):
     Test the env_check function when the environment is active.
     """
     config = setup_config_files
-    mocker.patch("src.commands_env.check_env_exists", return_value=True)
-    mocker.patch("src.commands_env.check_env_active", return_value=True)
+    mocker.patch("conda_ops.commands_env.check_env_exists", return_value=True)
+    mocker.patch("conda_ops.commands_env.check_env_active", return_value=True)
 
     assert env_check(config, die_on_error=False) is True
     assert env_check(config) is True

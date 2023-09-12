@@ -4,8 +4,8 @@ import sys
 
 from conda.common.serialize import yaml_round_trip_load
 
-from src.conda_config import check_config_items_match, CONDAOPS_OPINIONS, condarc_create, WHITELIST_CHANNEL, WHITELIST_SOLVER, condaops_config_manage
-from src.utils import logger
+from conda_ops.conda_config import check_config_items_match, CONDAOPS_OPINIONS, condarc_create, WHITELIST_CHANNEL, WHITELIST_SOLVER, condaops_config_manage
+from conda_ops.utils import logger
 
 
 def test_check_config_items_match():
@@ -13,9 +13,9 @@ def test_check_config_items_match():
 
 
 def test_check_config_items_match_mocked(mocker):
-    mocker.patch("src.conda_config.WHITELIST_CHANNEL", ["param1", "param2"])
-    mocker.patch("src.conda_config.WHITELIST_SOLVER", ["param3", "param4"])
-    mocker.patch("src.conda_config.CONFIG_LIST", ["param5", "param6"])
+    mocker.patch("conda_ops.conda_config.WHITELIST_CHANNEL", ["param1", "param2"])
+    mocker.patch("conda_ops.conda_config.WHITELIST_SOLVER", ["param3", "param4"])
+    mocker.patch("conda_ops.conda_config.CONFIG_LIST", ["param5", "param6"])
     mocker.patch.object(logger, "warning")
 
     config_map = {"Channel Configuration": ["param1", "param2"], "Solver Configuration": ["param3", "param4"], "Other Category": ["param5", "param6"]}
@@ -31,9 +31,9 @@ def test_check_config_items_match_mocked(mocker):
 def test_check_config_items_match_channel_mismatch(mocker):
     mocker.patch.object(logger, "warning")
 
-    mocker.patch("src.conda_config.WHITELIST_CHANNEL", ["param1", "param2"])
-    mocker.patch("src.conda_config.WHITELIST_SOLVER", ["param3", "param4"])
-    mocker.patch("src.conda_config.CONFIG_LIST", ["param5", "param6"])
+    mocker.patch("conda_ops.conda_config.WHITELIST_CHANNEL", ["param1", "param2"])
+    mocker.patch("conda_ops.conda_config.WHITELIST_SOLVER", ["param3", "param4"])
+    mocker.patch("conda_ops.conda_config.CONFIG_LIST", ["param5", "param6"])
 
     config_map = {"Channel Configuration": ["param1", "param2", "extra_param"], "Solver Configuration": ["param3", "param4"], "Other Category": ["param5", "param6"]}
 
@@ -46,9 +46,9 @@ def test_check_config_items_match_channel_mismatch(mocker):
 def test_check_config_items_match_solver_mismatch(mocker):
     mocker.patch.object(logger, "warning")
 
-    mocker.patch("src.conda_config.WHITELIST_CHANNEL", ["param1", "param2"])
-    mocker.patch("src.conda_config.WHITELIST_SOLVER", ["param3", "param4"])
-    mocker.patch("src.conda_config.CONFIG_LIST", ["param5", "param6"])
+    mocker.patch("conda_ops.conda_config.WHITELIST_CHANNEL", ["param1", "param2"])
+    mocker.patch("conda_ops.conda_config.WHITELIST_SOLVER", ["param3", "param4"])
+    mocker.patch("conda_ops.conda_config.CONFIG_LIST", ["param5", "param6"])
 
     config_map = {"Channel Configuration": ["param1", "param2"], "Solver Configuration": ["param3", "param4", "extra_param"], "Other Category": ["param5", "param6"]}
 
@@ -61,9 +61,9 @@ def test_check_config_items_match_solver_mismatch(mocker):
 def test_check_config_items_match_total_mismatch(mocker):
     mocker.patch.object(logger, "warning")
 
-    mocker.patch("src.conda_config.WHITELIST_CHANNEL", ["param1", "param2"])
-    mocker.patch("src.conda_config.WHITELIST_SOLVER", ["param3", "param4"])
-    mocker.patch("src.conda_config.CONFIG_LIST", ["param5", "param6"])
+    mocker.patch("conda_ops.conda_config.WHITELIST_CHANNEL", ["param1", "param2"])
+    mocker.patch("conda_ops.conda_config.WHITELIST_SOLVER", ["param3", "param4"])
+    mocker.patch("conda_ops.conda_config.CONFIG_LIST", ["param5", "param6"])
 
     config_map = {"Channel Configuration": ["param1", "param2"], "Solver Configuration": ["param3", "param4"], "Other Category": ["param5", "param6", "extra_param"]}
 
