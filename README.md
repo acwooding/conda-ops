@@ -1,4 +1,13 @@
 # conda-ops
+Creating, maintaining and not breaking conda-based python environments is messy and complicated. Sharing environments (or creating environments to run a notebook or project that's been handed to you) is even harder. `conda-ops` provides simple, easy-to-use solution to the confusing, complex, and complicated python packaging and environment nightmare that "just works". Think of it like "poetry for conda". It helps keep track of and integrate pip installed packages with conda, which is [notoriously fraught with peril](https://www.anaconda.com/blog/using-pip-in-a-conda-environment) but impossible to avoid in a development environment (`pip install -e .`).
+
+It's a command line tool, in fact, a conda plugin, that manages your project's conda environment and transparently keeps track of:
+
+* what you asked for (requirements file)
+* what you needed (lock file)
+* your shareable conda settings (project-based .condarc file)
+
+It runs status checks on your environment and lets you know what you can or should do next (`conda ops`).
 
 ## Installation
 

@@ -27,8 +27,11 @@ def conda_ops(argv: list):
     parser = argparse.ArgumentParser("conda ops", parents=[parent_parser])
     subparsers = parser.add_subparsers(dest="command", metavar="command")
 
+    add = configure_parser_add(subparsers, parents=[parent_parser])
     init = configure_parser_init(subparsers, parents=[parent_parser])
     config_parser = configure_parser_config(subparsers, parents=[parent_parser])
+    remove = configure_parser_remove(subparsers, parents=[parent_parser])
+
     reqs = configure_parser_reqs(subparsers, parents=[parent_parser])
     lockfile = subparsers.add_parser("lockfile", help="Operations for managing the lockfile. Accepts generate, check, reqs-check.", parents=[parent_parser])
     lockfile.add_argument("kind", choices=["generate", "check", "reqs-check"])
@@ -60,6 +63,14 @@ def conda_ops(argv: list):
             reqs_create(config=config)
         else:
             logger.info("Requirements file already exists")
+    elif args.command == "add":
+        reqs_add(args.packages, channel=args.channel, config=config)
+        logger.info("To update the lockfile and environment with the additional packages:")
+        logger.info(">>> conda ops sync")
+    elif args.command == "remove":
+        reqs_remove(args.packages, config=config)
+        logger.info("To update the lockfile and environment with the removal of packages:")
+        logger.info(">>> conda ops sync")
     elif args.command == "lockfile":
         if args.kind == "generate":
             lockfile_generate(config, regenerate=True)
@@ -120,9 +131,29 @@ def conda_ops(argv: list):
 # #############################################################################################
 
 
+def configure_parser_add(subparsers, parents):
+    descr = "Add packages to the requirements file."
+    p = subparsers.add_parser("add", description=descr, help=descr, parents=parents)
+    p.add_argument("packages", type=str, nargs="+")
+    p.add_argument(
+        "-c",
+        "--channel",
+        help="Indicates the channel that the added packages are coming from, set the channel to 'pip' \
+        if the packages you are adding are to be installed via pip",
+    )
+    return p
+
+
 def configure_parser_init(subparsers, parents):
-    descr = "Create a conda ops project in the current directory"
+    descr = "Create a conda ops project in the current directory and create a requirements file if it doesn't exist."
     p = subparsers.add_parser("init", description=descr, help=descr, parents=parents)
+    return p
+
+
+def configure_parser_remove(subparsers, parents):
+    descr = "Remove packages from the requirements file. Removes all versions of the packages from any channel they are found in."
+    p = subparsers.add_parser("remove", description=descr, help=descr, parents=parents)
+    p.add_argument("packages", type=str, nargs="+")
     return p
 
 

@@ -124,7 +124,7 @@ def lockfile_generate(config, regenerate=True):
 ############################################
 
 
-def consistency_check(config=None, die_on_error=False):
+def consistency_check(config=None, die_on_error=False, output_instructions=False):
     """
     Check the consistency of the requirements file vs. lock file vs. conda environment
     """
@@ -137,14 +137,25 @@ def consistency_check(config=None, die_on_error=False):
     logger.info(f"Managed Conda Environment: {env_name}")
 
     reqs_consistent = reqs_check(config, die_on_error=die_on_error)
-    lockfile_consistent = lockfile_check(config, die_on_error=die_on_error)
+    lockfile_consistent = lockfile_check(config, die_on_error=die_on_error, output_instructions=output_instructions)
 
     if lockfile_consistent:
-        lockfile_reqs_consistent = lockfile_reqs_check(config, reqs_consistent=reqs_consistent, lockfile_consistent=lockfile_consistent, die_on_error=die_on_error)
+        lockfile_reqs_consistent = lockfile_reqs_check(
+            config, reqs_consistent=reqs_consistent, lockfile_consistent=lockfile_consistent, die_on_error=die_on_error, output_instructions=output_instructions
+        )
 
         env_consistent = env_check(config, die_on_error=die_on_error)
         if env_consistent:
             env_lockfile_consistent = env_lockfile_check(config, env_consistent=env_consistent, lockfile_consistent=lockfile_consistent, die_on_error=die_on_error)
 
+    print("")
+    if not lockfile_consistent:
+        logger.info("Lock file is not consistent. To regenerate and sync it:")
+        logger.info(">>> conda ops sync")
+    elif not lockfile_reqs_consistent:
+        logger.info("The lock file may not be in sync with the requirements.")
+        logger.info("To sync the lock file and environment with the requirements:")
+        logger.info(">>> conda ops sync")
     if config_match and config_opinions and reqs_consistent and lockfile_consistent and env_consistent and lockfile_reqs_consistent and env_lockfile_consistent:
         logger.info(f"The conda ops project {env_name} is consistent")
+    print("")
