@@ -147,7 +147,7 @@ def test_env_lockfile_check_missing_lockfile(caplog, setup_config_files):
     with caplog.at_level(logging.WARNING):
         result = env_lockfile_check(config=config, lockfile_consistent=lockfile_consistent, env_consistent=True, die_on_error=False)
 
-    assert result is False
+    assert result == (False, True)
     assert "Lock file is missing or inconsistent" in caplog.text
 
 
@@ -160,7 +160,7 @@ def test_env_lockfile_check_missing_environment(caplog, setup_config_files):
     with caplog.at_level(logging.WARNING):
         result = env_lockfile_check(config=config, env_consistent=env_consistent, lockfile_consistent=lockfile_consistent, die_on_error=False)
 
-    assert result is False
+    assert result == (False, True)
     assert "Environment does not exist" in caplog.text
 
 
@@ -176,7 +176,7 @@ def test_env_lockfile_check_consistent_environment_and_lockfile(caplog, setup_co
     with caplog.at_level(logging.DEBUG):
         result = env_lockfile_check(config=config, die_on_error=False)
 
-    assert result is True
+    assert result == (True, False)
     assert "Conda packages in environment and lock file are in sync" in caplog.text
     assert "Pip packages in environment and lock file are in sync" in caplog.text
     env_delete(config)

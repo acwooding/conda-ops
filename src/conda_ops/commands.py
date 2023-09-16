@@ -11,7 +11,7 @@ from .utils import logger
 from .commands_proj import proj_check
 from .commands_reqs import reqs_check
 from .commands_lockfile import lockfile_check, lockfile_reqs_check
-from .commands_env import env_check, env_lockfile_check, conda_step_env_lock, pip_step_env_lock, env_delete, check_env_exists
+from .commands_env import env_check, env_lockfile_check, conda_step_env_lock, pip_step_env_lock, env_delete, check_env_exists, env_install, env_regenerate, check_env_active
 from .conda_config import check_condarc_matches_opinions, check_config_items_match
 from .split_requirements import create_split_files
 
@@ -117,6 +117,44 @@ def lockfile_generate(config, regenerate=True):
     print(f"Lockfile {lock_file} generated.")
 
 
+def sync(config, regenerate_lockfile=True, force=False):
+    """
+    Sync the requirements file with the lockfile and environment.
+    """
+    complete = False
+    reqs_consistent = reqs_check(config, die_on_error=True)
+    lockfile_consistent = lockfile_check(config, die_on_error=False, output_instructions=False)
+    if lockfile_consistent:
+        lockfile_reqs_consistent = lockfile_reqs_check(config, reqs_consistent=reqs_consistent, lockfile_consistent=lockfile_consistent, die_on_error=False, output_instructions=False)
+    if not (lockfile_consistent and lockfile_reqs_consistent) or force:
+        lockfile_generate(config, regenerate=regenerate_lockfile)
+        lockfile_consistent = lockfile_check(config, die_on_error=False, output_instructions=False)
+
+    env_name = config["settings"]["env_name"]
+    if check_env_exists(env_name):
+        env_lockfile_consistent, regenerate = env_lockfile_check(config, lockfile_consistent=lockfile_consistent, die_on_error=False, output_instructions=False)
+        if not env_lockfile_consistent and not (regenerate or force):
+            env_install(config)
+            complete = True
+        elif force or regenerate:
+            if check_env_active(env_name):
+                print("")
+                logger.warning("To complete the sync, the environment needs to be regenerated, but the environment is currently active.")
+                logger.info("To deactivate the environment and complete the sync:")
+                logger.info(">>> conda deactivate")
+                logger.info(">>> conda ops sync")
+            else:
+                logger.info("Regeneratin the environment")
+                env_regenerate(config)
+                complete = True
+        elif env_lockfile_consistent:
+            complete = True
+    else:
+        env_create(config)
+        complete = True
+    return complete
+
+
 ############################################
 #
 # Helper Functions
@@ -144,9 +182,12 @@ def consistency_check(config=None, die_on_error=False, output_instructions=False
             config, reqs_consistent=reqs_consistent, lockfile_consistent=lockfile_consistent, die_on_error=die_on_error, output_instructions=output_instructions
         )
 
-        env_consistent = env_check(config, die_on_error=die_on_error)
+        env_consistent = env_check(config, die_on_error=die_on_error, output_instructions=output_instructions)
+
         if env_consistent:
-            env_lockfile_consistent = env_lockfile_check(config, env_consistent=env_consistent, lockfile_consistent=lockfile_consistent, die_on_error=die_on_error)
+            env_lockfile_consistent, regenerate = env_lockfile_check(
+                config, env_consistent=env_consistent, lockfile_consistent=lockfile_consistent, die_on_error=die_on_error, output_instructions=True
+            )
 
     print("")
     if not lockfile_consistent:
@@ -156,6 +197,11 @@ def consistency_check(config=None, die_on_error=False, output_instructions=False
         logger.info("The lock file may not be in sync with the requirements.")
         logger.info("To sync the lock file and environment with the requirements:")
         logger.info(">>> conda ops sync")
+    elif not env_consistent:
+        logger.warning(f"Managed conda environment ('{env_name}') does not yet exist.")
+        logger.info("To create it:")
+        logger.info(">>> conda ops sync")
+
     if config_match and config_opinions and reqs_consistent and lockfile_consistent and env_consistent and lockfile_reqs_consistent and env_lockfile_consistent:
         logger.info(f"The conda ops project {env_name} is consistent")
     print("")

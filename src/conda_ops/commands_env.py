@@ -280,7 +280,7 @@ def pip_step_env_lock(channel, config, env_name=None, extra_pip_dict=None):
     return json_reqs, pip_dict
 
 
-def env_check(config=None, die_on_error=True):
+def env_check(config=None, die_on_error=True, output_instructions=True):
     """
     Check that the conda ops environment exists. Warn (but don't fail) if it is not active.
     """
@@ -303,22 +303,23 @@ def env_check(config=None, die_on_error=True):
         env_exists = check_env_exists(env_name)
         if env_exists:
             logger.warning(f"Managed conda environment ('{env_name}') exists but is not active.")
-            logger.info("To activate it:")
-            logger.info(f">>> conda activate {env_name}")
+            if output_instructions:
+                logger.info("To activate it:")
+                logger.info(f">>> conda activate {env_name}")
         else:
             check = False
             logger.warning(f"Managed conda environment ('{env_name}') does not yet exist.")
-            logger.info("To create it:")
-            logger.info(">>> conda ops env create")
-            # logger.info(">>> conda ops create")
+            if output_instructions:
+                logger.info("To create it:")
+                logger.info(">>> conda ops env create")
     if die_on_error and not check:
         sys.exit(1)
     return check
 
 
-def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=None, die_on_error=True):
+def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=None, die_on_error=True, output_instructions=True):
     """
-    Check that the environment and the lockfile are in sync
+    Check that the environment and the lockfile are in sync.
     """
     if config is None:
         config = proj_load()
@@ -329,15 +330,16 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
         lockfile_consistent = lockfile_check(config, die_on_error=die_on_error)
 
     if not lockfile_consistent:
-        logger.warning("Lock file is missing or inconsistent.")
-        logger.warning("Cannot determine the consistency of the lockfile and environment.")
-        logger.info("To lock the environment:")
-        logger.info(">>> conda ops lockfile generate")
-        # logger.info(">>> conda ops lock")
+        if output_instructions:
+            logger.warning("Lock file is missing or inconsistent.")
+            logger.warning("Cannot determine the consistency of the lockfile and environment.")
+            logger.info("To lock the environment:")
+            logger.info(">>> conda ops lockfile generate")
+            # logger.info(">>> conda ops lock")
         if die_on_error:
             sys.exit(1)
         else:
-            return False
+            return False, True
 
     if env_consistent is None:
         env_consistent = env_check(config, die_on_error=die_on_error)
@@ -349,9 +351,10 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
         if die_on_error:
             sys.exit(1)
         else:
-            return False
+            return False, True
 
     check = True
+    regenerate = False
 
     logger.debug(f"Enumerating packages from the conda ops environment {env_name}")
 
@@ -365,7 +368,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
             if die_on_error:
                 sys.exit(result_code)
             else:
-                return False
+                return False, True
 
     conda_set = {x for x in stdout.split("\n") if "https" in x}
     logger.info(f"Found {len(conda_set)} conda package(s) in environment: {env_name}")
@@ -382,25 +385,27 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
         logger.debug("Conda packages in environment and lock file are in sync.\n")
     else:
         check = False
+        logger.info(f"Found {len(lock_set)} conda package(s) in the lock file")
         logger.warning("The lock file and environment are not in sync")
         in_env = conda_set.difference(lock_set)
         in_lock = lock_set.difference(conda_set)
         if len(in_env) > 0:
+            regenerate = True
             logger.info("\nThe following packages are in the environment but not in the lock file:\n")
             logger.info("\n".join(in_env))
             logger.info("\n")
-            logger.info("To restore the environment to the state of the lock file")
-            logger.info(">>> conda deactivate")
-            logger.info(">>> conda ops env regenerate")
-            logger.info(f">>> conda activate {env_name}")
-            # logger.info(">>> conda ops sync")
+            if output_instructions:
+                logger.info("To restore the environment to the state of the lock file")
+                logger.info(">>> conda deactivate")
+                logger.info(">>> conda ops sync")
+                logger.info(f">>> conda activate {env_name}")
         if len(in_lock) > 0:
             logger.info("\nThe following packages are in the lock file but not in the environment:\n")
             logger.info("\n".join(in_lock))
             logger.info("\n")
-            logger.info("To add these packages to the environment:")
-            logger.info(">>> conda ops env install")
-            # logger.info(">>> conda ops sync")
+            if output_instructions:
+                logger.info("To add these packages to the environment:")
+                logger.info(">>> conda ops sync")
 
     # check that the pip contents of the lockfile match the conda environment
 
@@ -418,7 +423,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
             if die_on_error:
                 sys.exit(result_code)
             else:
-                return False
+                return False, True
     conda_list = json.loads(stdout)
 
     conda_dict = {}
@@ -444,50 +449,55 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
             logger.debug("Pip packages in environment and lock file are in sync.\n")
         else:
             check = False
+            logger.info(f"Found {len(lock_dict)} pip package(s) in the lock file")
             # Find differing packages
             in_env = set(conda_dict.keys()).difference(lock_dict.keys())
             in_lock = set(lock_dict.keys()).difference(conda_dict.keys())
             if len(in_env) > 0:
+                regenerate = True
                 logger.debug("\nThe following packages are in the environment but not in the lock file:\n")
                 logger.debug(", ".join(in_env))
                 logger.debug("\n")
-                logger.info("To restore the environment to the state of the lock file")
-                logger.info(">>> conda deactivate")
-                logger.info(">>> conda ops env regenerate")
-                logger.info(f">>> conda activate {env_name}")
-                # logger.info(">>> conda ops sync")
+                if output_instructions:
+                    logger.info("To restore the environment to the state of the lock file")
+                    logger.info(">>> conda deactivate")
+                    logger.info(">>> conda ops sync")
+                    logger.info(f">>> conda activate {env_name}")
             if len(in_lock) > 0:
                 logger.debug("\nThe following packages are in the lock file but not in the environment:\n")
                 logger.debug(", ".join(in_lock))
                 logger.debug("\n")
-                logger.info("To add these packages to the environment:")
-                logger.info(">>> conda ops env install")
-                # logger.info(">>> conda ops sync")
+                if output_instructions:
+                    logger.info("To add these packages to the environment:")
+                    logger.info(">>> conda ops sync")
+
             # Find differing versions
             differing_versions = {key: (value, lock_dict[key]) for key, value in conda_dict.items() if key in lock_dict and value != lock_dict[key]}
             if len(differing_versions) > 0:
                 logger.debug("\nThe following package versions don't match:\n")
                 logger.debug("\n".join([f"{x}: Lock version {lock_dict[x]}, Env version {conda_dict[x]}" for x in differing_versions]))
                 logger.debug("\n")
-                logger.info("To sync these versions:")
-                logger.info(">>> conda ops env regenerate")
+                if ouptut_instructions:
+                    logger.info("To sync these versions:")
+                    logger.info(">>> conda ops sync")
     elif len(conda_dict) > 0:
         check = False
+        regenerate = True
         in_env = conda_dict.keys()
         logger.debug("\nThe following packages are in the environment but not in the lock file:\n")
         logger.debug(", ".join(in_env))
         logger.debug("\n")
-        logger.info("To restore the environment to the state of the lock file")
-        logger.info(">>> conda deactivate")
-        logger.info(">>> conda ops env regenerate")
-        logger.info(f">>> conda activate {env_name}")
-        # logger.info(">>> conda ops sync")
+        if output_instructions:
+            logger.info("To restore the environment to the state of the lock file")
+            logger.info(">>> conda deactivate")
+            logger.info(">>> conda ops sync")
+            logger.info(f">>> conda activate {env_name}")
     else:
         logger.debug("Pip packages in environment and lock file are in sync.\n")
 
     if die_on_error and not check:
         sys.exit(1)
-    return check
+    return check, regenerate
 
 
 def env_install(config=None):

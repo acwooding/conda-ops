@@ -36,6 +36,35 @@ To uninstall, `pip uninstall conda-ops` from your `base` conda environment.
 
 ## Basic Usage
 
+To set up a conda ops managed project environment in the current working directory (similar to `git init`):
+```
+conda ops init
+```
+This creates a `.conda-ops` directory that contains the conda ops configuration files and lock files, and an `environment.yml` file if it doesn't already exist.
+
+Similar to `git` you can always check the status of your conda ops managed environment via `conda ops status` or simply, `conda ops`. This will prompt you for what you may need to next do if anything ever gets out of sync or isn't quite working.
+
+Beyond `init` and `status`, there are only 3 commands that you need to regularly:
+* `conda ops add`: Add packages to the requirements file
+* `conda ops remove`: Remove packages from the requirements file. Removes all versions of the packages from any channel they are found in.
+* `conda ops sync`: Sync the environment and lock file with the requirements file.
+
+To add packages from conda channels other than the default conda channel, you can use `-c` or `--channel`:
+```
+conda ops add my-package-1 my-package-2 -c my-other-channel
+```
+For anything using `pip` instead of `conda`, we treat `pip` as special conda channel:
+```
+conda ops add my-local-package -c pip
+```
+As a convenience `conda ops install` works like `conda ops add` and `conda ops sync`. Similarly, `conda ops uninstall` works like `conda ops remove` and `conda ops sync`.
+
+There is also a project specific `.condarc` file that is only invoked by `conda ops` on a project-by-project basis. This config file contains all the conda config settings relating to the solver and the channel settings so that solves are reproducible and the relevant configurations are easily shareable. See `conda ops config --help` for more details on how to work with and manage conda configuration within a conda ops project.
+
+Other helpful commands include:
+* `conda ops reqs list`: Show the contents of the requirements file.
+* `conda ops reqs edit`: Open the requirements file in the default editor.
+
 The interface for conda ops is still experimental and may change between commits. The best way to see what can be done at a given moment is to use the help menu:
 ```
 conda ops --help
@@ -47,7 +76,7 @@ conda ops
 and follow the prompts from there.
 
 
-## Testing and Linting
+## Development Requirements: Testing and Linting
 To set up testing or linting, you'll need the depedencies specified under `[project.optional-dependencies]` in the `pyproject.toml` installed into your environment.
 
 ### Running tests
