@@ -11,7 +11,12 @@ It runs status checks on your environment and lets you know what you can or shou
 
 ## Installation
 
-Please make sure that you install `conda-ops` into your `base` conda environment for the plugin for work properly. (If you install it into a conda environment, you will have to use that environment's `conda` installation to pick up the plugin, so installing conda into that envrionment and running `path/to/environment/conda/bin ops` instead of `conda ops`).
+Requirements: Note that `conda-ops` requires modern conda with plugin support (and python/pip). e.g.
+
+```
+>>> conda install -n base -c defaults conda>=23.5.0
+>>> conda install -n base -c defaults python>=3.11
+```
 
 `conda-ops` is still under significant development and is changing rapidly. We recommend updating it regularly no matter how you choose to install.
 
@@ -23,14 +28,10 @@ For the latest alpha release available via PyPI:
 
 `conda run -n base pip install conda-ops`
 
+Please make sure that you install `conda-ops` into your `base` conda environment for the plugin for work properly. (If you install it into a conda environment, you will have to use that environment's `conda` installation to pick up the plugin, so installing conda into that envrionment and running `path/to/environment/conda/bin ops` instead of `conda ops`).
+
+
 To install the plugin locally in development mode, clone the repo and then run `pip install -e .` from your base `conda` install (e.g. `conda run -n base pip install -e .`.
-
-Note that `conda-ops` requires modern conda with plugin support (and likely python/pip). e.g.
-
-```
->>> conda install -n base -c defaults conda==23.5.0
->>> conda install -n base -c defaults python=3.11
-```
 
 To uninstall, `pip uninstall conda-ops` from your `base` conda environment.
 
@@ -57,14 +58,19 @@ For anything using `pip` instead of `conda`, we treat `pip` as special conda cha
 ```
 conda ops add my-local-package -c pip
 ```
+or the analogue for the ubiquitous `pip install -e .`:
+```
+conda ops add "-e ." -c pip
+```
 
 As a convenience `conda ops install` works like `conda install` but allows conda ops to track the installed packages transparently and reproducibly (effectively, it does a `conda ops add` and then `conda ops sync`). Similarly, `conda ops uninstall` works like *normal* and effectively consists of `conda ops remove` and `conda ops sync`.
-
-There is also a project specific `.condarc` file that is always and only invoked by `conda ops` within the current conda ops project. This config file contains all the conda config settings relating to the solver and the channel settings so that solves are reproducible and the relevant configurations are easily shareable. See `conda ops config --help` for more details on how to work with and manage the conda configuration within a conda ops project. Note: we often find ourselves using `conda ops config --set solver libmamba`.
 
 Other helpful commands include:
 * `conda ops reqs list`: Show the contents of the requirements file.
 * `conda ops reqs edit`: Open the requirements file in the default editor.
+* `conda ops config`: Behaves similarly to `conda config` but only handles the configuration tracked in `.conda-ops/.condarc`. See `conda ops config --help` for details.
+
+There is also a project specific `.condarc` file that is always and only invoked by `conda ops` within the current conda ops project. This configuration file contains all of the conda config settings relating to the solver and the channel settings so that solves are reproducible and the relevant configurations are easily shareable. See `conda ops config --help` for more details on how to work with and manage the conda configuration within a conda ops project. Note: we often find ourselves using `conda ops config --set solver libmamba`.
 
 The interface for conda ops is still experimental and may change between commits. The best way to see what can be done at a given moment is to use the help menu:
 ```

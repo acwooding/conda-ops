@@ -197,7 +197,7 @@ def configure_parser_remove(subparsers, parents):
 def configure_parser_sync(subparsers, parents):
     descr = "Sync the environment and lock file with the requirements file."
     p = subparsers.add_parser("sync", description=descr, help=descr, parents=parents)
-    p.add_argument("-f", "--force", help="Force the lock file and environment to be recreated.")
+    p.add_argument("-f", "--force", action="store_true", help="Force the lock file and environment to be recreated.")
     return p
 
 

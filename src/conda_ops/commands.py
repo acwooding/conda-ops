@@ -11,7 +11,7 @@ from .utils import logger
 from .commands_proj import proj_check
 from .commands_reqs import reqs_check
 from .commands_lockfile import lockfile_check, lockfile_reqs_check
-from .commands_env import env_check, env_lockfile_check, conda_step_env_lock, pip_step_env_lock, env_delete, check_env_exists, env_install, env_regenerate, check_env_active
+from .commands_env import env_check, env_lockfile_check, conda_step_env_lock, pip_step_env_lock, env_delete, check_env_exists, env_install, env_regenerate, check_env_active, env_create
 from .conda_config import check_condarc_matches_opinions, check_config_items_match
 from .split_requirements import create_split_files
 
@@ -134,7 +134,8 @@ def sync(config, regenerate_lockfile=True, force=False):
     if check_env_exists(env_name):
         env_lockfile_consistent, regenerate = env_lockfile_check(config, lockfile_consistent=lockfile_consistent, die_on_error=False, output_instructions=False)
         if not env_lockfile_consistent and not (regenerate or force):
-            env_install(config)
+            logger.info("Updating the environment with the lockfile")
+            env_install(config=config)
             complete = True
         elif force or regenerate:
             if check_env_active(env_name):
@@ -144,7 +145,11 @@ def sync(config, regenerate_lockfile=True, force=False):
                 logger.info(">>> conda deactivate")
                 logger.info(">>> conda ops sync")
             else:
-                if input("To finish syncing, the environment must be deleted and recreated. Would you like to proceed? (y/n)").lower() == "y":
+                if not force:
+                    input_value = input("To finish syncing, the environment must be deleted and recreated. Would you like to proceed? (y/n)").lower()
+                else:
+                    input_value = "y"
+                if input_value == "y":
                     logger.info("Regenerating the environment")
                     env_regenerate(config)
                     complete = True
@@ -192,6 +197,10 @@ def consistency_check(config=None, die_on_error=False, output_instructions=False
             env_lockfile_consistent, regenerate = env_lockfile_check(
                 config, env_consistent=env_consistent, lockfile_consistent=lockfile_consistent, die_on_error=die_on_error, output_instructions=True
             )
+            if env_lockfile_consistent:
+                print("Made it here")
+            else:
+                print("Does not match")
 
     print("")
     if not lockfile_consistent:
@@ -206,6 +215,8 @@ def consistency_check(config=None, die_on_error=False, output_instructions=False
         logger.info("To create it:")
         logger.info(">>> conda ops sync")
 
-    if config_match and config_opinions and reqs_consistent and lockfile_consistent and env_consistent and lockfile_reqs_consistent and env_lockfile_consistent:
+    return_value = config_match and config_opinions and reqs_consistent and lockfile_consistent and env_consistent and lockfile_reqs_consistent and env_lockfile_consistent
+    if return_value:
         logger.info(f"The conda ops project {env_name} is consistent")
     print("")
+    return return_value

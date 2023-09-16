@@ -510,8 +510,8 @@ def env_install(config=None):
         config = proj_load()
 
     env_name = config["settings"]["env_name"]
-    explicit_lock_file = config["paths"]["explicit_lockfile"]
-    explicit_files = generate_explicit_lock_files(config)
+    lock_file = config["paths"]["lockfile"]
+    explicit_files = generate_explicit_lock_files(config, lock_file=lock_file)
 
     logger.info(f"Installing lockfile into the environment {env_name}")
     for explicit_file in explicit_files:
@@ -519,7 +519,7 @@ def env_install(config=None):
         if str(explicit_file) == str(explicit_lock_file):
             with CondaOpsManagedCondarc(config["paths"]["condarc"]):
                 conda_args = ["--prefix", get_prefix(env_name), "--file", str(explicit_lock_file)]
-                stdout, stderr, result_code = run_command("install", conda_args, use_exception_handler=True)
+                stdout, stderr, result_code = run_command("install", conda_args)
                 if result_code != 0:
                     logger.error(stdout)
                     logger.error(stderr)

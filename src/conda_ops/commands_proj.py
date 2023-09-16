@@ -35,7 +35,7 @@ from .python_api import run_command
 ##################################################################
 
 
-def proj_create():
+def proj_create(input_value=None):
     """
     Initialize the conda ops project by creating a .conda-ops directory and config file.
 
@@ -47,7 +47,9 @@ def proj_create():
 
     if conda_ops_path.exists():
         logger.warning("conda ops has already been initialized")
-        if input("Would you like to reinitialize (this will overwrite the existing conda-ops basic setup)? (y/n) ").lower() != "y":
+        if input_value is None:
+            input_value = input("Would you like to reinitialize (this will overwrite the existing conda-ops basic setup)? (y/n) ").lower()
+        if input_value != "y":
             return proj_load()
     else:
         conda_ops_path.mkdir()

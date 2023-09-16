@@ -1,6 +1,8 @@
 import pytest
 from pathlib import Path
 from conda_ops.utils import yaml
+from conda_ops.commands_proj import proj_create
+from conda_ops.commands_reqs import reqs_create
 from conda_ops.conda_config import condarc_create
 
 CONDA_OPS_DIR_NAME = ".conda-ops"
@@ -23,7 +25,7 @@ def setup_config_files(shared_temp_dir):
     config = {
         "paths": {
             "ops_dir": ops_dir,
-            "requirements": ops_dir / "environment.yml",
+            "requirements": shared_temp_dir / "environment.yml",
             "lockfile": ops_dir / "lockfile.json",
             "explicit_lockfile": ops_dir / "lockfile.explicit",
             "pip_explicit_lockfile": ops_dir / "lockfile.pypi",
@@ -46,7 +48,16 @@ def setup_config_files(shared_temp_dir):
         yaml.dump(requirements_dict, f)
 
     condarc_create(config=config)
+    return config
 
+
+@pytest.fixture(scope="function")
+def setup_config_structure(shared_temp_dir, mocker):
+    mocker.patch("pathlib.Path.cwd", return_value=shared_temp_dir)
+
+    config = proj_create(input_value="n")
+    reqs_create(config)
+    condarc_create(config=config)
     return config
 
 
