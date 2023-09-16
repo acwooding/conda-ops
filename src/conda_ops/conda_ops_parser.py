@@ -36,6 +36,10 @@ def conda_ops(argv: list):
     uninstall = configure_parser_uninstall(subparsers, parents=[parent_parser])
     config_parser = configure_parser_config(subparsers, parents=[parent_parser])
 
+    activate = subparsers.add_parser("activate", add_help=False)
+    activate.add_argument("kind", nargs=argparse.REMAINDER)
+    deactivate = subparsers.add_parser("deactivate", add_help=False)
+
     reqs = configure_parser_reqs(subparsers, parents=[parent_parser])
     lockfile = subparsers.add_parser("lockfile", help="Additional operations for managing the lockfile. Accepts generate, check, reqs-check.", parents=[parent_parser])
     lockfile.add_argument("kind", choices=["generate", "check", "reqs-check"])
@@ -87,6 +91,10 @@ def conda_ops(argv: list):
         sync_complete = sync(config, force=args.force)
         if sync_complete:
             logger.info("Sync complete")
+    elif args.command == "activate":
+        env_activate(config=config)
+    elif args.command == "deactivate":
+        env_deactivate(config)
     elif args.command == "lockfile":
         if args.kind == "generate":
             lockfile_generate(config, regenerate=True)

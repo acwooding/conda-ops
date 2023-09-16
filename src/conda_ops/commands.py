@@ -144,9 +144,13 @@ def sync(config, regenerate_lockfile=True, force=False):
                 logger.info(">>> conda deactivate")
                 logger.info(">>> conda ops sync")
             else:
-                logger.info("Regeneratin the environment")
-                env_regenerate(config)
-                complete = True
+                if input("To finish syncing, the environment must be deleted and recreated. Would you like to proceed? (y/n)").lower() == "y":
+                    logger.info("Regenerating the environment")
+                    env_regenerate(config)
+                    complete = True
+                else:
+                    logger.warning("Unable to complete the sync. Please make any desired changes and then try again.")
+                    logger.info(">>> conda ops sync")
         elif env_lockfile_consistent:
             complete = True
     else:

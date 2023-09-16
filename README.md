@@ -42,10 +42,10 @@ conda ops init
 ```
 This creates a `.conda-ops` directory that contains the conda ops configuration files and lock files, and an `environment.yml` file if it doesn't already exist.
 
-Similar to `git` you can always check the status of your conda ops managed environment via `conda ops status` or simply, `conda ops`. This will prompt you for what you may need to next do if anything ever gets out of sync or isn't quite working.
+Similar to `git` you can always check the status of your conda ops managed environment via `conda ops status` or simply, `conda ops`. This will prompt you for what you may need to next do if anything ever gets out of sync.
 
-Beyond `init` and `status`, there are only 3 commands that you need to regularly:
-* `conda ops add`: Add packages to the requirements file
+Beyond `conda ops init` and `conda ops`, there are only 3 commands that you need to regularly:
+* `conda ops add`: Add packages to the requirements file.
 * `conda ops remove`: Remove packages from the requirements file. Removes all versions of the packages from any channel they are found in.
 * `conda ops sync`: Sync the environment and lock file with the requirements file.
 
@@ -57,9 +57,10 @@ For anything using `pip` instead of `conda`, we treat `pip` as special conda cha
 ```
 conda ops add my-local-package -c pip
 ```
-As a convenience `conda ops install` works like `conda ops add` and `conda ops sync`. Similarly, `conda ops uninstall` works like `conda ops remove` and `conda ops sync`.
 
-There is also a project specific `.condarc` file that is only invoked by `conda ops` on a project-by-project basis. This config file contains all the conda config settings relating to the solver and the channel settings so that solves are reproducible and the relevant configurations are easily shareable. See `conda ops config --help` for more details on how to work with and manage conda configuration within a conda ops project.
+As a convenience `conda ops install` works like `conda install` but allows conda ops to track the installed packages transparently and reproducibly (effectively, it does a `conda ops add` and then `conda ops sync`). Similarly, `conda ops uninstall` works like *normal* and effectively consists of `conda ops remove` and `conda ops sync`.
+
+There is also a project specific `.condarc` file that is always and only invoked by `conda ops` within the current conda ops project. This config file contains all the conda config settings relating to the solver and the channel settings so that solves are reproducible and the relevant configurations are easily shareable. See `conda ops config --help` for more details on how to work with and manage the conda configuration within a conda ops project. Note: we often find ourselves using `conda ops config --set solver libmamba`.
 
 Other helpful commands include:
 * `conda ops reqs list`: Show the contents of the requirements file.
