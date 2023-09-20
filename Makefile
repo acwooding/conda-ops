@@ -25,6 +25,21 @@ build: $(DIST_FILES)
 $(DIST_FILES):
 	$(PYTHON) -m build
 
+.PHONY: upload-test
+## Upload to Test-PyPI
+upload-test:
+	$(PYTHON) -m twine upload --repository testpypi $(DIST_DIR)/*
+
+.PHONY: upload
+## Upload to PyPI
+upload: build
+	$(PYTHON) -m twine upload $(DIST_DIR)/*
+
+.PHONY: install-test
+## Install the TestPyPI version
+install-test:
+	$(CONDA_EXE) run -n $(TEST_ENV) pip install --index-url "https://test.pypi.org/simple/" --no-deps $(PACKAGE_NAME)
+
 .PHONY: install-dist
 ## Install the distribution
 install-dist: build

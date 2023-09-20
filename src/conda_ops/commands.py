@@ -229,6 +229,6 @@ def consistency_check(config=None, die_on_error=False, output_instructions=False
     # don't include not being active in the return value
     return_value = config_match and config_opinions and reqs_consistent and lockfile_consistent and env_consistent and lockfile_reqs_consistent and env_lockfile_consistent
     if return_value:
-        logger.info(f"The conda ops project {env_name} is consistent")
+        logger.debug(f"The conda ops project {env_name} is consistent")
     print("")
     return return_value
