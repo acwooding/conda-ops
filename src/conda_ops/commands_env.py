@@ -292,26 +292,48 @@ def env_check(config=None, die_on_error=True, output_instructions=True):
     env_name = config["settings"]["env_name"]
 
     info_dict = get_conda_info()
-    active_conda_env = info_dict["active_prefix_name"]
     platform = info_dict["platform"]
 
-    logger.info(f"Active Conda environment: {active_conda_env}")
     logger.info(f"Conda platform: {platform}")
+
+    if not check_env_exists(env_name):
+        check = False
+        logger.warning(f"Managed conda environment ('{env_name}') does not yet exist.")
+        if output_instructions:
+            logger.info("To create it:")
+            logger.info(">>> conda ops sync")
+    if die_on_error and not check:
+        sys.exit(1)
+    return check
+
+
+def active_env_check(config=None, die_on_error=True, output_instructions=True, env_exists=None):
+    """
+    Check that the activate environment matches the conda ops managed environment.
+    """
+    if config is None:
+        config = proj_load()
+
+    check = True
+
+    env_name = config["settings"]["env_name"]
+
+    info_dict = get_conda_info()
+    active_conda_env = info_dict["active_prefix_name"]
+
+    logger.info(f"Active Conda environment: {active_conda_env}")
+
     if check_env_active(env_name):
         pass
     else:
-        env_exists = check_env_exists(env_name)
-        if env_exists:
-            logger.warning(f"Managed conda environment ('{env_name}') exists but is not active.")
-            if output_instructions:
-                logger.info("To activate it:")
-                logger.info(f">>> conda activate {env_name}")
-        else:
-            check = False
-            logger.warning(f"Managed conda environment ('{env_name}') does not yet exist.")
-            if output_instructions:
-                logger.info("To create it:")
-                logger.info(">>> conda ops env create")
+        check = False
+        if env_exists is None:
+            env_exists = env_check(config=config, die_on_error=die_on_error, output_instructions=output_instructions)
+            if env_exists:
+                logger.warning(f"Managed conda environment ('{env_name}') exists but is not active.")
+                if output_instructions:
+                    logger.info("To activate it:")
+                    logger.info(f">>> conda activate {env_name}")
     if die_on_error and not check:
         sys.exit(1)
     return check
