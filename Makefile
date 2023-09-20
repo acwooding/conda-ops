@@ -35,15 +35,20 @@ upload-test:
 upload: build
 	$(PYTHON) -m twine upload $(DIST_DIR)/*
 
-.PHONY: install-test
-## Install the TestPyPI version
-install-test:
-	$(CONDA_EXE) run -n $(TEST_ENV) pip install --index-url "https://test.pypi.org/simple/" --no-deps $(PACKAGE_NAME)
-
 .PHONY: install-dist
 ## Install the distribution
 install-dist: build
 	$(CONDA_EXE) run -n $(TEST_ENV) pip install $(DIST_DIR)/*.whl
+
+.PHONY: install-testpypi
+## Install the TestPyPI version
+install-testpyi:
+	$(CONDA_EXE) run -n $(TEST_ENV) pip install --index-url "https://test.pypi.org/simple/" --no-deps $(PACKAGE_NAME)
+
+.PHONY: install-pypi
+## Install the PyPI version
+install-testpyi:
+	$(CONDA_EXE) run -n $(TEST_ENV) pip install $(PACKAGE_NAME)
 
 .PHONY: install-dev
 ## Install the development version

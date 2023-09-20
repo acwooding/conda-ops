@@ -77,7 +77,14 @@ Other helpful commands include:
 
 The full list of commands can be accessed via the help menu: `conda ops --help`.
 
-There is also a project specific `.condarc` file that is always and only invoked by `conda ops` within the current conda ops project. This configuration file contains all of the conda config settings relating to the solver and the channel settings so that solves are reproducible and the relevant configurations are easily shareable. See `conda ops config --help` for more details on how to work with and manage the conda configuration within a conda ops project. Note: we often find ourselves using `conda ops config --set solver libmamba`.
+There is also a project specific `.condarc` file that is always and only invoked by `conda ops` within the current conda ops project. This configuration file contains all of the conda config settings relating to the solver and the channel settings so that solves are reproducible and the relevant configurations are easily shareable. See `conda ops config --help` for more details on how to work with and manage the conda configuration within a conda ops project.
+
+We get that things can sometimes be slow. If you'd like to try the libmamba to try to speed things up:
+```
+conda install -n base conda-libmamba-solver
+conda ops config --set solver libmamba
+```
+Libmamba is especially useful if your environment isn't solving since it gives much better error messages (and quickly) about what's going on.
 
 The interface for conda ops is still experimental and may change between commits. The best way to see what can be done at a given moment is to use the help menu:
 ```
@@ -102,6 +109,6 @@ For now, keep a line length of 200
 Always run black for auto-formatting.
 * `black . -l 200`: specify a larger max line length with black
 
-Take a look at flake8 or pylint reports for linting. flake8 is a more lightweight.
+Take a look at flake8 or pylint reports for linting. flake8 is more lightweight.
 * `flake8 --max-line-length=200 --exclude conda_ops_later.py`
 * `pylint src --max-line-length=200 --ignore=conda_ops_later.py`

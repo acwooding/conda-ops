@@ -21,6 +21,7 @@ from .utils import logger
 
 
 def conda_ops(argv: list):
+    argv = list(argv)
     parent_parser = argparse.ArgumentParser(add_help=False)
     parent_parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], default="INFO", help="Set the log level")
 
