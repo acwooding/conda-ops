@@ -708,7 +708,7 @@ def get_prefix(env_name):
         if Path(env_dirs[0]) == Path(active_prefix) / "envs":
             split = str(env_dirs[0]).split("envs")
             prefix = Path(split[0]) / "envs"
-return str(prefix / env_name)
+    return str(prefix / env_name)
 
 
 def check_env_exists(env_name):
