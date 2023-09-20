@@ -703,12 +703,12 @@ def get_prefix(env_name):
     conda_info = get_conda_info()
     active_prefix = conda_info["active_prefix"]
     env_dirs = conda_info["envs_dirs"]
-    if Path(env_dirs[0]) == Path(active_prefix) / "envs":
-        split = str(env_dirs[0]).split("envs")
-        prefix = Path(split[0]) / "envs"
-    else:
-        prefix = Path(env_dirs[0])
-    return str(prefix / env_name)
+    prefix = Path(env_dirs[0])
+    if active_prefix is not None:
+        if Path(env_dirs[0]) == Path(active_prefix) / "envs":
+            split = str(env_dirs[0]).split("envs")
+            prefix = Path(split[0]) / "envs"
+return str(prefix / env_name)
 
 
 def check_env_exists(env_name):

@@ -158,7 +158,7 @@ def sync(config, regenerate_lockfile=True, force=False):
                 logger.info(">>> conda ops sync")
             else:
                 if not force:
-                    input_value = input("To finish syncing, the environment must be deleted and recreated. Would you like to proceed? (y/n)").lower()
+                    input_value = input("To finish syncing, the environment must be deleted and recreated. Would you like to proceed? (y/n) ").lower()
                 else:
                     input_value = "y"
                 if input_value == "y":
