@@ -282,6 +282,8 @@ def test_clean_package_args():
         clean_packages = clean_package_args(package_args, channel=channel)
         if channel == "pip":
             assert clean_packages == sorted(["python==3.11", "numpy", "pandas", "black==22"])
+        elif channel == "conda-forge":
+            assert clean_packages == sorted(["conda-forge::python=3.11", "conda-forge::numpy", "conda-forge::pandas", "conda-forge::black=22"])
         else:
             assert clean_packages == sorted(["python=3.11", "numpy", "pandas", "black=22"])
 

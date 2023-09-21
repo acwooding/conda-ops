@@ -51,10 +51,11 @@ def reqs_add(packages, channel=None, config=None):
     else:
         channel_str = channel
 
+    logger.info("Trying to add the following packages to requirements file:")
     if channel:
-        logger.info(f"Trying to add packages {package_str} from channel {channel_str} to the requirements file.")
+        logger.info(f"   {' ,'.join([f'{channel}::{package}' for package in packages])}")
     else:
-        logger.info(f"Trying to add packages {package_str} from the conda defaults channel to the requirements file.")
+        logger.info(f"   {package_str}")
 
     packages = clean_package_args(packages, channel=channel)
 
@@ -108,9 +109,9 @@ def reqs_add(packages, channel=None, config=None):
                         pip_dict["pip"] = sorted(pip_dict["pip"] + [package])
             else:  # interpret channel as a conda channel
                 if reqs["dependencies"] is None:
-                    reqs["dependencies"] = [f"{channel}::{package}"]
+                    reqs["dependencies"] = [package]
                 else:
-                    reqs["dependencies"] = sorted(reqs["dependencies"] + [f"{channel}::{package}"])
+                    reqs["dependencies"] = sorted(reqs["dependencies"] + [package])
                 if channel not in reqs["channels"]:
                     reqs["channels"].append(channel)
 
@@ -122,9 +123,13 @@ def reqs_add(packages, channel=None, config=None):
     if len(added_packages) > 0:
         with open(requirements_file, "w", encoding="utf-8") as yamlfile:
             yaml.dump(reqs, yamlfile)
-        print(f"Added packages {added_packages} to requirements file.")
+        logger.info("Added the following packages to requirements file:")
+        if channel:
+            logger.info(f"   {' ,'.join(added_packages)}")
+        else:
+            logger.info(f"   {package_str}")
     else:
-        print("No packages added to the requirements file.")
+        logger.warning("No packages added to the requirements file.")
 
 
 def reqs_remove(packages, config=None):
@@ -286,7 +291,7 @@ def reqs_check(config, die_on_error=True):
 
         if len(duplicates) > 0:
             check = False
-            logger.error(f"The packages {list(duplicates.keys())} have been specified more than once.")
+            logger.error(f"The packages {' ,'.join(list(duplicates.keys()))} have been specified more than once.")
             logger.info(f"Please update the requirements file {requirements_file} accordingly.")
         if len(missing_channel_list) > 0:
             logger.warning(f"The following channels are not in the channel section: {missing_channel_list}")
@@ -347,7 +352,7 @@ def check_package_in_list(package, package_list, channel=None):
     Given a package, return the packages in the package_list that match that requirement.
     """
     matching_list = []
-    requirement = PackageSpec(package, channel=channel)
+    requirement = PackageSpec(package)
 
     for comp_package in package_list:
         req_p = PackageSpec(comp_package, channel=channel)
@@ -362,7 +367,7 @@ def check_package_in_list(package, package_list, channel=None):
 
 def clean_package_args(package_args, channel=None):
     """
-    Given a list of packages from the argparser, check that it is in a valid format as per PEP 508.
+    Given a list of packages from the argparser, check that it is in a valid format.
 
        - Change package=version to package==version.
        - Split combined strings "python numpy" to "python", "numpy"
@@ -405,10 +410,10 @@ def clean_package_args(package_args, channel=None):
     str_packages = [x.name for x in cleaned_packages if x.name is not None]
     duplicates = check_for_duplicates(str_packages)
     if len(duplicates) > 0:
-        logger.error(f"The packages {duplicates.keys()} have been specified more than once.")
+        logger.error(f"The packages {' '.join(list(duplicates.keys()))} have been specified more than once.")
         sys.exit(1)
 
-    return sorted([str(x) for x in cleaned_packages])
+    return sorted([x.to_reqs_entry() for x in cleaned_packages])
 
 
 def pop_pip_section(dependencies):

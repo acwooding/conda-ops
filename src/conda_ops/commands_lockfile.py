@@ -106,11 +106,10 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
             logger.debug("Lock file is newer than the requirements file")
         else:
             check = False
-            logger.warning("The requirements file is newer than the lock file.")
+            logger.debug("The requirements file is newer than the lock file.")
             if output_instructions:
                 logger.info("To update the lock file:")
-                logger.info(">>> conda ops lockfile generate")
-                # logger.info(">>> conda ops lock")
+                logger.info(">>> conda ops sync")
         with open(requirements_file, "r", encoding="utf-8") as yamlfile:
             reqs_env = yaml.load(yamlfile)
         channel_order = get_conda_channel_order(reqs_env)
@@ -122,7 +121,6 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
         missing_packages = []
         for channel in channel_order + ["pip"]:
             channel_list = [PackageSpec(req, channel=channel) for req in channel_dict[channel]]
-
             for package in channel_list:
                 missing = True
                 check_version = False
@@ -145,22 +143,22 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
                             check_version = True
                             break
                 if missing:
-                    missing_packages.append(str(package))
+                    missing_packages.append(package)
                 if check_version:
                     if channel == "pip":
                         if not parse(lock_package["version"]) in package.version:
-                            missing_packages.append(str(package))
+                            missing_packages.append(package)
                     else:
                         if package.version and not ver_eval(lock_package["version"], str(package.version)):
-                            missing_packages.append(str(package))
+                            missing_packages.append(package)
 
         if len(missing_packages) > 0:
             check = False
-            logger.warning("The following requirements are not in the lockfile:")
-            logger.warning(f"   {', '. join(missing_packages)}")
+            logger.info("The following requirements are not in the lockfile:")
+            logger.info(f"   {', '. join([x.to_reqs_entry() for x in missing_packages])}")
             if output_instructions:
                 logger.info("To update the lock file:")
-                logger.info(">>> conda ops lockfile generate")
+                logger.info(">>> conda ops sync")
     else:
         if not reqs_consistent:
             logger.error("Cannot check lockfile against requirements as the requirements file is missing or inconsistent.")

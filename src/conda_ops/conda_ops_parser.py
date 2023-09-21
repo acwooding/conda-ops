@@ -132,11 +132,11 @@ def conda_ops(argv: list):
     elif args.reqs_command == "add":
         reqs_add(args.packages, channel=args.channel, config=config)
         logger.info("To update the lock file:")
-        logger.info(">>> conda ops lockfile generate")
+        logger.info(">>> conda ops sync")
     elif args.reqs_command == "remove":
         reqs_remove(args.packages, config=config)
         logger.info("To update the lock file:")
-        logger.info(">>> conda ops lockfile regenerate")
+        logger.info(">>> conda ops sync")
     elif args.reqs_command == "check":
         check = reqs_check(config)
         if check:

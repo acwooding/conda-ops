@@ -21,12 +21,23 @@ class PackageSpec:
             else:
                 manager = "conda"
         self.manager = manager
-        self.requirement, self.editable = self.parse_requirement(spec, manager)
+        self.requirement, self.editable = self.parse_requirement(spec, manager, channel=channel)
 
     @staticmethod
-    def parse_requirement(spec, manager):
+    def parse_requirement(spec, manager, channel=None):
         editable = False
         clean_spec = spec.strip()
+        if len(clean_spec.split("::")) > 2:
+            logger.error(clean_spec)
+            print(X)
+        if channel is not None:
+            if "::" in spec:
+                # check channel is consistent
+                spec_channel = clean_spec.split("::")[0]
+                if spec_channel != channel:
+                    logger.warning(f"The requirement {spec} does not match the specified channel {channel}")
+            elif manager == "conda":
+                clean_spec = f"{channel}::{clean_spec}"
         if manager == "conda":
             if "-e " in clean_spec:
                 logger.error(f"Spec {clean_spec} seems to be editable")
@@ -86,6 +97,18 @@ class PackageSpec:
         if self.editable:
             return "-e " + str(self.requirement)
         return str(self.requirement)
+
+    def to_reqs_entry(self):
+        if self.editable:
+            return str(self)
+        elif self.channel == "defaults":
+            string_rep = str(self.requirement)
+            if "::" in string_rep:
+                return string_rep.split("::")[1]
+            else:
+                return string_rep
+        else:
+            return str(self.requirement)
 
 
 class PathSpec:
