@@ -111,8 +111,8 @@ def reqs_add(packages, channel=None, config=None):
                     reqs["dependencies"] = [f"{channel}::{package}"]
                 else:
                     reqs["dependencies"] = sorted(reqs["dependencies"] + [f"{channel}::{package}"])
-                if channel not in reqs["channel-order"]:
-                    reqs["channel-order"].append(channel)
+                if channel not in reqs["channels"]:
+                    reqs["channels"].append(channel)
 
     # add back the pip section
     if pip_dict is not None:
@@ -163,12 +163,12 @@ def reqs_remove(packages, config=None):
             channel, _ = dep.split("::")
             channel_in_use.append(channel)
     new_channel_order = []
-    for channel in reqs["channel-order"]:
+    for channel in reqs["channels"]:
         if channel == "defaults":
             new_channel_order.append(channel)
         if channel in channel_in_use:
             new_channel_order.append(channel)
-    reqs["channel-order"] = new_channel_order
+    reqs["channels"] = new_channel_order
 
     # now remove pip dependencies if the section exists
     if pip_dict is not None:
@@ -202,7 +202,6 @@ def reqs_create(config):
         requirements_dict = {
             "name": env_name,
             "channels": ["defaults"],
-            "channel-order": ["defaults"],
             "dependencies": sorted(["pip", "python"]),
         }
         logger.info(f"Creating requirements file: {requirements_file}")
@@ -244,7 +243,7 @@ def reqs_check(config, die_on_error=True):
             check = False
         conda_deps, pip_dict = pop_pip_section(deps)
 
-        channel_order = requirements.get("channel-order", [])
+        channel_order = requirements.get("channels", [])
 
         # check that the package specifications are valid
         # make the specifications cannonical (warn when changing them)
@@ -290,11 +289,11 @@ def reqs_check(config, die_on_error=True):
             logger.error(f"The packages {list(duplicates.keys())} have been specified more than once.")
             logger.info(f"Please update the requirements file {requirements_file} accordingly.")
         if len(missing_channel_list) > 0:
-            logger.error(f"The following channels are not in the channel order: {missing_channel_list}")
+            logger.warning(f"The following channels are not in the channel section: {missing_channel_list}")
             if input("Would you like to add the missing channels your requirements file (y/n) ").lower() == "y":
                 if pip_dict is not None:
                     requirements["dependencies"] = [pip_dict] + conda_deps
-                requirements["channel-order"] = channel_order + missing_channel_list
+                requirements["channels"] = channel_order + missing_channel_list
                 with open(requirements_file, "w", encoding="utf-8") as yamlfile:
                     yaml.dump(requirements, yamlfile)
             else:

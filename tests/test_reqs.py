@@ -100,7 +100,7 @@ def test_reqs_add_conda_forge(setup_config_files):
     reqs_add(["pylint"], channel="conda-forge", config=config)
     reqs = yaml.load(config["paths"]["requirements"].open())
     assert "conda-forge::pylint" in reqs["dependencies"]
-    assert "conda-forge" in reqs["channel-order"]
+    assert "conda-forge" in reqs["channels"]
 
 
 def test_reqs_remove_conda_forge(setup_config_files):
@@ -115,7 +115,7 @@ def test_reqs_remove_conda_forge(setup_config_files):
     reqs_remove(["pylint"], config=config)
     reqs = yaml.load(reqs_file.open())
     assert "conda-forge::pylint" not in reqs["dependencies"]
-    assert "conda-forge" not in reqs["channel-order"]
+    assert "conda-forge" not in reqs["channels"]
 
 
 def test_reqs_add_version(setup_config_files):
