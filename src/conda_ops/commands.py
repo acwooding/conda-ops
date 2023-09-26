@@ -56,12 +56,13 @@ def lockfile_generate(config, regenerate=True):
 
     if regenerate:
         # create a blank environment name to create the lockfile from scratch
+        logger.info("Generating temporary environment for building lock file from requirements.")
         raw_test_env = env_name + "-lockfile-generate"
         for i in range(100):
             test_env = raw_test_env + f"-{i}"
             if not check_env_exists(test_env):
                 break
-        logger.debug(f"Using environment {raw_test_env} to generate the lockfile.")
+        logger.debug(f"Using temporary environment: {raw_test_env}")
     else:
         test_env = env_name
 
@@ -74,7 +75,6 @@ def lockfile_generate(config, regenerate=True):
         logger.error("Requirements file is not in the correct format. Update it and try again.")
         sys.exit(1)
 
-    logger.info("Generating multi-step requirements files")
     create_split_files(requirements_file, ops_dir)
 
     with open(ops_dir / ".ops.channel-order.include", "r", encoding="utf-8") as order_file:

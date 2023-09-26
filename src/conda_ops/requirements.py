@@ -62,6 +62,13 @@ class PackageSpec:
                 requirement = Requirement(clean_spec)
         return requirement, editable
 
+    @classmethod
+    def from_conda_url(cls, url):
+        """
+        Create a PackageSpec object from a conda url.
+        """
+        return cls(spec=url, manager="conda", channel=None)
+
     @property
     def name(self):
         return self.requirement.name
@@ -109,6 +116,18 @@ class PackageSpec:
                 return string_rep
         else:
             return str(self.requirement)
+
+    def to_status_info(self):
+        """
+        Information for display in conda ops status calls
+        """
+        if self.manager == "conda":
+            name_str = f"{self.name}"
+            channel_str = f"{self.channel}"
+            subdir_str = f"{self.requirement.get('subdir')}"
+            version_str = f"{self.version}"
+            build_str = f"{self.requirement.get('build')}"
+        return name_str, version_str, channel_str, subdir_str, build_str
 
 
 class PathSpec:
