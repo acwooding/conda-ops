@@ -543,7 +543,7 @@ def env_install(config=None):
     lock_file = config["paths"]["lockfile"]
     explicit_files = generate_explicit_lock_files(config, lock_file=lock_file)
 
-    logger.info(f"Installing lockfile into the environment {env_name}")
+    logger.debug(f"Installing lock file into the environment {env_name}")
     for explicit_file in explicit_files:
         explicit_lock_file = config["paths"]["explicit_lockfile"]
         if str(explicit_file) == str(explicit_lock_file):
@@ -556,7 +556,7 @@ def env_install(config=None):
                     sys.exit(result_code)
             print(stdout)
         else:
-            logger.info("Installing pip packages into the environment")
+            logger.deubg("Installing pip packages from lock file into the environment")
             # Workaround for the issue in conda version 23.5.0 (and greater?) see issues.
             # We need to capture the pip install output to get the exact filenames of the packages
             with CondaOpsManagedCondarc(config["paths"]["condarc"]):

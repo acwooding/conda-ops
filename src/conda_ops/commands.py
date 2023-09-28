@@ -146,7 +146,7 @@ def sync(config, regenerate_lockfile=True, force=False):
     if check_env_exists(env_name):
         env_lockfile_consistent, regenerate = env_lockfile_check(config, lockfile_consistent=lockfile_consistent, die_on_error=False, output_instructions=False)
         if not env_lockfile_consistent and not (regenerate or force):
-            logger.info("Updating the environment with the lockfile")
+            logger.info("Updating the environment: {env_name} from the lock file")
             env_install(config=config)
             complete = True
         elif force or regenerate:
