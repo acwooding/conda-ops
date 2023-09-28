@@ -118,6 +118,7 @@ CONFIG_LIST = [
     "migrated_channel_aliases",
     "migrated_custom_channels",
     "non_admin_enabled",
+    "no_plugins",
     "notify_outdated_conda",
     "number_channel_notices",
     "offline",
@@ -175,7 +176,9 @@ def check_config_items_match(config_map=None):
 
     config_map: Optionally pass a dict to make testing easier
 
-    Returns: True if they all match and False if there is a difference between them.
+    Returns: True if the solver and channel config all match and False if there is a difference between them.
+
+    Note: only warns when there is not a total match.
     """
     if config_map is None:
         config_map = context.category_map
@@ -221,7 +224,7 @@ def check_config_items_match(config_map=None):
             logger.warning(f"The following configurations are in conda but unrecognized by conda-ops: {list(extra_conda)}")
         if len(extra_ops) > 0:
             logger.warning(f"The following configurations settings are missing from conda: {list(extra_ops)}")
-    return channel_match and solver_match and total_match
+    return channel_match and solver_match
 
 
 def check_condarc_matches_opinions(rc_path=None, config=None, die_on_error=True):

@@ -10,7 +10,7 @@ from .commands_proj import proj_load, get_conda_info, CondaOpsManagedCondarc
 from .conda_config import env_pip_interop
 from .commands_lockfile import lockfile_check
 from .requirements import LockSpec, PackageSpec
-from .utils import logger, align_and_print_packages
+from .utils import logger, align_and_print_data
 
 ##################################################################
 #
@@ -414,8 +414,8 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
         if len(in_env) > 0:
             regenerate = True
             print(len(in_env))
-            logger.info("The following packages are in the environment but not in the lock file:")
-            logger.info(align_and_print_packages([PackageSpec(x).to_status_info() for x in in_env]))
+            logger.info("The following conda packages are in the environment but not in the lock file:")
+            logger.info(align_and_print_conda_packages(in_env))
             if output_instructions:
                 logger.info("To restore the environment to the state of the lock file")
                 logger.info(">>> conda deactivate")
@@ -423,9 +423,8 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
                 logger.info(f">>> conda activate {env_name}")
                 print("\n")
         if len(in_lock) > 0:
-            logger.info("The following packages are in the lock file but not in the environment:")
-            lock_list = [PackageSpec(x).to_status_info() for x in in_lock]
-            logger.info(align_and_print_packages(lock_list))
+            logger.info("The following conda packages are in the lock file but not in the environment:")
+            logger.info(align_and_print_conda_packages(in_lock))
             if output_instructions:
                 logger.info("To add these packages to the environment:")
                 logger.info(">>> conda ops sync")
@@ -473,23 +472,31 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
         else:
             check = False
             logger.debug(f"Found {len(lock_dict)} pip package(s) in the lock file")
-            # Find differing packages
-            in_env = set(conda_dict.keys()).difference(lock_dict.keys())
-            in_lock = set(lock_dict.keys()).difference(conda_dict.keys())
+            # Find differing package names
+            in_env_names = set(conda_dict.keys()).difference(lock_dict.keys())
+            in_env = [(x, conda_dict[x]) for x in in_env_names]
+            in_lock_names = set(lock_dict.keys()).difference(conda_dict.keys())
+            in_lock = [(x, lock_dict[x]) for x in in_lock_names]
+            # Find differing versions
+            for package in conda_dict:
+                if package in lock_dict:
+                    if conda_dict[package] != lock_dict[package]:
+                        in_env += (package, conda_dict[package])
+                        in_lock += (package, lock_dict[package])
             if len(in_env) > 0:
                 regenerate = True
-                logger.debug("\nThe following packages are in the environment but not in the lock file:\n")
-                logger.debug(", ".join([str(PackageSpec(x)) for x in in_env]))
-                logger.debug("\n")
+                logger.info("\nThe following pip packages are in the environment but not in the lock file:\n")
+                logger.info(align_and_print_pip_packages(in_env))
+                logger.info("\n")
                 if output_instructions:
                     logger.info("To restore the environment to the state of the lock file")
                     logger.info(">>> conda deactivate")
                     logger.info(">>> conda ops sync")
                     logger.info(f">>> conda activate {env_name}")
             if len(in_lock) > 0:
-                logger.debug("\nThe following packages are in the lock file but not in the environment:\n")
-                logger.debug(", ".join(in_lock))
-                logger.debug("\n")
+                logger.info("\nThe following pip packages are in the lock file but not in the environment:\n")
+                logger.info(align_and_print_pip_packages(in_lock))
+                logger.info("\n")
                 if output_instructions:
                     logger.info("To add these packages to the environment:")
                     logger.info(">>> conda ops sync")
@@ -731,3 +738,20 @@ def check_env_active(env_name):
     active_env = conda_info["active_prefix_name"]
 
     return active_env == env_name
+
+
+def align_and_print_conda_packages(conda_set, header=("Package Name", "Version", "Channel", "Arch", "Build")):
+    """
+    Given a set of conda packages in url format, return a human readable string table representation of the
+    packages.
+    """
+    packages = [PackageSpec(x).to_status_info() for x in conda_set]
+    return align_and_print_data(packages, header)
+
+
+def align_and_print_pip_packages(pip_list, header=("Package Name", "Version")):
+    """
+    Given a list of tuples of pip packages in (Package Name, Version) format, return a human readable string table
+    representation of the packages.
+    """
+    return align_and_print_data(pip_list, header)
