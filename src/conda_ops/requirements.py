@@ -163,7 +163,7 @@ class LockSpec:
         self.info_dict = info_dict
 
     @classmethod
-    def from_pip_report(cls, pip_dict):
+    def from_pip_report(cls, pip_dict, platform=None):
         """
         Parses the output from and entry in 'pip install --report' to get desired fields
         """
@@ -219,10 +219,12 @@ class LockSpec:
             "editable": editable,
             "pip_name": pip_dict["metadata"]["name"],
         }
+        if platform is not None:
+            info_dict["platform"] = platform
         return cls(info_dict)
 
     @classmethod
-    def from_conda_list(cls, conda_dict):
+    def from_conda_list(cls, conda_dict, platform=None):
         """
         Parses the output from an entry in 'conda list --json' to get desired fields
         """
@@ -231,6 +233,8 @@ class LockSpec:
             info_dict["manager"] = "pip"
         else:
             info_dict["manager"] = "conda"
+        if platform is not None:
+            info_dict["platform"] = platform
         return cls(info_dict)
 
     def add_conda_explicit_info(self, explicit_string):
@@ -314,6 +318,10 @@ class LockSpec:
     @property
     def channel(self):
         return self.info_dict.get("channel", None)
+
+    @property
+    def platform(self):
+        return self.info_dict.get("platform", None)
 
     @property
     def sha256_hash(self):
