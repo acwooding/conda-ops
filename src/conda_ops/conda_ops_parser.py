@@ -82,12 +82,14 @@ def conda_ops(argv: list):
         logger.info(">>> conda ops sync")
     elif args.command == "install":
         reqs_add(args.packages, channel=args.channel, config=config)
-        sync(config, force=False)
-        logger.info("Packages installed.")
+        sync_complete = sync(config, force=False)
+        if sync_complete:
+            logger.info("Packages installed.")
     elif args.command == "uninstall":
         reqs_remove(args.packages, config=config)
-        sync(config, force=True)
-        logger.info("Packages uninstalled.")
+        sync_complete = sync(config, force=True)
+        if sync_complete:
+            logger.info("Packages uninstalled.")
     elif args.command == "sync":
         sync_complete = sync(config, force=args.force)
         if sync_complete:

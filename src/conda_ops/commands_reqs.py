@@ -45,19 +45,16 @@ def reqs_add(packages, channel=None, config=None):
     TODO: Handle version strings properly
     """
     requirements_file = config["paths"]["requirements"]
-    package_str = " ".join(packages)
+
     if channel is None:
         channel_str = "defaults"
     else:
         channel_str = channel
 
-    logger.info("Trying to add the following packages to requirements file:")
-    if channel:
-        logger.info(f"   {' ,'.join([f'{channel}::{package}' for package in packages])}")
-    else:
-        logger.info(f"   {package_str}")
-
     packages = clean_package_args(packages, channel=channel)
+
+    logger.info("Trying to add the following packages to requirements file:")
+    logger.info(f"   {' ,'.join([f'{package}' for package in packages])}")
 
     with open(requirements_file, "r", encoding="utf-8") as yamlfile:
         reqs = yaml.load(yamlfile)
@@ -123,11 +120,8 @@ def reqs_add(packages, channel=None, config=None):
     if len(added_packages) > 0:
         with open(requirements_file, "w", encoding="utf-8") as yamlfile:
             yaml.dump(reqs, yamlfile)
-        logger.info("Added the following packages to requirements file:")
-        if channel:
-            logger.info(f"   {' ,'.join(added_packages)}")
-        else:
-            logger.info(f"   {package_str}")
+        logger.info("Added the following packages to the requirements file:")
+        logger.info(f"   {' ,'.join(added_packages)}")
     else:
         logger.warning("No packages added to the requirements file.")
 
@@ -140,10 +134,13 @@ def reqs_remove(packages, config=None):
     """
     requirements_file = config["paths"]["requirements"]
 
-    package_str = " ".join(packages)
-    logger.info(f"Removing packages {package_str} from the requirements file {requirements_file}")
-
     packages = clean_package_args(packages)
+
+    logger.info("Trying to remove the following packages from the requirements file:")
+    logger.info(f"   {' ,'.join([f'{package}' for package in packages])}")
+
+    removed_packages = []
+
     with open(requirements_file, "r", encoding="utf-8") as yamlfile:
         reqs = yaml.load(yamlfile)
 
@@ -157,8 +154,8 @@ def reqs_remove(packages, config=None):
         if not is_url_requirement(package):
             for dep in deps:
                 if PackageSpec(dep, manager="conda").conda_name == PackageSpec(package, manager="conda").conda_name:
-                    logger.warning(f"Removing {dep} from requirements")
                     deps.remove(dep)
+                    removed_packages.append(dep)
     reqs["dependencies"] = sorted(deps)
 
     # remove any channels that aren't needed anymore
@@ -181,8 +178,8 @@ def reqs_remove(packages, config=None):
         for package in packages:
             for dep in deps:
                 if PackageSpec(dep, manager="pip").conda_name == PackageSpec(package, manager="pip").conda_name:
-                    logger.warning(f"Removing {dep} from requirements")
                     deps.remove(dep)
+                    removed_packages.append(dep)
         pip_dict["pip"] = sorted(deps)
 
     # add back the pip section
@@ -190,10 +187,14 @@ def reqs_remove(packages, config=None):
         if len(pip_dict["pip"]) > 0:
             reqs["dependencies"] = [pip_dict] + reqs["dependencies"]
 
-    with open(requirements_file, "w", encoding="utf-8") as yamlfile:
-        yaml.dump(reqs, yamlfile)
+    if len(removed_packages) > 0:
+        with open(requirements_file, "w", encoding="utf-8") as yamlfile:
+            yaml.dump(reqs, yamlfile)
 
-    print(f"Removed packages {package_str} from requirements file.")
+        logger.info("Removed the following packages from the requirements file:")
+        logger.info(f"   {' ,'.join(removed_packages)}")
+    else:
+        logger.info("No matching packages in requirements file found. No update has been made.")
 
 
 def reqs_create(config):
