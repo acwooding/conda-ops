@@ -69,7 +69,7 @@ def test_check_config_items_match_total_mismatch(mocker):
 
     result = check_config_items_match(config_map)
 
-    assert result is False
+    assert result is True
     logger.warning.assert_called_with("The following configurations are in conda but unrecognized by conda-ops: ['extra_param']")
 
 

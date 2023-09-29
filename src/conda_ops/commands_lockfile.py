@@ -35,7 +35,7 @@ from .utils import yaml, logger
 ##################################################################
 
 
-def lockfile_check(config, die_on_error=True):
+def lockfile_check(config, die_on_error=True, output_instructions=True):
     """
     Check for the consistency of the lockfile.
     """
@@ -50,17 +50,19 @@ def lockfile_check(config, die_on_error=True):
                 check = False
                 logger.error(f"Unable to load lockfile {lock_file}")
                 logger.debug(exception)
-                logger.info("To regenerate the lock file:")
-                logger.info(">>> conda ops lockfile generate")
-                # logger.info(">>> conda ops lock")
+                if output_instructions:
+                    logger.info("To regenerate the lock file:")
+                    logger.info(">>> conda ops lockfile generate")
+                    logger.info(">>> conda ops lock")
             no_url = []
             if json_reqs:
                 for package in json_reqs:
                     lock_package = LockSpec(package)
                     if not lock_package.check_consistency():
                         check = False
-                        logger.info("To regenerate the lock file:")
-                        logger.info(">>> conda ops lockfile generate")
+                        if output_instructions:
+                            logger.info("To regenerate the lock file:")
+                            logger.info(">>> conda ops lockfile generate")
                     if lock_package.url is None:
                         no_url.append(lock_package.name)
                         check = False
@@ -68,22 +70,24 @@ def lockfile_check(config, die_on_error=True):
                     logger.error(f"url(s) for {len(no_url)} packages(s) are missing from the lockfile.")
                     logger.warning(f"The packages {' '.join(no_url)} may not have been added correctly.")
                     logger.warning("Please add any missing packages to the requirements and regenerate the lock file.")
-                    logger.info("To regenerate the lock file:")
-                    logger.info(">>> conda ops lockfile generate")
+                    if output_instructions:
+                        logger.info("To regenerate the lock file:")
+                        logger.info(">>> conda ops lockfile generate")
 
     else:
         check = False
         logger.error("There is no lock file.")
-        logger.info("To create the lock file:")
-        logger.info(">>> conda ops lockfile generate")
-        # logger.info(">>> conda ops lock")
+        if output_instructions:
+            logger.info("To create the lock file:")
+            logger.info(">>> conda ops lockfile generate")
+            # logger.info(">>> conda ops lock")
 
     if die_on_error and not check:
         sys.exit(1)
     return check
 
 
-def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, die_on_error=True):
+def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, die_on_error=True, output_instructions=True):
     """
     Check the consistency of the lockfile against the requirements file.
     """
@@ -102,10 +106,10 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
             logger.debug("Lock file is newer than the requirements file")
         else:
             check = False
-            logger.warning("The requirements file is newer than the lock file.")
-            logger.info("To update the lock file:")
-            logger.info(">>> conda ops lockfile generate")
-            # logger.info(">>> conda ops lock")
+            logger.debug("The requirements file is newer than the lock file.")
+            if output_instructions:
+                logger.info("To update the lock file:")
+                logger.info(">>> conda ops sync")
         with open(requirements_file, "r", encoding="utf-8") as yamlfile:
             reqs_env = yaml.load(yamlfile)
         channel_order = get_conda_channel_order(reqs_env)
@@ -117,7 +121,6 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
         missing_packages = []
         for channel in channel_order + ["pip"]:
             channel_list = [PackageSpec(req, channel=channel) for req in channel_dict[channel]]
-
             for package in channel_list:
                 missing = True
                 check_version = False
@@ -140,21 +143,22 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
                             check_version = True
                             break
                 if missing:
-                    missing_packages.append(str(package))
+                    missing_packages.append(package)
                 if check_version:
                     if channel == "pip":
                         if not parse(lock_package["version"]) in package.version:
-                            missing_packages.append(str(package))
+                            missing_packages.append(package)
                     else:
                         if package.version and not ver_eval(lock_package["version"], str(package.version)):
-                            missing_packages.append(str(package))
+                            missing_packages.append(package)
 
         if len(missing_packages) > 0:
             check = False
-            logger.error("The following requirements are not in the lockfile:")
-            logger.error(f"{', '. join(missing_packages)}")
-            logger.info("To update the lock file:")
-            logger.info(">>> conda ops lockfile generate")
+            logger.info("The following requirements are not in the lockfile:")
+            logger.info(f"   {', '. join([x.to_reqs_entry() for x in missing_packages])}")
+            if output_instructions:
+                logger.info("To update the lock file:")
+                logger.info(">>> conda ops sync")
     else:
         if not reqs_consistent:
             logger.error("Cannot check lockfile against requirements as the requirements file is missing or inconsistent.")

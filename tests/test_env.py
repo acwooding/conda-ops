@@ -3,7 +3,7 @@ from packaging.requirements import Requirement
 import pytest
 
 from conda_ops.commands import lockfile_generate
-from conda_ops.commands_env import env_create, env_check, get_prefix, check_env_exists, env_lockfile_check, env_regenerate, env_delete, env_lock
+from conda_ops.commands_env import env_create, env_check, get_prefix, check_env_exists, env_lockfile_check, env_regenerate, env_delete, env_lock, active_env_check
 from conda_ops.commands_reqs import reqs_add
 from conda_ops.python_api import run_command
 
@@ -100,14 +100,12 @@ def test_env_check_existing(setup_config_files, mocker, caplog):
     """
     config = setup_config_files
     mocker.patch("conda_ops.commands_env.check_env_exists", return_value=True)
-    mocker.patch("conda_ops.commands_env.check_env_active", return_value=False)
 
     # Call the env_check function
     # die_on_error by default
     with caplog.at_level(logging.WARNING):
         env_check(config)
 
-    assert "exists but is not active" in caplog.text
     assert env_check(config, die_on_error=False) is True
 
 
@@ -117,7 +115,6 @@ def test_env_check_non_existing(setup_config_files, mocker):
     """
     config = setup_config_files
     mocker.patch("conda_ops.commands_env.check_env_exists", return_value=False)
-    mocker.patch("conda_ops.commands_env.check_env_active", return_value=False)
 
     # Call the env_check function
     # die_on_error by default
@@ -127,16 +124,23 @@ def test_env_check_non_existing(setup_config_files, mocker):
     assert env_check(config, die_on_error=False) is False
 
 
-def test_env_check_active(setup_config_files, mocker):
+def test_active_env_check_active(setup_config_files, mocker):
     """
-    Test the env_check function when the environment is active.
+    Test the active_env_check function when the environment is active.
     """
     config = setup_config_files
-    mocker.patch("conda_ops.commands_env.check_env_exists", return_value=True)
     mocker.patch("conda_ops.commands_env.check_env_active", return_value=True)
 
-    assert env_check(config, die_on_error=False) is True
-    assert env_check(config) is True
+    assert active_env_check(config, die_on_error=False) is True
+
+
+def test_active_env_check_not_active(setup_config_files):
+    """
+    Test the active_env_check function when the environment is not active.
+    """
+    config = setup_config_files
+
+    assert active_env_check(config, die_on_error=False) is False
 
 
 def test_env_lockfile_check_missing_lockfile(caplog, setup_config_files):
@@ -147,7 +151,7 @@ def test_env_lockfile_check_missing_lockfile(caplog, setup_config_files):
     with caplog.at_level(logging.WARNING):
         result = env_lockfile_check(config=config, lockfile_consistent=lockfile_consistent, env_consistent=True, die_on_error=False)
 
-    assert result is False
+    assert result == (False, True)
     assert "Lock file is missing or inconsistent" in caplog.text
 
 
@@ -160,7 +164,7 @@ def test_env_lockfile_check_missing_environment(caplog, setup_config_files):
     with caplog.at_level(logging.WARNING):
         result = env_lockfile_check(config=config, env_consistent=env_consistent, lockfile_consistent=lockfile_consistent, die_on_error=False)
 
-    assert result is False
+    assert result == (False, True)
     assert "Environment does not exist" in caplog.text
 
 
@@ -176,7 +180,7 @@ def test_env_lockfile_check_consistent_environment_and_lockfile(caplog, setup_co
     with caplog.at_level(logging.DEBUG):
         result = env_lockfile_check(config=config, die_on_error=False)
 
-    assert result is True
+    assert result == (True, False)
     assert "Conda packages in environment and lock file are in sync" in caplog.text
     assert "Pip packages in environment and lock file are in sync" in caplog.text
     env_delete(config)

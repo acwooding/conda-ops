@@ -21,12 +21,23 @@ class PackageSpec:
             else:
                 manager = "conda"
         self.manager = manager
-        self.requirement, self.editable = self.parse_requirement(spec, manager)
+        self.requirement, self.editable = self.parse_requirement(spec, manager, channel=channel)
 
     @staticmethod
-    def parse_requirement(spec, manager):
+    def parse_requirement(spec, manager, channel=None):
         editable = False
         clean_spec = spec.strip()
+        if len(clean_spec.split("::")) > 2:
+            logger.error(clean_spec)
+            print(X)
+        if channel is not None:
+            if "::" in spec:
+                # check channel is consistent
+                spec_channel = clean_spec.split("::")[0]
+                if spec_channel != channel:
+                    logger.warning(f"The requirement {spec} does not match the specified channel {channel}")
+            elif manager == "conda":
+                clean_spec = f"{channel}::{clean_spec}"
         if manager == "conda":
             if "-e " in clean_spec:
                 logger.error(f"Spec {clean_spec} seems to be editable")
@@ -50,6 +61,13 @@ class PackageSpec:
             else:
                 requirement = Requirement(clean_spec)
         return requirement, editable
+
+    @classmethod
+    def from_conda_url(cls, url):
+        """
+        Create a PackageSpec object from a conda url.
+        """
+        return cls(spec=url, manager="conda", channel=None)
 
     @property
     def name(self):
@@ -86,6 +104,30 @@ class PackageSpec:
         if self.editable:
             return "-e " + str(self.requirement)
         return str(self.requirement)
+
+    def to_reqs_entry(self):
+        if self.editable:
+            return str(self)
+        elif self.channel == "defaults":
+            string_rep = str(self.requirement)
+            if "::" in string_rep:
+                return string_rep.split("::")[1]
+            else:
+                return string_rep
+        else:
+            return str(self.requirement)
+
+    def to_status_info(self):
+        """
+        Information for display in conda ops status calls
+        """
+        if self.manager == "conda":
+            name_str = f"{self.name}"
+            channel_str = f"{self.channel}"
+            subdir_str = f"{self.requirement.get('subdir')}"
+            version_str = f"{self.version}"
+            build_str = f"{self.requirement.get('build')}"
+        return name_str, version_str, channel_str, subdir_str, build_str
 
 
 class PathSpec:

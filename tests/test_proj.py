@@ -22,9 +22,8 @@ def test_proj_create(mocker, shared_temp_dir):
     """
     tmpdir = shared_temp_dir
     mocker.patch("pathlib.Path.cwd", return_value=tmpdir)
-    mocker.patch("conda_ops.input", return_value="n")
 
-    config = proj_create()
+    config = proj_create(input_value="n")
 
     assert "settings" in config
     assert "paths" in config

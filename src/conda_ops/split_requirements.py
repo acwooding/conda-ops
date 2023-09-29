@@ -35,14 +35,14 @@ def env_split(conda_env, conda_channel_order):
                 channel = prefix_check[0]
                 if channel not in conda_channel_order:
                     raise Exception(
-                        f"the channel {channel} required for {dep} is not specified in a channel-order \
+                        f"the channel {channel} required for {dep} is not specified in a channels \
                         section of the environment file"
                     )
                 channel_dict[f"{channel}"].append(prefix_check[1])
                 deplist.remove(dep)
 
     channel_dict["defaults"] = deplist
-    conda_env.pop("channel-order")
+    conda_env.pop("channels")
     return conda_env, channel_dict
 
 
@@ -50,7 +50,7 @@ def get_conda_channel_order(conda_env):
     """
     Given a conda_environment dict, get the channels from the channel order.
     """
-    channel_order = conda_env.get("channel-order")
+    channel_order = conda_env.get("channels")
 
     if channel_order is None:
         channel_order = ["defaults"]

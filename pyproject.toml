@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=61.0", "setuptools-scm"]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "conda-ops"
-version = "0.1"
+version = "0.2a1"
 authors = [
   { name="Amy Wooding", email="amy@wooding.org" },
 ]
@@ -24,6 +24,7 @@ linting = ["black", "flake8", "pylint"]
 
 [tool.pytest.ini_options]
 addopts = "--doctest-modules --doctest-continue-on-failure"
+testpaths = ["tests"]
 
 [project.entry-points.conda]
 conda-ops = "conda_ops.conda_ops_parser"

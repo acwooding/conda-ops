@@ -100,7 +100,7 @@ def test_reqs_add_conda_forge(setup_config_files):
     reqs_add(["pylint"], channel="conda-forge", config=config)
     reqs = yaml.load(config["paths"]["requirements"].open())
     assert "conda-forge::pylint" in reqs["dependencies"]
-    assert "conda-forge" in reqs["channel-order"]
+    assert "conda-forge" in reqs["channels"]
 
 
 def test_reqs_remove_conda_forge(setup_config_files):
@@ -115,7 +115,7 @@ def test_reqs_remove_conda_forge(setup_config_files):
     reqs_remove(["pylint"], config=config)
     reqs = yaml.load(reqs_file.open())
     assert "conda-forge::pylint" not in reqs["dependencies"]
-    assert "conda-forge" not in reqs["channel-order"]
+    assert "conda-forge" not in reqs["channels"]
 
 
 def test_reqs_add_version(setup_config_files):
@@ -282,6 +282,8 @@ def test_clean_package_args():
         clean_packages = clean_package_args(package_args, channel=channel)
         if channel == "pip":
             assert clean_packages == sorted(["python==3.11", "numpy", "pandas", "black==22"])
+        elif channel == "conda-forge":
+            assert clean_packages == sorted(["conda-forge::python=3.11", "conda-forge::numpy", "conda-forge::pandas", "conda-forge::black=22"])
         else:
             assert clean_packages == sorted(["python=3.11", "numpy", "pandas", "black=22"])
 
