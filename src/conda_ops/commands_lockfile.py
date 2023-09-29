@@ -23,6 +23,7 @@ from conda.models.version import ver_eval
 from packaging.version import parse
 
 from .commands_reqs import reqs_check
+from .commands_proj import get_conda_info
 from .requirements import PackageSpec, LockSpec
 from .split_requirements import env_split, get_conda_channel_order
 from .utils import yaml, logger
@@ -35,11 +36,15 @@ from .utils import yaml, logger
 ##################################################################
 
 
-def lockfile_check(config, die_on_error=True, output_instructions=True):
+def lockfile_check(config, die_on_error=True, output_instructions=True, platform=None):
     """
     Check for the consistency of the lockfile.
     """
     lock_file = config["paths"]["lockfile"]
+
+    if platform is None:
+        info_dict = get_conda_info()
+        platform = info_dict["platform"]
 
     check = True
     if lock_file.exists():
@@ -52,17 +57,19 @@ def lockfile_check(config, die_on_error=True, output_instructions=True):
                 logger.debug(exception)
                 if output_instructions:
                     logger.info("To regenerate the lock file:")
-                    logger.info(">>> conda ops lockfile generate")
-                    logger.info(">>> conda ops lock")
+                    logger.info(">>> conda ops sync")
             no_url = []
             if json_reqs:
+                platform_in_lockfile = False
                 for package in json_reqs:
                     lock_package = LockSpec(package)
+                    if lock_package.platform == platform:
+                        platform_in_lockfile = True
                     if not lock_package.check_consistency():
                         check = False
                         if output_instructions:
                             logger.info("To regenerate the lock file:")
-                            logger.info(">>> conda ops lockfile generate")
+                            logger.info(">>> conda ops sync")
                     if lock_package.url is None:
                         no_url.append(lock_package.name)
                         check = False
@@ -72,7 +79,13 @@ def lockfile_check(config, die_on_error=True, output_instructions=True):
                     logger.warning("Please add any missing packages to the requirements and regenerate the lock file.")
                     if output_instructions:
                         logger.info("To regenerate the lock file:")
-                        logger.info(">>> conda ops lockfile generate")
+                        logger.info(">>> conda ops sync")
+                if not platform_in_lockfile:
+                    check = False
+                    logger.warning(f"A lock file exists but has no packages for the platform: {platform}")
+                    if output_instructions:
+                        logger.info("To update the lock file:")
+                        logger.info(">>> conda ops sync")
 
     else:
         check = False
