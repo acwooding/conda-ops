@@ -116,7 +116,44 @@ def test_to_explicit():
     ]
 
 
-def test_package_parsing():
+def test_packagespec_parsing():
     p = PackageSpec("git+https://github.com/lmcinnes/pynndescent.git", manager="pip")
     assert p.spec == "git+https://github.com/lmcinnes/pynndescent.git"
     assert str(p) == "git+https://github.com/lmcinnes/pynndescent.git"
+    assert p.channel == p.manager == "pip"
+
+    p = PackageSpec("pip::git+https://github.com/lmcinnes/pynndescent.git")
+    assert p.spec == "pip::git+https://github.com/lmcinnes/pynndescent.git"
+    assert p.to_reqs_entry() == "git+https://github.com/lmcinnes/pynndescent.git"
+    assert str(p) == "git+https://github.com/lmcinnes/pynndescent.git"
+    assert p.channel == p.manager == "pip"
+
+    p = PackageSpec("-e pip::git+https://github.com/lmcinnes/pynndescent.git")
+    assert p.spec == "-e pip::git+https://github.com/lmcinnes/pynndescent.git"
+    assert p.to_reqs_entry() == "-e git+https://github.com/lmcinnes/pynndescent.git"
+    assert str(p) == "-e git+https://github.com/lmcinnes/pynndescent.git"
+    assert p.channel == p.manager == "pip"
+
+    package = "channel1::package1"
+    p = PackageSpec(package)
+    assert p.spec == package
+    assert p.to_reqs_entry() == package
+    assert str(p) == package
+    assert p.channel == "channel1"
+    assert p.manager == "conda"
+
+    package = "defaults::package1"
+    p = PackageSpec(package)
+    assert p.spec == package
+    assert p.to_reqs_entry() == "package1"
+    assert str(p) == package
+    assert p.channel == "defaults"
+    assert p.manager == "conda"
+
+    package = "package1"
+    p = PackageSpec(package)
+    assert p.spec == package
+    assert p.to_reqs_entry() == "package1"
+    assert str(p) == package
+    assert p.channel == "defaults"
+    assert p.manager == "conda"
