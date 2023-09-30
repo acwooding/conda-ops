@@ -187,14 +187,6 @@ def env_lock(config, lock_file=None, env_name=None, pip_dict=None):
                 conda_spec.add_conda_explicit_info(line)
             new_json_reqs.append(conda_spec.info_dict)
 
-    # add lock information from a different platform
-    if lock_file.exists():
-        with open(lock_file, "r", encoding="utf-8") as jsonfile:
-            other_reqs = json.load(jsonfile)
-        for req in other_reqs:
-            if req.get("platform", None) != platform:
-                new_json_reqs.append(req)
-
     blob = json.dumps(new_json_reqs, indent=2, sort_keys=True)
     with open(lock_file, "w", encoding="utf-8") as jsonfile:
         jsonfile.write(blob)

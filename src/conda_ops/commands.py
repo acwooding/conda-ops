@@ -1,6 +1,7 @@
 """
 Placeholder for when we include compound functionality combining other commands. Right now we only have the consistency_check and lockfile creation.
 """
+import json
 from pathlib import Path
 import shutil
 import sys
@@ -8,7 +9,7 @@ import sys
 # from conda.cli.main_info import get_info_dict
 
 from .utils import logger
-from .commands_proj import proj_check
+from .commands_proj import proj_check, get_conda_info
 from .commands_reqs import reqs_check
 from .commands_lockfile import lockfile_check, lockfile_reqs_check
 from .commands_env import (
@@ -33,10 +34,8 @@ from .split_requirements import create_split_files
 #
 ##################################################################
 
-# Placeholder for later when we make the compound commands
 
-
-def lockfile_generate(config, regenerate=True):
+def lockfile_generate(config, regenerate=True, platform=None):
     """
     Generate a lock file from the requirements file.
 
@@ -112,7 +111,26 @@ def lockfile_generate(config, regenerate=True):
 
     last_good_lockfile = f".ops.lock.{last_good_channel}"
     logger.debug(f"Updating lock file from {last_good_lockfile}")
-    shutil.copy(ops_dir / (ops_dir / last_good_lockfile), lock_file)
+
+    with open(ops_dir / last_good_lockfile, "r", encoding="utf-8") as jsonfile:
+        new_json_reqs = json.load(jsonfile)
+
+    # this is a platform specific lock file
+    info_dict = get_conda_info()
+    platform = info_dict["platform"]
+
+    # retain lock information from different platforms
+    if lock_file.exists():
+        with open(lock_file, "r", encoding="utf-8") as jsonfile:
+            other_reqs = json.load(jsonfile)
+        for req in other_reqs:
+            if req.get("platform", None) != platform:
+                new_json_reqs.append(req)
+    print(f"Existing reqs: {len(new_json_reqs)} XXX")
+
+    blob = json.dumps(new_json_reqs, indent=2, sort_keys=True)
+    with open(lock_file, "w", encoding="utf-8") as jsonfile:
+        jsonfile.write(blob)
 
     # clean up
     for channel in order_list:

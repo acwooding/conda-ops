@@ -66,7 +66,7 @@ def test_lockfile_check_when_file_exists_and_valid(setup_config_files):
             "name": "zlib",
             "url": "https://repo.anaconda.com/pkgs/main/osx-64/zlib-1.2.13-h4dc903c_0.conda",
             "version": "1.2.13",
-            "platform": platform
+            "platform": platform,
         }
     ]
     with open(config["paths"]["lockfile"], "w") as f:
@@ -187,7 +187,7 @@ def test_lockfile_reqs_check_consistent_equals(setup_config_files):
             "name": "python",
             "url": "https://repo.anaconda.com/pkgs/main/osx-64/python-3.11.0-h1fd4e5f_3.conda",
             "version": "3.11.0",
-            "platform": platform
+            "platform": platform,
         },
         {
             "channel": "pkgs/main",
@@ -196,7 +196,7 @@ def test_lockfile_reqs_check_consistent_equals(setup_config_files):
             "name": "pip",
             "url": "https://repo.anaconda.com/pkgs/main/osx-64/pip-23.1.2-py311hecd8cb5_0.conda",
             "version": "23.1.2",
-            "platform": platform
+            "platform": platform,
         },
     ]
     with open(config["paths"]["lockfile"], "w") as f:

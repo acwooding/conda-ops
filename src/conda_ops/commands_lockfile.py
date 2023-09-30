@@ -53,7 +53,7 @@ def lockfile_check(config, die_on_error=True, output_instructions=True, platform
                 json_reqs = json.load(lockfile)
             except Exception as exception:
                 check = False
-                logger.error(f"Unable to load lockfile {lock_file}")
+                logger.warning(f"Unable to load lockfile {lock_file}")
                 logger.debug(exception)
                 if output_instructions:
                     logger.info("To regenerate the lock file:")
@@ -74,7 +74,7 @@ def lockfile_check(config, die_on_error=True, output_instructions=True, platform
                         no_url.append(lock_package.name)
                         check = False
                 if len(no_url) > 0:
-                    logger.error(f"url(s) for {len(no_url)} packages(s) are missing from the lockfile.")
+                    logger.warning(f"url(s) for {len(no_url)} packages(s) are missing from the lockfile.")
                     logger.warning(f"The packages {' '.join(no_url)} may not have been added correctly.")
                     logger.warning("Please add any missing packages to the requirements and regenerate the lock file.")
                     if output_instructions:
@@ -89,11 +89,10 @@ def lockfile_check(config, die_on_error=True, output_instructions=True, platform
 
     else:
         check = False
-        logger.error("There is no lock file.")
+        logger.warning("There is no lock file.")
         if output_instructions:
             logger.info("To create the lock file:")
-            logger.info(">>> conda ops lockfile generate")
-            # logger.info(">>> conda ops lock")
+            logger.info(">>> conda ops sync")
 
     if die_on_error and not check:
         sys.exit(1)
