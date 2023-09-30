@@ -6,7 +6,7 @@ from packaging.requirements import Requirement
 from conda.common.pkg_formats.python import pypi_name_to_conda_name, norm_package_name
 from conda.models.match_spec import MatchSpec
 
-from .utils import logger
+from .utils import logger, is_url_requirement
 
 
 class PackageSpec:
@@ -151,18 +151,6 @@ class PathSpec:
     @property
     def version(self):
         return None
-
-
-def is_url_requirement(requirement):
-    is_url = False
-    if "-e " in requirement:
-        is_url = True
-    if requirement.startswith(".") or requirement.startswith("/") or requirement.startswith("~") or re.match(r"^\w+:\\", requirement) is not None or os.path.isabs(requirement):
-        is_url = True
-    for protocol in ["+ssh:", "+file:", "+https:"]:
-        if protocol in requirement:
-            is_url = True
-    return is_url
 
 
 class LockSpec:

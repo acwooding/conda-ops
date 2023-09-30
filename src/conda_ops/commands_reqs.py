@@ -28,7 +28,7 @@ import sys
 
 from .requirements import PackageSpec, is_url_requirement
 
-from .utils import yaml, logger
+from .utils import yaml, logger, is_url_requirement
 
 ##################################################################
 #
