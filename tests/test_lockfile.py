@@ -16,8 +16,8 @@ def test_lockfile_generate(setup_config_files):
     config = setup_config_files
 
     # make sure there is something from non-defaults channels here
-    reqs_add(["flask"], channel="pip", config=config)
-    reqs_add(["pylint"], channel="conda-forge", config=config)
+    reqs_add(["pip::flask"], config=config)
+    reqs_add(["conda-forge::pylint"], config=config)
 
     lockfile_generate(config)
     assert config["paths"]["lockfile"].exists()
@@ -202,7 +202,7 @@ def test_lockfile_reqs_check_consistent(mocker, setup_config_files):
     lockfile_generate(config, regenerate=True)
     assert lockfile_reqs_check(config) is True
 
-    reqs_add(["git+https://github.com/lmcinnes/pynndescent.git"], config=config, channel="pip")
+    reqs_add(["pip::git+https://github.com/lmcinnes/pynndescent.git"], config=config)
     lockfile_generate(config, regenerate=True)
     assert lockfile_reqs_check(config) is True
 
@@ -222,7 +222,7 @@ def test_lockfile_reqs_check_consistent_equals(setup_config_files):
     is satisfied by the lock file.
     """
     config = setup_config_files
-    reqs_add(["python==3.11"], config=config, channel="pip")
+    reqs_add(["pip::python==3.11"], config=config)
     info_dict = get_conda_info()
     platform = info_dict["platform"]
 

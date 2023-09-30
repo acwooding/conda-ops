@@ -19,7 +19,11 @@ class PackageSpec:
                 else:
                     manager = "conda"
             else:
-                manager = "conda"
+                if "pip::" in spec:
+                    manager = "pip"
+                    channel = "pip"
+                else:
+                    manager = "conda"
         self.manager = manager
         self.requirement, self.editable = self.parse_requirement(spec, manager, channel=channel)
 
@@ -42,20 +46,23 @@ class PackageSpec:
             if "-e " in clean_spec:
                 logger.error(f"Spec {clean_spec} seems to be editable")
                 logger.error("Editable modules must use the pip channel")
-                logger.info("To use pip with reqs add, use '-c pip'")
+                logger.info("To use pip with reqs add, use '--pip'")
             requirement = MatchSpec(clean_spec)
+
         elif manager == "pip":
+            if "-e " in clean_spec:
+                editable = True
+                clean_spec = clean_spec.split("-e ")[1]
+            if "pip::" in clean_spec:
+                clean_spec = clean_spec.split("pip::")[1]
             # look for "=" and not "==" in spec
             # "=" is a valid specifier in conda that doesn't mean ==
             # but pip only accepts ==
             pattern = r"^\s*([\w.-]+)\s*=\s*([\w.-]+)\s*$"
-            match = re.match(pattern, spec)
+            match = re.match(pattern, clean_spec)
             if match:
                 # Change = to ==
-                clean_spec = spec.replace("=", "==").strip()
-            if "-e " in clean_spec:
-                editable = True
-                clean_spec = clean_spec.split("-e ")[1]
+                clean_spec = clean_spec.replace("=", "==").strip()
             if is_url_requirement(clean_spec):
                 requirement = PathSpec(clean_spec)
             else:

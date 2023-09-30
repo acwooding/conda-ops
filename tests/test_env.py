@@ -189,7 +189,7 @@ def test_env_lockfile_check_consistent_environment_and_lockfile(caplog, setup_co
 def test_env_lock_pip_dict(setup_config_files):
     config = setup_config_files
 
-    test_packages = ["datashape==0.5.2", "GitPython==3.1.32"]
+    test_packages = ["pip::datashape==0.5.2", "pip::GitPython==3.1.32"]
     pip_dict = {
         "datashape": {
             "version": "0.5.2",
@@ -202,7 +202,7 @@ def test_env_lock_pip_dict(setup_config_files):
             "sha256": "e3d59b1c2c6ebb9dfa7a184daf3b6dd4914237e7488a1730a6d8f6f5d0b4187f",
         },
     }
-    reqs_add(test_packages, channel="pip", config=config)
+    reqs_add(test_packages, config=config)
     lockfile_generate(config)
     env_name = config["settings"]["env_name"]
     if check_env_exists(env_name):
@@ -212,7 +212,7 @@ def test_env_lock_pip_dict(setup_config_files):
     channel_lockfile = config["paths"]["ops_dir"] / ".ops.lock.pip"
     json_reqs = env_lock(config, lock_file=channel_lockfile, env_name=env_name, pip_dict=pip_dict)
     for package in test_packages:
-        package_name = Requirement(package).name.lower()
+        package_name = Requirement(package.split("pip::")[1]).name.lower()
         for json_package in json_reqs:
             if json_package["name"] == package_name:
                 break
