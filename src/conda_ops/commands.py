@@ -126,7 +126,6 @@ def lockfile_generate(config, regenerate=True, platform=None):
         for req in other_reqs:
             if req.get("platform", None) != platform:
                 new_json_reqs.append(req)
-    print(f"Existing reqs: {len(new_json_reqs)} XXX")
 
     blob = json.dumps(new_json_reqs, indent=2, sort_keys=True)
     with open(lock_file, "w", encoding="utf-8") as jsonfile:
