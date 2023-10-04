@@ -514,7 +514,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
                 logger.debug("\nThe following package versions don't match:\n")
                 logger.debug("\n".join([f"{x}: Lock version {lock_dict[x]}, Env version {conda_dict[x]}" for x in differing_versions]))
                 logger.debug("\n")
-                if ouptut_instructions:
+                if output_instructions:
                     logger.info("To sync these versions:")
                     logger.info(">>> conda ops sync")
     elif len(conda_dict) > 0:
