@@ -3,11 +3,12 @@ import json
 from conda_ops.commands import lockfile_generate
 from conda_ops.commands_lockfile import lockfile_check, lockfile_reqs_check
 from conda_ops.commands_reqs import reqs_add
+from conda_ops.commands_proj import get_conda_info
 
 CONDA_OPS_DIR_NAME = ".conda-ops"
 
 
-def test_lockfile_generate(mocker, setup_config_files):
+def test_lockfile_generate(setup_config_files):
     """
     This test checks the function lockfile_generate().
     It creates a temporary directory and checks whether the function generates the lockfile correctly.
@@ -38,6 +39,61 @@ def test_lockfile_generate_no_reqs(setup_config_files):
         lockfile_generate(config)
 
 
+def test_lockfile_generate_new_platform(setup_config_files):
+    """
+    This test checks the function lockfile_generate() when data from more than one platform exists.
+    It creates a temporary directory and checks whether the function generates the lockfile correctly and
+    keeps the existing non-platform information
+    """
+    config = setup_config_files
+    info_dict = get_conda_info()
+    platform = info_dict["platform"]
+
+    lockfile_data = [
+        {
+            "channel": "pkgs/main",
+            "hash": {"md5": "d0202dd912bfb45d3422786531717882"},
+            "manager": "conda",
+            "name": "zlib",
+            "platform": "osx-64",
+            "url": "https://repo.anaconda.com/pkgs/main/osx-64/zlib-1.2.13-h4dc903c_0.conda",
+            "version": "1.2.13",
+        },
+        {
+            "channel": "pkgs/main",
+            "hash": {"md5": "f37216c0dea34741707510529ef366bf"},
+            "manager": "conda",
+            "name": "zlib",
+            "platform": "osx-arm64",
+            "url": "https://repo.anaconda.com/pkgs/main/osx-arm64/zlib-1.2.13-h5a0b063_0.conda",
+            "version": "1.2.13",
+        },
+    ]
+    with open(config["paths"]["lockfile"], "w") as f:
+        json.dump(lockfile_data, f)
+
+    lockfile_generate(config)
+    assert config["paths"]["lockfile"].exists()
+    assert lockfile_reqs_check(config) is True
+
+    with open(config["paths"]["lockfile"], "r") as filehandle:
+        lock_specs = json.load(filehandle)
+
+    # check that the non-test platform specs are still in the lock file unmodified.
+    non_platform_data = []
+    for spec in lockfile_data:
+        if spec["platform"] != platform:
+            non_platform_data.append(spec)
+    assert len(non_platform_data) > 0
+
+    for spec in non_platform_data:
+        in_lock_specs = False
+        for lock_spec in lock_specs:
+            if lock_spec == spec:
+                in_lock_specs = True
+        assert in_lock_specs
+
+
 def test_lockfile_check_when_file_exists_and_valid(setup_config_files):
     """
     Test case to verify the behavior of lockfile_check when the lockfile exists and is valid.
@@ -54,6 +110,9 @@ def test_lockfile_check_when_file_exists_and_valid(setup_config_files):
     """
     # Setup
     config = setup_config_files
+    info_dict = get_conda_info()
+    platform = info_dict["platform"]
+
     lockfile_data = [
         {
             "channel": "pkgs/main",
@@ -62,6 +121,7 @@ def test_lockfile_check_when_file_exists_and_valid(setup_config_files):
             "name": "zlib",
             "url": "https://repo.anaconda.com/pkgs/main/osx-64/zlib-1.2.13-h4dc903c_0.conda",
             "version": "1.2.13",
+            "platform": platform,
         }
     ]
     with open(config["paths"]["lockfile"], "w") as f:
@@ -89,15 +149,11 @@ def test_lockfile_check_when_file_exists_but_invalid(setup_config_files):
     """
     # Setup
     config = setup_config_files
+    info_dict = get_conda_info()
+    platform = info_dict["platform"]
+
     lockfile_data = [
-        {
-            "channel": "pkgs/main",
-            "hash": {"md5": "d0202dd912bfb45d3422786531717882"},
-            "manager": "conda",
-            "name": "zlib",
-            "url": "https://wrongurl.com",
-            "version": "1.2.13",
-        }
+        {"channel": "pkgs/main", "hash": {"md5": "d0202dd912bfb45d3422786531717882"}, "manager": "conda", "name": "zlib", "url": "https://wrongurl.com", "version": "1.2.13", "platform": platform}
     ]
     with open(config["paths"]["lockfile"], "w") as f:
         json.dump(lockfile_data, f)
@@ -167,6 +223,8 @@ def test_lockfile_reqs_check_consistent_equals(setup_config_files):
     """
     config = setup_config_files
     reqs_add(["python==3.11"], config=config, channel="pip")
+    info_dict = get_conda_info()
+    platform = info_dict["platform"]
 
     lockfile_data = [
         {
@@ -176,6 +234,7 @@ def test_lockfile_reqs_check_consistent_equals(setup_config_files):
             "name": "python",
             "url": "https://repo.anaconda.com/pkgs/main/osx-64/python-3.11.0-h1fd4e5f_3.conda",
             "version": "3.11.0",
+            "platform": platform,
         },
         {
             "channel": "pkgs/main",
@@ -184,6 +243,7 @@ def test_lockfile_reqs_check_consistent_equals(setup_config_files):
             "name": "pip",
             "url": "https://repo.anaconda.com/pkgs/main/osx-64/pip-23.1.2-py311hecd8cb5_0.conda",
             "version": "23.1.2",
+            "platform": platform,
         },
     ]
     with open(config["paths"]["lockfile"], "w") as f:
