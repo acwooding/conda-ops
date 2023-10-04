@@ -189,12 +189,12 @@ def test_env_lockfile_check_consistent_environment_and_lockfile(caplog, setup_co
 def test_env_lock_pip_dict(setup_config_files):
     config = setup_config_files
 
-    test_packages = ["pip::datashape==0.5.2", "pip::GitPython==3.1.32"]
+    test_packages = ["pip::flake8==6.1.0", "pip::GitPython==3.1.32"]
     pip_dict = {
-        "datashape": {
-            "version": "0.5.2",
-            "url": "https://files.pythonhosted.org/packages/a6/5b/95b2ed56b61e649b69c9a5b1ecb32ff0a5cd68b9f69f5aa7774540e6b444/datashape-0.5.2.tar.gz",
-            "sha256": "2356ea690c3cf003c1468a243a9063144235de45b080b3652de4f3d44e57d783",
+        "flake8": {
+            "version": "6.1.0",
+            "url": "https://files.pythonhosted.org/packages/b0/24/bbf7175ffc47cb3d3e1eb523ddb23272968359dfcf2e1294707a2bf12fc4/flake8-6.1.0-py2.py3-none-any.whl",
+            "sha256": "ffdfce58ea94c6580c77888a86506937f9a1a227dfcd15f245d694ae20a6b6e5"
         },
         "gitpython": {
             "version": "3.1.32",

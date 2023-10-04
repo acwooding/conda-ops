@@ -55,7 +55,7 @@ def is_url_requirement(requirement):
     is_url = False
     if "-e " in requirement:
         is_url = True
-    if requirement.startswith(".") or requirement.startswith("/") or requirement.startswith("~") or re.match(r"^\w+:\\", requirement) is not None or os.path.isabs(requirement):
+    if requirement.startswith(".") or requirement.startswith("~") or re.match(r"^\w+:\\", requirement) is not None or os.path.isabs(requirement) or "/" in requirement:
         is_url = True
     for protocol in ["+ssh:", "+file:", "+https:"]:
         if protocol in requirement:
