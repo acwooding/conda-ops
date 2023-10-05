@@ -202,7 +202,7 @@ def test_lockfile_reqs_check_consistent(mocker, setup_config_files):
     lockfile_generate(config, regenerate=True)
     assert lockfile_reqs_check(config) is True
 
-    reqs_add(["git+https://github.com/lmcinnes/pynndescent.git"], config=config, channel="pip")
+    reqs_add(["git+https://github.com/PyCQA/flake8.git"], config=config, channel="pip")
     lockfile_generate(config, regenerate=True)
     assert lockfile_reqs_check(config) is True
 

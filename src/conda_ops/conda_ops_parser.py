@@ -82,7 +82,7 @@ def conda_ops(argv: list):
         logger.info(">>> conda ops sync")
     elif args.command == "install":
         reqs_add(args.packages, channel=args.channel, config=config)
-        sync_complete = sync(config, force=False)
+        sync_complete = sync(config, force=args.force)
         if sync_complete:
             logger.info("Packages installed.")
     elif args.command == "uninstall":
@@ -187,6 +187,7 @@ def configure_parser_install(subparsers, parents):
         help="Indicates the channel that the added packages are coming from, set the channel to 'pip' \
         if the packages you are adding are to be installed via pip",
     )
+    p.add_argument("-f", "--force", action="store_true", help="Force the lock file and environment to be recreated.")
     return p
 
 
