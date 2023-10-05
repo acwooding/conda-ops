@@ -55,7 +55,7 @@ def test_conda_ops_sync(setup_config_structure, shared_temp_dir):
 def test_conda_ops_install(setup_config_structure, shared_temp_dir):
     config = setup_config_structure
 
-    argv = ["conda", "ops", "install", "black", "flake8"]
+    argv = ["conda", "ops", "install", "black", "flake8", "-f"]
 
     result = subprocess.run(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=shared_temp_dir, text=True)
 
