@@ -488,8 +488,8 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
             for package in conda_dict:
                 if package in lock_dict:
                     if conda_dict[package] != lock_dict[package]:
-                        in_env += (package, conda_dict[package])
-                        in_lock += (package, lock_dict[package])
+                        in_env += [(package, conda_dict[package])]
+                        in_lock += [(package, lock_dict[package])]
             if len(in_env) > 0:
                 regenerate = True
                 logger.info("\nThe following pip packages are in the environment but not in the lock file:\n")

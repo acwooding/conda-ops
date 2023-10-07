@@ -308,7 +308,7 @@ def configure_parser_install(subparsers, parents):
         dest="pip_packages",
         help="Indicates that the package that follows should be installed via pip with the editable option, that is `-e p1` means that the package p1 should be installed by pip in editable mode",
     )
-    p.add_argument("-f", "--force", action="store_true", help="Force the lock file and environment to be recreated if necessary.")
+    p.add_argument("-f", "--force", action="store_true", help="Force the lock file and environment to be recreated.")
     return p
 
 

@@ -194,7 +194,7 @@ def test_env_lock_pip_dict(setup_config_files):
         "flake8": {
             "version": "6.1.0",
             "url": "https://files.pythonhosted.org/packages/b0/24/bbf7175ffc47cb3d3e1eb523ddb23272968359dfcf2e1294707a2bf12fc4/flake8-6.1.0-py2.py3-none-any.whl",
-            "sha256": "ffdfce58ea94c6580c77888a86506937f9a1a227dfcd15f245d694ae20a6b6e5"
+            "sha256": "ffdfce58ea94c6580c77888a86506937f9a1a227dfcd15f245d694ae20a6b6e5",
         },
         "gitpython": {
             "version": "3.1.32",
