@@ -492,6 +492,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
                         in_lock += [(package, lock_dict[package])]
             if len(in_env) > 0:
                 regenerate = True
+                logger.info("\nThe following pip packages are in the environment but not in the lock file:\n")
                 logger.info(align_and_print_pip_packages(in_env))
                 logger.info("\n")
                 if output_instructions:
