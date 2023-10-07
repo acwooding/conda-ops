@@ -71,6 +71,7 @@ def proj_create(input_value=None):
         "pip_explicit_lockfile": "${ops_dir}/lockfile.pypi",
         "nohash_explicit_lockfile": "${ops_dir}/lockfile.nohash",
         "condarc": "${ops_dir}/.condarc",
+        "lockfile_url_lookup": "${ops_dir}/lockfile_url_lookup.ini",
     }
     _config_settings = {
         "env_name": env_name,
@@ -80,6 +81,8 @@ def proj_create(input_value=None):
 
     config["settings"] = KVStore(_config_settings, config_file=config_file, config_section="OPS_SETTINGS")
     config["paths"] = PathStore(_config_paths, config_file=config_file, config_section="OPS_PATHS")
+
+    KVStore({}, config_file=config["paths"]["lockfile_url_lookup"], config_section="LOCKFILE_URLS")
 
     return config
 

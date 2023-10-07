@@ -170,13 +170,13 @@ def env_lock(config, lock_file=None, env_name=None, pip_dict=None):
                         )
                         sys.exit(1)
                     else:
-                        new_json_reqs.append(pip_spec.info_dict)
+                        new_json_reqs.append(pip_spec.to_lock_entry())
                 else:
                     logger.error(f"No pip dict entry for {conda_spec.name}")
-                    new_json_reqs.append(conda_spec.info_dict)
+                    new_json_reqs.append(conda_spec.to_lock_entry())
             else:
                 logger.error("No pip_dict present")
-                new_json_reqs.append(conda_spec.info_dict)
+                new_json_reqs.append(conda_spec.to_lock_entry())
         else:
             starter_str = "/".join([package["base_url"], package["platform"], package["dist_name"]])
             line = None
@@ -185,7 +185,7 @@ def env_lock(config, lock_file=None, env_name=None, pip_dict=None):
                     break
             if line:
                 conda_spec.add_conda_explicit_info(line)
-            new_json_reqs.append(conda_spec.info_dict)
+            new_json_reqs.append(conda_spec.to_lock_entry())
 
     blob = json.dumps(new_json_reqs, indent=2, sort_keys=True)
     with open(lock_file, "w", encoding="utf-8") as jsonfile:
@@ -468,11 +468,15 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
         logger.debug("Checking consistency of pip installed packages...")
         lock_dict = {}
         lockfile = config["paths"]["lockfile"]
+        info_dict = get_conda_info()
+        platform = info_dict["platform"]
+
         with open(lockfile, "r", encoding="utf-8") as jsonfile:
             lock_list = json.load(jsonfile)
         for package in lock_list:
             if package["manager"] == "pip":
-                lock_dict[package["name"]] = package["version"]
+                if package["platform"] == platform:
+                    lock_dict[package["name"]] = package["version"]
 
         if conda_dict == lock_dict:
             logger.debug("Pip packages in environment and lock file are in sync.\n")
@@ -637,7 +641,7 @@ def env_regenerate(config=None, env_name=None, lock_file=None):
 ############################################
 
 
-def json_to_explicit(json_list, package_manager="conda", platform=None, hash_exists=True):
+def json_to_explicit(json_list, config=None, package_manager="conda", platform=None, hash_exists=True):
     """
     Convert a json lockfile to the explicit string format that
     can be used for create and update conda environments.
@@ -648,10 +652,12 @@ def json_to_explicit(json_list, package_manager="conda", platform=None, hash_exi
     if platform is None:
         info_dict = get_conda_info()
         platform = info_dict["platform"]
+    if config is None:
+        config = proj_load()
 
     explicit_str = ""
     for package in json_list:
-        lock_package = LockSpec(package)
+        lock_package = LockSpec.from_lock_entry(package, config=config)
         if lock_package.check_consistency():
             if lock_package.platform == platform:
                 if lock_package.manager == package_manager:
@@ -681,7 +687,7 @@ def generate_explicit_lock_files(config=None, lock_file=None, platform=None):
     # conda lock file
     explicit_str = "# This file may be used to create an environment using:\n\
     # $ conda create --name <env> --file <this file>\n@EXPLICIT\n"
-    explicit_str += json_to_explicit(json_reqs, package_manager="conda", platform=platform, hash_exists=True)
+    explicit_str += json_to_explicit(json_reqs, config=config, package_manager="conda", platform=platform, hash_exists=True)
 
     explicit_lock_file = config["paths"]["explicit_lockfile"]
     with open(explicit_lock_file, "w", encoding="utf-8") as explicitfile:
@@ -690,7 +696,7 @@ def generate_explicit_lock_files(config=None, lock_file=None, platform=None):
 
     # pypi lock file
     for hash_exists in [True, False]:
-        pip_reqs = json_to_explicit(json_reqs, package_manager="pip", platform=platform, hash_exists=hash_exists)
+        pip_reqs = json_to_explicit(json_reqs, config=config, package_manager="pip", platform=platform, hash_exists=hash_exists)
         if len(pip_reqs) > 0:
             if hash_exists:
                 pip_lock_file = config["paths"]["pip_explicit_lockfile"]
@@ -739,7 +745,7 @@ def extract_pip_info(json_input, config=None, platform=None):
     package_dict = {}
     for package in pip_info["install"]:
         p_info = LockSpec.from_pip_report(package, platform=platform)
-        package_dict[p_info.conda_name] = p_info.info_dict
+        package_dict[p_info.conda_name] = p_info.to_lock_entry()
     return package_dict
 
 

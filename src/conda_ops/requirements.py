@@ -1,12 +1,15 @@
 import os
 import re
 import sys
+from urllib.parse import urlparse
 
 from packaging.requirements import Requirement
 from conda.common.pkg_formats.python import pypi_name_to_conda_name, norm_package_name
 from conda.models.match_spec import MatchSpec
 
 from .utils import logger, is_url_requirement
+from .commands_proj import proj_load
+from .kvstore import KVStore
 
 
 class PackageSpec:
@@ -33,7 +36,6 @@ class PackageSpec:
         clean_spec = spec.strip()
         if len(clean_spec.split("::")) > 2:
             logger.error(clean_spec)
-            print(X)
         if channel is not None:
             if "::" in spec:
                 # check channel is consistent
@@ -232,6 +234,19 @@ class LockSpec:
             info_dict["platform"] = platform
         return cls(info_dict)
 
+    @classmethod
+    def from_lock_entry(cls, lock_dict, config=None, lookup_file=None):
+        lock_url = lock_dict.get("url", None)
+        url = urlparse(lock_url)
+        if url.scheme == "lookup":
+            url_lookup = load_url_lookup(config=config, lookup_file=lookup_file)
+            try:
+                lock_dict["url"] = url_lookup.get(url.netloc)
+            except Exception as e:
+                lock_dict["url"] = ""
+
+        return cls(lock_dict)
+
     def add_conda_explicit_info(self, explicit_string):
         """
         Take an explicit string from `conda list --explicit --md5` and add the url and md5 fields
@@ -341,6 +356,16 @@ class LockSpec:
                     return True
         return False
 
+    def to_lock_entry(self, config=None, lookup_file=None):
+        lock_entry = self.info_dict
+        url = urlparse(self.url)
+        if url.scheme == "file":
+            url_name = self.name
+            url_lookup = load_url_lookup(config=config, lookup_file=lookup_file)
+            url_lookup[url_name] = self.url
+            lock_entry["url"] = f"lookup://{url_name}"
+        return lock_entry
+
     @property
     def editable(self):
         return self.info_dict.get("editable", False)
@@ -354,6 +379,22 @@ class LockSpec:
 
     def __repr__(self):
         return repr(self.info_dict)
+
+
+def load_url_lookup(config=None, lookup_file=None):
+    """
+    Load the lockfile path lookup.
+    """
+    if lookup_file is None:
+        if config is None:
+            config = proj_load()
+        lookup_file = config["paths"].get("lockfile_url_lookup", None)
+        if lookup_file is None:
+            logger.error("Missing entry for lockfile_url_lookup in config.ini")
+            logger.info("Remove the existing config.ini and re-run conda ops proj init")
+            sys.exit(1)
+    lookup = KVStore(config_file=lookup_file, config_section="LOCKFILE_URLS")
+    return lookup
 
 
 def get_pypi_package_info(package_name, version, filename):

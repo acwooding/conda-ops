@@ -59,10 +59,11 @@ def lockfile_check(config, die_on_error=True, output_instructions=True, platform
                     logger.info("To regenerate the lock file:")
                     logger.info(">>> conda ops sync")
             no_url = []
+            no_url_lookup = []
             if json_reqs:
                 platform_in_lockfile = False
                 for package in json_reqs:
-                    lock_package = LockSpec(package)
+                    lock_package = LockSpec.from_lock_entry(package, config=config)
                     if lock_package.platform == platform:
                         platform_in_lockfile = True
                     if not lock_package.check_consistency():
@@ -73,10 +74,19 @@ def lockfile_check(config, die_on_error=True, output_instructions=True, platform
                     if lock_package.url is None:
                         no_url.append(lock_package.name)
                         check = False
+                    if lock_package.url == "":
+                        no_url_lookup.append(lock_package.name)
+                        check = False
                 if len(no_url) > 0:
                     logger.warning(f"url(s) for {len(no_url)} packages(s) are missing from the lockfile.")
                     logger.warning(f"The packages {' '.join(no_url)} may not have been added correctly.")
                     logger.warning("Please add any missing packages to the requirements and regenerate the lock file.")
+                    if output_instructions:
+                        logger.info("To regenerate the lock file:")
+                        logger.info(">>> conda ops sync")
+                if len(no_url_lookup) > 0:
+                    logger.warning(f"url lookup(s) for {len(no_url_lookup)} packages(s) are missing from the local url lookup.")
+                    logger.warning(f"The entries for the package(s) {' '.join(no_url_lookup)} need to be regenerated.")
                     if output_instructions:
                         logger.info("To regenerate the lock file:")
                         logger.info(">>> conda ops sync")

@@ -227,7 +227,7 @@ def consistency_check(config=None, die_on_error=False, output_instructions=False
 
     if not lockfile_consistent:
         print("")
-        logger.info("Lock file does not exist or is not consistent. To (re)generate and sync it:")
+        logger.info("The lock file does not exist or is not consistent. To (re)generate and sync it:")
         logger.info(">>> conda ops sync")
         print("")
     elif not lockfile_reqs_consistent:
