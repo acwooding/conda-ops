@@ -106,6 +106,42 @@ def env_create(config=None, env_name=None, lock_file=None):
     logger.info(f">>> conda activate {env_name}")
 
 
+def env_clean_temp(env_base_name=None, config=None):
+    """
+    Delete temporary environments that may have been created by the lockfile generation process.
+    """
+    if env_base_name is None:
+        if config is None:
+            config = proj_load()
+        env_base_name = config["settings"]["env_name"]
+
+    envs_to_clean = []
+    raw_test_env = env_base_name + "-lockfile-generate"
+    conda_info = get_conda_info()
+
+    for i in range(100):
+        test_env_base = raw_test_env + f"-{i}"
+        for env in conda_info["envs"]:
+            if test_env_base in env:
+                if get_prefix(test_env_base) == get_prefix(env):
+                    envs_to_clean.append(test_env_base)
+
+    if len(envs_to_clean) > 0:
+        logger.info("The following temporary environments have been found and will be deleted:")
+        char = "\n   "
+        logger.info(f"   {char.join(envs_to_clean)}")
+        input_value = input("Would you like to proceed? (y/n) ").lower()
+        if input_value == "y":
+            for env in envs_to_clean:
+                env_delete(env_name=env)
+                logger.info(f"Deleted {env}")
+        else:
+            logger.info("Clean up aborted")
+            sys.exit(1)
+    else:
+        logger.info(f"No temporary environments with base {env_base_name} found.")
+
+
 def env_lock(config, lock_file=None, env_name=None, pip_dict=None):
     """
     Generate a lockfile from the contents of the environment.

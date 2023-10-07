@@ -9,6 +9,7 @@ from .commands_env import (
     env_activate,
     env_deactivate,
     env_regenerate,
+    env_clean_temp,
     env_create,
     env_delete,
     env_check,
@@ -45,7 +46,8 @@ def conda_ops(argv: list):
     lockfile = subparsers.add_parser("lockfile", help="Additional operations for managing the lockfile. Accepts generate, check, reqs-check.", parents=[parent_parser])
     lockfile.add_argument("kind", choices=["generate", "check", "reqs-check"])
     env = subparsers.add_parser("env", help="Additional operations for managing the environment. Accepts create, install, delete, regenerate, check, lockfile-check.", parents=[parent_parser])
-    env.add_argument("kind", choices=["create", "delete", "activate", "deactivate", "check", "lockfile-check", "regenerate", "install"])
+    env.add_argument("kind", choices=["create", "delete", "activate", "deactivate", "check", "lockfile-check", "regenerate", "install", "clean"])
+    env.add_argument("-n", "--name", dest="env_name", nargs=1, type=str)
 
     # hidden parser for testing purposes
     subparsers.add_parser("test")
@@ -129,6 +131,11 @@ def conda_ops(argv: list):
             env_check(config)
         elif args.kind == "lockfile-check":
             env_lockfile_check(config)
+        elif args.kind == "clean":
+            if args.env_name is not None:
+                env_clean_temp(env_base_name=args.env_name[0])
+            else:
+                env_clean_temp(config=config)
     elif args.command == "test":
         check_condarc_matches_opinions(config=config)
     elif args.reqs_command == "create":
