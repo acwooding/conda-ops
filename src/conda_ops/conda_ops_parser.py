@@ -75,7 +75,7 @@ def conda_ops(argv: list):
         else:
             logger.info("Requirements file already exists")
     elif args.command == "add":
-        packages = args.packages + args.channel_packages + args.pip_packages
+        packages = args.packages + args.other_packages
         reqs_add(packages, config=config)
         logger.info("To update the lockfile and environment with the additional packages:")
         logger.info(">>> conda ops sync")
@@ -84,7 +84,7 @@ def conda_ops(argv: list):
         logger.info("To update the lockfile and environment with the removal of packages:")
         logger.info(">>> conda ops sync")
     elif args.command == "install":
-        packages = args.packages + args.channel_packages + args.pip_packages
+        packages = args.packages + args.other_packages
         reqs_add(packages, config=config)
         sync_complete = sync(config, force=args.force)
         if sync_complete:
@@ -199,7 +199,6 @@ class ParseChannels(argparse.Action):
                     return_values += values[i + n :]
                     break
                 return_values.append(f"{channel_name}::{package}")
-
         setattr(namespace, self.dest, return_values)
 
 
@@ -237,7 +236,6 @@ class ParsePip(argparse.Action):
                     return_values.append(f"-e {channel_name}::{package}")
                 else:
                     return_values.append(f"{channel_name}::{package}")
-
         setattr(namespace, self.dest, return_values)
 
 
@@ -251,21 +249,21 @@ class ParsePip(argparse.Action):
 def configure_parser_add(subparsers, parents):
     descr = "Add packages to the requirements file."
     p = subparsers.add_parser("add", description=descr, help=descr, parents=parents)
-    p.add_argument("packages", type=str, nargs="*")
+    p.add_argument("packages", type=str, nargs="*", default=[], action="extend")
     p.add_argument(
         "-c",
         "--channel",
         nargs="+",
-        dest="channel_packages",
+        dest="other_packages",
         default=[],
         action=ParseChannels,
-        help="Indicates the channel that the added packages that follow are coming from, that is, `-c c1 p1 p2` indicates that pacakges p1 and p2 come from channel c1",
+        help="Indicates the channel that the added packages that follow are coming from, that is, `-c c1 p1 p2` indicates that packages p1 and p2 come from channel c1",
     )
     p.add_argument(
         "--pip",
         nargs="+",
         default=[],
-        dest="pip_packages",
+        dest="other_packages",
         action=ParsePip,
         help="Indicates that the packages following it are from pip, that is, `--pip p1 p2` indicates that the pacakges p1 and p2 should be added to the pip section",
     )
@@ -273,7 +271,7 @@ def configure_parser_add(subparsers, parents):
         "-e",
         nargs=1,
         default=[],
-        dest="pip_packages",
+        dest="other_packages",
         action=ParsePip,
         help="Indicates that the package that follows should be installed via pip with the editable option, that is `-e p1` means that the package p1 should be installed by pip in editable mode",
     )
@@ -289,12 +287,12 @@ def configure_parser_init(subparsers, parents):
 def configure_parser_install(subparsers, parents):
     descr = "Add packages to the requirements file and sync the environment and lockfile."
     p = subparsers.add_parser("install", description=descr, help=descr, parents=parents)
-    p.add_argument("packages", type=str, nargs="+")
+    p.add_argument("packages", type=str, nargs="+", default=[], action="extend")
     p.add_argument(
         "-c",
         "--channel",
         nargs="+",
-        dest="channel_packages",
+        dest="other_packages",
         default=[],
         action=ParseChannels,
         help="Indicates the channel that the added packages that follow are coming from, that is, `-c c1 p1 p2` indicates that pacakges p1 and p2 come from channel c1",
@@ -304,7 +302,7 @@ def configure_parser_install(subparsers, parents):
         nargs="+",
         default=[],
         action=ParsePip,
-        dest="pip_packages",
+        dest="other_packages",
         help="Indicates that the packages following it are from pip, that is, `--pip p1 p2` indicates that the pacakges p1 and p2 should be added to the pip section",
     )
     p.add_argument(
@@ -312,7 +310,7 @@ def configure_parser_install(subparsers, parents):
         nargs=1,
         default=[],
         action=ParsePip,
-        dest="pip_packages",
+        dest="other_packages",
         help="Indicates that the package that follows should be installed via pip with the editable option, that is `-e p1` means that the package p1 should be installed by pip in editable mode",
     )
     p.add_argument("-f", "--force", action="store_true", help="Force the lock file and environment to be recreated.")
