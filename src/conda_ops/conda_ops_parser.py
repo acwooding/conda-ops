@@ -67,9 +67,8 @@ def conda_ops(argv: list):
         else:
             condaops_config_manage(argv, args, config=config)
     elif args.command == "init":
-        proj_create()
-        config = proj_load()
-        condarc_create(config=config)
+        config, overwrite = proj_create()
+        condarc_create(config=config, overwrite=overwrite)
         if not config["paths"]["requirements"].exists():
             reqs_create(config=config)
         else:

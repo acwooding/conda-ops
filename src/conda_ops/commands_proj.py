@@ -50,14 +50,23 @@ def proj_create(input_value=None):
         if input_value is None:
             input_value = input("Would you like to reinitialize (this will overwrite the existing conda-ops basic setup)? (y/n) ").lower()
         if input_value != "y":
-            return proj_load()
+            return proj_load(), False
+        else:
+            overwrite = True
     else:
         conda_ops_path.mkdir()
+        overwrite = False
 
-    logger.info("Initializing conda ops environment.")
+    if overwrite:
+        logger.info("Re-initializing conda ops project")
+    else:
+        logger.info("Initializing conda ops project.")
 
     # setup initial config
     config_file = conda_ops_path / CONFIG_FILENAME
+
+    if overwrite and config_file.exists():
+        config_file.unlink()
 
     # currently defaults to creating an env_name based on the location of the project
     env_name = Path.cwd().name.lower()
@@ -72,19 +81,43 @@ def proj_create(input_value=None):
         "nohash_explicit_lockfile": "${ops_dir}/lockfile.nohash",
         "condarc": "${ops_dir}/.condarc",
         "lockfile_url_lookup": "${ops_dir}/lockfile_url_lookup.ini",
+        "gitignore": "${ops_dir}/.gitignore"
     }
     _config_settings = {
         "env_name": env_name,
     }
 
+    # create config_file
+    KVStore(_config_settings, config_file=config_file, config_section="OPS_SETTINGS")
+    PathStore(_config_paths, config_file=config_file, config_section="OPS_PATHS")
+
+    # and load its contents
     config = {}
+    config["settings"] = KVStore(config_file=config_file, config_section="OPS_SETTINGS")
+    config["paths"] = PathStore(config_file=config_file, config_section="OPS_PATHS")
 
-    config["settings"] = KVStore(_config_settings, config_file=config_file, config_section="OPS_SETTINGS")
-    config["paths"] = PathStore(_config_paths, config_file=config_file, config_section="OPS_PATHS")
-
+    # create lockfile_url_lookup
+    lockfile_lookup_file = config["paths"]["lockfile_url_lookup"]
+    if lockfile_lookup_file.exists() and overwrite:
+        lockfile_lookup_file.unlink()
     KVStore({}, config_file=config["paths"]["lockfile_url_lookup"], config_section="LOCKFILE_URLS")
 
-    return config
+    # create .gitignore entry
+    lockfile_url_entry = "*" + config["paths"]["lockfile_url_lookup"].name + "*"
+    gitignore_path = config["paths"]["gitignore"]
+
+    if gitignore_path.exists():
+        with open(gitignore_path, 'r') as filehandle:
+            gitignore_content = filehandle.read()
+    else:
+        gitignore_content = ""
+
+    if lockfile_url_entry not in gitignore_content:
+        gitignore_content += ("\n" + lockfile_url_entry)
+        with open(gitignore_path, 'w') as filehandle:
+            filehandle.write(gitignore_content)
+
+    return config, overwrite
 
 
 def proj_load(die_on_error=True):
