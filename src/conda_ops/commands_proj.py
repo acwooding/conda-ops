@@ -34,18 +34,23 @@ from .python_api import run_command
 #
 ##################################################################
 
-CONFIG_PATHS = {
-        "ops_dir": "${catalog_path}",
-        "project_dir": "${ops_dir}/..",
-        "condarc": "${ops_dir}/.condarc",
-        "explicit_lockfile": "${ops_dir}/lockfile.explicit",
-        "gitignore": "${ops_dir}/.gitignore",
-        "lockfile": "${ops_dir}/lockfile.json",
-        "lockfile_url_lookup": "${ops_dir}/lockfile_url_lookup.ini",
-        "nohash_explicit_lockfile": "${ops_dir}/lockfile.nohash",
-        "pip_explicit_lockfile": "${ops_dir}/lockfile.pypi",
-        "requirements": "${project_dir}/environment.yml",
-    }
+# files to be created at initialization
+INITIAL_FILE_PATHS = {
+    "condarc": "${ops_dir}/.condarc",
+    "gitignore": "${ops_dir}/.gitignore",
+    "requirements": "${project_dir}/environment.yml",
+}
+# other paths to include
+OTHER_CONFIG_PATHS = {
+    "ops_dir": "${catalog_path}",
+    "project_dir": "${ops_dir}/..",
+    "explicit_lockfile": "${ops_dir}/lockfile.explicit",
+    "lockfile": "${ops_dir}/lockfile.json",
+    "lockfile_url_lookup": "${ops_dir}/lockfile_url_lookup.ini",
+    "nohash_explicit_lockfile": "${ops_dir}/lockfile.nohash",
+    "pip_explicit_lockfile": "${ops_dir}/lockfile.pypi",
+}
+
 
 def proj_create(input_value=None):
     """
@@ -60,8 +65,10 @@ def proj_create(input_value=None):
     if conda_ops_path.exists():
         logger.warning("conda ops has already been initialized")
         if input_value is None:
-            input_value = input("Would you like to reinitialize (this will overwrite the existing conda-ops basic setup)? (y/n) ").lower()
-        if input_value != "y":
+            overwrite_value = input("Would you like to reinitialize (this will overwrite the existing conda-ops basic setup)? (y/n) ").lower()
+        else:
+            overwrite_value = input_value
+        if overwrite_value != "y":
             return proj_load(), False
         else:
             overwrite = True
@@ -83,7 +90,7 @@ def proj_create(input_value=None):
     # currently defaults to creating an env_name based on the location of the project
     env_name = Path.cwd().name.lower()
 
-    _config_paths = CONFIG_PATHS
+    _config_paths = {**INITIAL_FILE_PATHS, **OTHER_CONFIG_PATHS}
     _config_settings = {
         "env_name": env_name,
     }
@@ -100,8 +107,19 @@ def proj_create(input_value=None):
     # create lockfile_url_lookup
     lockfile_lookup_file = config["paths"]["lockfile_url_lookup"]
     if lockfile_lookup_file.exists() and overwrite:
+        if input_value is None:
+            lookup_overwrite_value = input("Would you like to clear all local url lookup information? (y/n) ").lower()
+        else:
+            lookup_overwrite_value = input_value
+        if lookup_overwrite_value != "y":
+            lookup_dict = KVStore(config_file=config["paths"]["lockfile_url_lookup"], config_section="LOCKFILE_URLS")
+        else:
+            lookup_dict = {}
         lockfile_lookup_file.unlink()
-    KVStore({}, config_file=config["paths"]["lockfile_url_lookup"], config_section="LOCKFILE_URLS")
+    else:
+        lookup_dict = {}
+
+    KVStore(lookup_dict, config_file=config["paths"]["lockfile_url_lookup"], config_section="LOCKFILE_URLS")
 
     # create .gitignore entry
     lockfile_url_entry = "*" + config["paths"]["lockfile_url_lookup"].name + "*"
@@ -150,7 +168,8 @@ def proj_check(config=None, die_on_error=True, required_keys=None):
         bool: True if the project and config object are valid and consistent, False otherwise.
     """
     if required_keys is None:
-        required_keys = list(CONFIG_PATHS.keys())
+        config_paths = {**INITIAL_FILE_PATHS, **OTHER_CONFIG_PATHS}
+        required_keys = list(config_paths.keys())
 
     check = True
     if config is None:
@@ -163,17 +182,35 @@ def proj_check(config=None, die_on_error=True, required_keys=None):
         logger.info("To change to a managed directory:")
         logger.info(">>> cd path/to/managed/conda/project")
     else:
-        env_name = config["settings"].get("env_name", None)
+        try:
+            env_name = config["settings"].get("env_name", None)
+        except Exception as e:
+            env_name = None
         if env_name is None:
             check = False
             logger.error("Config is missing an environment name")
             logger.info("To reinitialize your conda ops project:")
             logger.info(">>> conda ops init")
-        paths = list(config["paths"].keys())
-        for key in required_keys:
-            if key not in paths:
-                check = False
-                logger.error(f"The configuration file is missing a mandatory key: {key}")
+        if check:
+            paths = list(config["paths"].keys())
+            for key in required_keys:
+                if key not in paths:
+                    check = False
+                    logger.error(f"The configuration file is missing a mandatory key: {key}")
+                    logger.info("To reinitialize your conda ops project:")
+                    logger.info(">>> conda ops init")
+        if check:
+            # only do this one if the keys exist
+            missing_files = []
+            for key in INITIAL_FILE_PATHS.keys():
+                path = config["paths"].get(key)
+                if not path.exists():
+                    check = False
+                    missing_files.append(key)
+            if len(missing_files) > 0:
+                logger.warning("The following configuration files are missing:")
+                ws = "\n   "
+                logger.info(f"   {ws.join(missing_files)}")
                 logger.info("To reinitialize your conda ops project:")
                 logger.info(">>> conda ops init")
 
