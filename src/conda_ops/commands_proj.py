@@ -34,6 +34,18 @@ from .python_api import run_command
 #
 ##################################################################
 
+CONFIG_PATHS = {
+        "ops_dir": "${catalog_path}",
+        "project_dir": "${ops_dir}/..",
+        "condarc": "${ops_dir}/.condarc",
+        "explicit_lockfile": "${ops_dir}/lockfile.explicit",
+        "gitignore": "${ops_dir}/.gitignore",
+        "lockfile": "${ops_dir}/lockfile.json",
+        "lockfile_url_lookup": "${ops_dir}/lockfile_url_lookup.ini",
+        "nohash_explicit_lockfile": "${ops_dir}/lockfile.nohash",
+        "pip_explicit_lockfile": "${ops_dir}/lockfile.pypi",
+        "requirements": "${project_dir}/environment.yml",
+    }
 
 def proj_create(input_value=None):
     """
@@ -71,18 +83,7 @@ def proj_create(input_value=None):
     # currently defaults to creating an env_name based on the location of the project
     env_name = Path.cwd().name.lower()
 
-    _config_paths = {
-        "ops_dir": "${catalog_path}",
-        "project_dir": "${ops_dir}/..",
-        "requirements": "${project_dir}/environment.yml",
-        "lockfile": "${ops_dir}/lockfile.json",
-        "explicit_lockfile": "${ops_dir}/lockfile.explicit",
-        "pip_explicit_lockfile": "${ops_dir}/lockfile.pypi",
-        "nohash_explicit_lockfile": "${ops_dir}/lockfile.nohash",
-        "condarc": "${ops_dir}/.condarc",
-        "lockfile_url_lookup": "${ops_dir}/lockfile_url_lookup.ini",
-        "gitignore": "${ops_dir}/.gitignore"
-    }
+    _config_paths = CONFIG_PATHS
     _config_settings = {
         "env_name": env_name,
     }
@@ -107,14 +108,14 @@ def proj_create(input_value=None):
     gitignore_path = config["paths"]["gitignore"]
 
     if gitignore_path.exists():
-        with open(gitignore_path, 'r') as filehandle:
+        with open(gitignore_path, "r") as filehandle:
             gitignore_content = filehandle.read()
     else:
         gitignore_content = ""
 
     if lockfile_url_entry not in gitignore_content:
-        gitignore_content += ("\n" + lockfile_url_entry)
-        with open(gitignore_path, 'w') as filehandle:
+        gitignore_content += "\n" + lockfile_url_entry
+        with open(gitignore_path, "w") as filehandle:
             filehandle.write(gitignore_content)
 
     return config, overwrite
@@ -149,14 +150,8 @@ def proj_check(config=None, die_on_error=True, required_keys=None):
         bool: True if the project and config object are valid and consistent, False otherwise.
     """
     if required_keys is None:
-        required_keys = [
-            "ops_dir",
-            "requirements",
-            "lockfile",
-            "explicit_lockfile",
-            "pip_explicit_lockfile",
-            "condarc",
-        ]
+        required_keys = list(CONFIG_PATHS.keys())
+
     check = True
     if config is None:
         config = proj_load(die_on_error=die_on_error)
@@ -177,7 +172,8 @@ def proj_check(config=None, die_on_error=True, required_keys=None):
         paths = list(config["paths"].keys())
         for key in required_keys:
             if key not in paths:
-                logger.error(f"config.ini missing mandatory key: {key}")
+                check = False
+                logger.error(f"The configuration file is missing a mandatory key: {key}")
                 logger.info("To reinitialize your conda ops project:")
                 logger.info(">>> conda ops init")
 

@@ -109,6 +109,7 @@ def test_condarc_context_handling(mocker, setup_config_files):
     assert os.environ.get("CONDARC") != str(config["paths"]["condarc"])
     assert os.environ.get("CONDARC") == original_condarc
 
+
 def test_lockfile_url_lookup_gitignore(mocker, setup_config_files, shared_temp_dir):
     config = setup_config_files
     gitignore_path = config["paths"]["gitignore"]
@@ -119,7 +120,7 @@ def test_lockfile_url_lookup_gitignore(mocker, setup_config_files, shared_temp_d
         mocker.patch("pathlib.Path.cwd", return_value=tmpdir)
         config = proj_create(input_value="y")
 
-    with open(gitignore_path, 'r') as filehandle:
+    with open(gitignore_path, "r") as filehandle:
         gitignore_content = filehandle.readlines()
 
     for line in gitignore_content:
