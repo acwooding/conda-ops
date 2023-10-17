@@ -238,7 +238,7 @@ class LockSpec:
     def from_lock_entry(cls, lock_dict, config=None, lookup_file=None):
         lock_url = lock_dict.get("url", None)
         url = urlparse(lock_url)
-        if url.scheme == "lookup":
+        if url.scheme == "local":
             url_lookup = load_url_lookup(config=config, lookup_file=lookup_file)
             try:
                 lock_dict["url"] = url_lookup.get(url.netloc)
@@ -363,7 +363,7 @@ class LockSpec:
             url_name = self.name
             url_lookup = load_url_lookup(config=config, lookup_file=lookup_file)
             url_lookup[url_name] = self.url
-            lock_entry["url"] = f"lookup://{url_name}"
+            lock_entry["url"] = f"local://{url_name}"
         return lock_entry
 
     @property

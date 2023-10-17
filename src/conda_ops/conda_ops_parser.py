@@ -69,10 +69,7 @@ def conda_ops(argv: list):
     elif args.command == "init":
         config, overwrite = proj_create()
         condarc_create(config=config, overwrite=overwrite)
-        if not config["paths"]["requirements"].exists():
-            reqs_create(config=config)
-        else:
-            logger.info("Requirements file already exists")
+        reqs_create(config=config)
     elif args.command == "add":
         packages = args.packages + args.other_packages
         reqs_add(packages, config=config)

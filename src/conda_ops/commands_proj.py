@@ -46,7 +46,7 @@ OTHER_CONFIG_PATHS = {
     "project_dir": "${ops_dir}/..",
     "explicit_lockfile": "${ops_dir}/lockfile.explicit",
     "lockfile": "${ops_dir}/lockfile.json",
-    "lockfile_url_lookup": "${ops_dir}/lockfile_url_lookup.ini",
+    "lockfile_url_lookup": "${ops_dir}/lockfile-local-url.ini",
     "nohash_explicit_lockfile": "${ops_dir}/lockfile.nohash",
     "pip_explicit_lockfile": "${ops_dir}/lockfile.pypi",
 }

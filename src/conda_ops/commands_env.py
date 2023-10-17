@@ -364,7 +364,7 @@ def active_env_check(config=None, die_on_error=True, output_instructions=True, e
     info_dict = get_conda_info()
     active_conda_env = info_dict["active_prefix_name"]
 
-    logger.info(f"Active Conda environment: {active_conda_env}")
+    logger.info(f"Detected active conda environment: {active_conda_env}")
 
     if check_env_active(env_name):
         pass
@@ -399,8 +399,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
             logger.warning("Lock file is missing or inconsistent.")
             logger.warning("Cannot determine the consistency of the lockfile and environment.")
             logger.info("To lock the environment:")
-            logger.info(">>> conda ops lockfile generate")
-            # logger.info(">>> conda ops lock")
+            logger.info(">>> conda ops sync")
         if die_on_error:
             sys.exit(1)
         else:

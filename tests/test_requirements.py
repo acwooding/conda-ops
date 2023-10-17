@@ -182,7 +182,7 @@ def test_lockfile_lookup_parsing(setup_config_files):
     lock_spec = LockSpec(info_dict)
 
     lock_entry = lock_spec.to_lock_entry(config=config)
-    assert "lookup://my-package" == lock_entry["url"]
+    assert "local://my-package" == lock_entry["url"]
     assert "file" not in lock_entry["url"]
 
     spec_from_lock = LockSpec.from_lock_entry(lock_entry, config=config)

@@ -207,7 +207,7 @@ def reqs_create(config):
         with open(requirements_file, "w", encoding="utf-8") as yamlfile:
             yaml.dump(requirements_dict, yamlfile)
     else:
-        logger.info(f"Requirements file {requirements_file} already exists")
+        logger.info(f"Requirements file {requirements_file.name} already exists. Keeping existing file.")
 
 
 def reqs_check(config, die_on_error=True):

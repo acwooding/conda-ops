@@ -209,7 +209,6 @@ def consistency_check(config=None, die_on_error=False, output_instructions=False
     config_opinions = check_condarc_matches_opinions(config=config, die_on_error=die_on_error)
 
     env_name = config["settings"]["env_name"]
-    logger.info(f"Managed Conda Environment: {env_name}")
 
     reqs_consistent = reqs_check(config, die_on_error=die_on_error)
     lockfile_consistent = lockfile_check(config, die_on_error=die_on_error, output_instructions=output_instructions)
@@ -220,10 +219,10 @@ def consistency_check(config=None, die_on_error=False, output_instructions=False
         )
 
         env_consistent = env_check(config, die_on_error=die_on_error, output_instructions=output_instructions)
-        active_env_consistent = active_env_check(config, die_on_error=die_on_error, output_instructions=output_instructions, env_exists=env_consistent)
-
         if env_consistent:
+            logger.info(f"Found managed conda environment: {env_name}")
             env_lockfile_consistent, _ = env_lockfile_check(config, env_consistent=env_consistent, lockfile_consistent=lockfile_consistent, die_on_error=die_on_error, output_instructions=True)
+        active_env_consistent = active_env_check(config, die_on_error=die_on_error, output_instructions=output_instructions, env_exists=env_consistent)
 
     if not lockfile_consistent:
         print("")
