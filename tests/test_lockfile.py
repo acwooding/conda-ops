@@ -128,7 +128,7 @@ def test_lockfile_check_when_file_exists_and_valid(setup_config_files):
         json.dump(lockfile_data, f)
 
     # Test
-    result = lockfile_check(config, die_on_error=False)
+    result, _ = lockfile_check(config, die_on_error=False)
 
     assert result is True
 
@@ -159,9 +159,10 @@ def test_lockfile_check_when_file_exists_but_invalid(setup_config_files):
         json.dump(lockfile_data, f)
 
     # Test
-    result = lockfile_check(config, die_on_error=False)
+    result, cd = lockfile_check(config, die_on_error=False)
 
     assert result is False
+    assert len(cd["inconsistent"]) > 0
 
 
 def test_lockfile_check_when_file_not_exists(setup_config_files):
@@ -183,7 +184,7 @@ def test_lockfile_check_when_file_not_exists(setup_config_files):
         config["paths"]["lockfile"].unlink()
 
     # Test
-    result = lockfile_check(config, die_on_error=False)
+    result, _ = lockfile_check(config, die_on_error=False)
 
     assert result is False
 
@@ -345,7 +346,7 @@ def test_lockfile_reqs_check_inconsistent(setup_config_files, mocker):
     assert lockfile_reqs_check(config, lockfile_consistent=False, die_on_error=False) is False
 
     # test with patched lockfile_check to be False
-    mocker.patch("conda_ops.commands_lockfile.lockfile_check", return_value=False)
+    mocker.patch("conda_ops.commands_lockfile.lockfile_check", return_value=(False, {}))
     with pytest.raises(SystemExit):
         lockfile_reqs_check(config, die_on_error=True)
     assert lockfile_reqs_check(config, die_on_error=False) is False

@@ -392,7 +392,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
     env_name = config["settings"]["env_name"]
 
     if lockfile_consistent is None:
-        lockfile_consistent = lockfile_check(config, die_on_error=die_on_error)
+        lockfile_consistent, _ = lockfile_check(config, die_on_error=die_on_error)
 
     if not lockfile_consistent:
         if output_instructions:

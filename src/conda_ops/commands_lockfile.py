@@ -47,6 +47,8 @@ def lockfile_check(config, die_on_error=True, output_instructions=True, platform
         platform = info_dict["platform"]
 
     check = True
+    consistency_dict = {}
+
     if lock_file.exists():
         with open(lock_file, "r", encoding="utf-8") as lockfile:
             try:
@@ -58,45 +60,41 @@ def lockfile_check(config, die_on_error=True, output_instructions=True, platform
                 if output_instructions:
                     logger.info("To regenerate the lock file:")
                     logger.info(">>> conda ops sync")
-            no_url = []
-            no_url_lookup = []
+
             if json_reqs:
-                platform_in_lockfile = False
-                for package in json_reqs:
-                    lock_package = LockSpec.from_lock_entry(package, config=config)
-                    if lock_package.platform == platform:
-                        platform_in_lockfile = True
-                        if not lock_package.check_consistency():
-                            check = False
-                            if output_instructions:
-                                logger.info("To regenerate the lock file:")
-                                logger.info(">>> conda ops sync")
-                        if lock_package.url is None:
-                            no_url.append(lock_package.name)
-                            check = False
-                        if lock_package.url == "":
-                            no_url_lookup.append(lock_package.name)
-                            check = False
-                if len(no_url) > 0:
+                consistency_dict = lock_package_consistency_check(json_reqs, config, platform)
+
+                if len(consistency_dict["inconsistent"]) > 0:
+                    check = False
+                    inconsistent_entries = [x.name for x in consistency_dict["inconsistent"]]
+                    logger.warning("The lockfile entries for the following pacakges are inconsistent:")
+                    logger.info(f"{' '.join(inconsistent_entries)}")
+                    if output_instructions:
+                        logger.info("To regenerate the lock file:")
+                        logger.info(">>> conda ops sync")
+                if len(consistency_dict["no_url"]) > 0:
+                    check = False
+                    no_url = [x.name for x in consistency_dict["no_url"]]
                     logger.warning(f"url(s) for {len(no_url)} packages(s) are missing from the lockfile.")
                     logger.warning(f"The packages {' '.join(no_url)} may not have been added correctly.")
                     logger.warning("Please add any missing packages to the requirements and regenerate the lock file.")
                     if output_instructions:
                         logger.info("To regenerate the lock file:")
                         logger.info(">>> conda ops sync")
-                if len(no_url_lookup) > 0:
+                if len(consistency_dict["no_url_lookup"]) > 0:
+                    no_url_lookup = [x.name for x in consistency_dict["no_url_lookup"]]
+                    check = False
                     logger.warning(f"url lookup(s) for {len(no_url_lookup)} packages(s) are missing from the local url lookup file.")
                     logger.warning(f"The entries for the package(s) {' '.join(no_url_lookup)} need to be regenerated.")
                     if output_instructions:
                         logger.info("To regenerate the lock file:")
                         logger.info(">>> conda ops sync")
-                if not platform_in_lockfile:
+                if not consistency_dict["platform_in_lockfile"]:
                     check = False
                     logger.warning(f"A lock file exists but has no packages for the platform: {platform}")
                     if output_instructions:
                         logger.info("To update the lock file:")
                         logger.info(">>> conda ops sync")
-
     else:
         check = False
         logger.warning("There is no lock file.")
@@ -106,7 +104,35 @@ def lockfile_check(config, die_on_error=True, output_instructions=True, platform
 
     if die_on_error and not check:
         sys.exit(1)
-    return check
+    return check, consistency_dict
+
+
+def lock_package_consistency_check(lockfile_json_reqs, config, platform):
+    """
+    Given a list of lockfile json reqs, check each package for:
+    * consistency_check
+    * check for a url
+    * if it is a local url, check the lookup exists
+
+    Further check that a given platform appears in the lockfile json reqs at least once.
+
+    Return a dict with the lists of requirement entries that that fail the checks, and with an entry to
+    specify if the given platform is in the lockfile.
+    """
+    consistency_dict = {"inconsistent": [], "no_url": [], "no_url_lookup": [], "platform_in_lockfile": False}
+
+    for package in lockfile_json_reqs:
+        lock_package = LockSpec.from_lock_entry(package, config=config)
+        if lock_package.platform == platform:
+            consistency_dict["platform_in_lockfile"] = True
+            if not lock_package.check_consistency():
+                consistency_dict["inconsistent"].append(lock_package)
+            if lock_package.url is None:
+                consistency_dict["no_url"].append(lock_package)
+            if lock_package.url == "":
+                consistency_dict["no_url_lookup"].append(lock_package)
+
+    return consistency_dict
 
 
 def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, die_on_error=True, output_instructions=True):
@@ -121,7 +147,7 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
         reqs_consistent = reqs_check(config, die_on_error=die_on_error)
 
     if lockfile_consistent is None:
-        lockfile_consistent = lockfile_check(config, die_on_error=die_on_error)
+        lockfile_consistent, _ = lockfile_check(config, die_on_error=die_on_error)
 
     if lockfile_consistent and reqs_consistent:
         if requirements_file.stat().st_mtime <= lock_file.stat().st_mtime:

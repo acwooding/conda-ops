@@ -357,6 +357,11 @@ class LockSpec:
         return False
 
     def to_lock_entry(self, config=None, lookup_file=None):
+        """
+        Create a lock entry for the LockSpec.
+
+        Note that this modifies or adds an entry into the lookup_file
+        """
         lock_entry = self.info_dict
         url = urlparse(self.url)
         if url.scheme == "file":
@@ -391,7 +396,8 @@ def load_url_lookup(config=None, lookup_file=None):
         lookup_file = config["paths"].get("lockfile_url_lookup", None)
         if lookup_file is None:
             logger.error("Missing entry for lockfile_url_lookup in config.ini")
-            logger.info("Remove the existing config.ini and re-run conda ops proj init")
+            logger.info("Regenerate the config.ini:")
+            logger.info(">>> conda ops init")
             sys.exit(1)
     lookup = KVStore(config_file=lookup_file, config_section="LOCKFILE_URLS")
     return lookup

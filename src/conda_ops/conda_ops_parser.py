@@ -102,7 +102,7 @@ def conda_ops(argv: list):
         if args.kind == "generate":
             lockfile_generate(config, regenerate=True)
         elif args.kind == "check":
-            check = lockfile_check(config)
+            check, _ = lockfile_check(config)
             if check:
                 logger.info("Lockfile is consistent")
         elif args.kind == "reqs-check":
