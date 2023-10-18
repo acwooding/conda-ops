@@ -37,6 +37,7 @@ To uninstall, `pip uninstall conda-ops` from your within your `base` conda envir
 
 ## Basic Usage
 
+### Initialization
 To set up a conda ops managed project environment in the current working directory (similar to `git init`):
 ```
 conda ops init
@@ -45,6 +46,7 @@ This creates a `.conda-ops` directory that contains the conda ops configuration 
 
 Similar to `git` you can always check the status of your conda ops managed environment via `conda ops status` or simply, `conda ops`. This will prompt you for what you may need to next do if anything ever gets out of sync.
 
+### Package Management
 Beyond `conda ops init` and `conda ops`, there are only 3 commands that you need to regularly:
 * `conda ops add`: Add packages to the requirements file.
 * `conda ops remove`: Remove packages from the requirements file. Removes all versions of the packages from any channel they are found in.
@@ -52,39 +54,38 @@ Beyond `conda ops init` and `conda ops`, there are only 3 commands that you need
 
 To add packages from conda channels other than the default conda channel, you can use `-c` or `--channel`:
 ```
-conda ops add my-package-1 my-package-2 -c my-other-channel
+conda ops add -c channel1 package1 package2 -c channel2 package3
 ```
-For anything using `pip` instead of `conda`, we treat `pip` as special conda channel:
+This adds the entries `channel1::package1`, `channel1::package2` and `channel2::package3` to the requirements file and is shorthand for
 ```
-conda ops add my-local-package -c pip
+conda ops add channel1::package1 channel1::package2 channel2::package3
 ```
+
+For anything using `pip` instead of `conda`, you can use `--pip` or `-e` depending on the circumstance:
+```
+conda ops add --pip package1
+```
+will add `package1` under the `pip` section of the requirements file.
+
 We also support VCS and editable installs via pip. For example, the ubiquitous `pip install -e .` can be done as:
 ```
-conda ops add "-e ." -c pip
+conda ops add -e .
 conda ops sync
 ```
 or simply
 ```
-conda ops install "-e ." -c pip
+conda ops install -e .
 ```
+In this case, the line `-e .` is added to the pip section of the requirements file. If `-e` is used, `--pip` is not needed as editable installs are done via pip.
 
-As a convenience `conda ops install` works like `conda install` but allows conda ops to track the installed packages transparently and reproducibly (effectively, it does a `conda ops add` and then `conda ops sync`). Similarly, `conda ops uninstall` works like `conda uninstall` and effectively consists of `conda ops remove` and `conda ops sync`.
+As a convenience `conda ops install` works like `conda install` but allows conda ops to track the installed packages transparently and reproducibly (it does a `conda ops add` and then `conda ops sync`). Similarly, `conda ops uninstall` works like `conda uninstall` and consists of `conda ops remove` and `conda ops sync`. (Note that because `install` is an `add`+`sync` local pacakges specified for pip installation are relative to the requirements file).
 
+### Helpful Commands
 Other helpful commands include:
 * `conda ops reqs list`: Show the contents of the requirements file.
 * `conda ops reqs edit`: Open the requirements file in the default editor.
 * `conda ops config`: Behaves similarly to `conda config` but only handles the configuration tracked in `.conda-ops/.condarc`. See `conda ops config --help` for details.
-
-The full list of commands can be accessed via the help menu: `conda ops --help`.
-
-There is also a project specific `.condarc` file that is always and only invoked by `conda ops` within the current conda ops project. This configuration file contains all of the conda config settings relating to the solver and the channel settings so that solves are reproducible and the relevant configurations are easily shareable. See `conda ops config --help` for more details on how to work with and manage the conda configuration within a conda ops project.
-
-We get that things can sometimes be slow. If you'd like to try the libmamba to try to speed things up:
-```
-conda install -n base conda-libmamba-solver
-conda ops config --set solver libmamba
-```
-Libmamba is especially useful if your environment isn't solving since it gives much better error messages (and quickly) about what's going on.
+* `conda ops env clean`: Remove any temporary environments that have been left lying around.
 
 The interface for conda ops is still experimental and may change between commits. The best way to see what can be done at a given moment is to use the help menu:
 ```
@@ -95,6 +96,17 @@ or to check the status of your conda ops project via
 conda ops
 ```
 and follow the prompts from there.
+
+### Managing conda Configurations
+There is also a project specific `.condarc` file that is always and only invoked by `conda ops` within the current conda ops project. This configuration file contains all of the conda config settings relating to the solver and the channel settings so that solves are reproducible and the relevant configurations are easily shareable. See `conda ops config --help` for more details on how to work with and manage the conda configuration within a conda ops project.
+
+We get that things can sometimes be slow. If you'd like to try the libmamba to try to speed things up:
+```
+conda install -n base conda-libmamba-solver
+conda ops config --set solver libmamba
+```
+Libmamba is especially useful if your environment isn't solving since it gives much better error messages (and quickly) about what's going on.
+
 
 
 ## Development Requirements: Testing and Linting
