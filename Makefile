@@ -8,6 +8,7 @@ DIST_DIR = dist
 PYTEST_CMD = pytest
 TEST_ENV = conda-ops-test-env
 DIST_FILES = $(DIST_DIR)/$(PACKAGE_NAME)-*.tar.gz $(DIST_DIR)/$(WHEEL_NAME)-*.whl
+VERSION = "0.3rc1"
 
 .PHONY: all
 ## Default target: build and test
@@ -42,12 +43,12 @@ install-dist: build
 
 .PHONY: install-testpypi
 ## Install the TestPyPI version
-install-testpyi:
-	$(CONDA_EXE) run -n $(TEST_ENV) pip install --index-url "https://test.pypi.org/simple/" --no-deps $(PACKAGE_NAME)
+install-testpypi:
+	$(CONDA_EXE) run -n $(TEST_ENV) pip install --index-url "https://test.pypi.org/simple/" --no-deps $(PACKAGE_NAME)==$(VERSION)
 
 .PHONY: install-pypi
 ## Install the PyPI version
-install-testpyi:
+install-pypi:
 	$(CONDA_EXE) run -n $(TEST_ENV) pip install $(PACKAGE_NAME)
 
 .PHONY: install-dev
