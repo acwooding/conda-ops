@@ -260,7 +260,7 @@ def check_condarc_matches_opinions(rc_path=None, config=None, die_on_error=True)
     return check
 
 
-def condarc_create(rc_path=None, config=None):
+def condarc_create(rc_path=None, config=None, overwrite=False):
     """
     Generate a .condarc file consisting of the channel and solver configurations.
 
@@ -280,7 +280,7 @@ def condarc_create(rc_path=None, config=None):
     """
     if not rc_path:
         rc_path = config["paths"]["condarc"]
-    if rc_path.exists():
+    if rc_path.exists() and not overwrite:
         logger.error(f"The file {rc_path} already exists. Please remove it if you'd like to create a new one.")
         return False
 

@@ -1,12 +1,15 @@
 import os
 import re
 import sys
+from urllib.parse import urlparse
 
 from packaging.requirements import Requirement
 from conda.common.pkg_formats.python import pypi_name_to_conda_name, norm_package_name
 from conda.models.match_spec import MatchSpec
 
-from .utils import logger
+from .utils import logger, is_url_requirement
+from .commands_proj import proj_load
+from .kvstore import KVStore
 
 
 class PackageSpec:
@@ -19,7 +22,11 @@ class PackageSpec:
                 else:
                     manager = "conda"
             else:
-                manager = "conda"
+                if "pip::" in spec:
+                    manager = "pip"
+                    channel = "pip"
+                else:
+                    manager = "conda"
         self.manager = manager
         self.requirement, self.editable = self.parse_requirement(spec, manager, channel=channel)
 
@@ -29,7 +36,6 @@ class PackageSpec:
         clean_spec = spec.strip()
         if len(clean_spec.split("::")) > 2:
             logger.error(clean_spec)
-            print(X)
         if channel is not None:
             if "::" in spec:
                 # check channel is consistent
@@ -42,20 +48,23 @@ class PackageSpec:
             if "-e " in clean_spec:
                 logger.error(f"Spec {clean_spec} seems to be editable")
                 logger.error("Editable modules must use the pip channel")
-                logger.info("To use pip with reqs add, use '-c pip'")
+                logger.info("To use pip with reqs add, use '--pip'")
             requirement = MatchSpec(clean_spec)
+
         elif manager == "pip":
+            if "-e " in clean_spec:
+                editable = True
+                clean_spec = clean_spec.split("-e ")[1]
+            if "pip::" in clean_spec:
+                clean_spec = clean_spec.split("pip::")[1]
             # look for "=" and not "==" in spec
             # "=" is a valid specifier in conda that doesn't mean ==
             # but pip only accepts ==
             pattern = r"^\s*([\w.-]+)\s*=\s*([\w.-]+)\s*$"
-            match = re.match(pattern, spec)
+            match = re.match(pattern, clean_spec)
             if match:
                 # Change = to ==
-                clean_spec = spec.replace("=", "==").strip()
-            if "-e " in clean_spec:
-                editable = True
-                clean_spec = clean_spec.split("-e ")[1]
+                clean_spec = clean_spec.replace("=", "==").strip()
             if is_url_requirement(clean_spec):
                 requirement = PathSpec(clean_spec)
             else:
@@ -146,18 +155,6 @@ class PathSpec:
         return None
 
 
-def is_url_requirement(requirement):
-    is_url = False
-    if "-e " in requirement:
-        is_url = True
-    if requirement.startswith(".") or requirement.startswith("/") or requirement.startswith("~") or re.match(r"^\w+:\\", requirement) is not None or os.path.isabs(requirement):
-        is_url = True
-    for protocol in ["+ssh:", "+file:", "+https:"]:
-        if protocol in requirement:
-            is_url = True
-    return is_url
-
-
 class LockSpec:
     def __init__(self, info_dict):
         self.info_dict = info_dict
@@ -236,6 +233,19 @@ class LockSpec:
         if platform is not None:
             info_dict["platform"] = platform
         return cls(info_dict)
+
+    @classmethod
+    def from_lock_entry(cls, lock_dict, config=None, lookup_file=None):
+        lock_url = lock_dict.get("url", None)
+        url = urlparse(lock_url)
+        if url.scheme == "local":
+            url_lookup = load_url_lookup(config=config, lookup_file=lookup_file)
+            try:
+                lock_dict["url"] = url_lookup.get(url.netloc)
+            except Exception as e:
+                lock_dict["url"] = ""
+
+        return cls(lock_dict)
 
     def add_conda_explicit_info(self, explicit_string):
         """
@@ -346,6 +356,21 @@ class LockSpec:
                     return True
         return False
 
+    def to_lock_entry(self, config=None, lookup_file=None):
+        """
+        Create a lock entry for the LockSpec.
+
+        Note that this modifies or adds an entry into the lookup_file
+        """
+        lock_entry = self.info_dict
+        url = urlparse(self.url)
+        if url.scheme == "file":
+            url_name = self.name
+            url_lookup = load_url_lookup(config=config, lookup_file=lookup_file)
+            url_lookup[url_name] = self.url
+            lock_entry["url"] = f"local://{url_name}"
+        return lock_entry
+
     @property
     def editable(self):
         return self.info_dict.get("editable", False)
@@ -359,6 +384,23 @@ class LockSpec:
 
     def __repr__(self):
         return repr(self.info_dict)
+
+
+def load_url_lookup(config=None, lookup_file=None):
+    """
+    Load the lockfile path lookup.
+    """
+    if lookup_file is None:
+        if config is None:
+            config = proj_load()
+        lookup_file = config["paths"].get("lockfile_url_lookup", None)
+        if lookup_file is None:
+            logger.error("Missing entry for lockfile_url_lookup in config.ini")
+            logger.info("Regenerate the config.ini:")
+            logger.info(">>> conda ops init")
+            sys.exit(1)
+    lookup = KVStore(config_file=lookup_file, config_section="LOCKFILE_URLS")
+    return lookup
 
 
 def get_pypi_package_info(package_name, version, filename):

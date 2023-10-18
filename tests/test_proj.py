@@ -1,3 +1,4 @@
+import fnmatch
 import os
 
 import pytest
@@ -23,12 +24,13 @@ def test_proj_create(mocker, shared_temp_dir):
     tmpdir = shared_temp_dir
     mocker.patch("pathlib.Path.cwd", return_value=tmpdir)
 
-    config = proj_create(input_value="n")
+    config, overwrite = proj_create(input_value="n")
 
     assert "settings" in config
     assert "paths" in config
     assert (tmpdir / CONDA_OPS_DIR_NAME).is_dir()
     assert (tmpdir / CONDA_OPS_DIR_NAME / CONFIG_FILENAME).exists()
+    assert not overwrite
 
 
 def test_proj_load(mocker, shared_temp_dir):
@@ -49,7 +51,7 @@ def test_proj_load(mocker, shared_temp_dir):
 
     assert "settings" in config
     assert "paths" in config
-    assert len(config["paths"]) == 8
+    assert len(config["paths"]) == 10
     assert len(config["settings"]) == 1
 
 
@@ -106,3 +108,22 @@ def test_condarc_context_handling(mocker, setup_config_files):
     # the CONDARC value with the esoteric including the temp dir should never be set outside of a context handler
     assert os.environ.get("CONDARC") != str(config["paths"]["condarc"])
     assert os.environ.get("CONDARC") == original_condarc
+
+
+def test_lockfile_url_lookup_gitignore(mocker, setup_config_files, shared_temp_dir):
+    config = setup_config_files
+    gitignore_path = config["paths"]["gitignore"]
+    lockfile_url_lookup_path = config["paths"]["lockfile_url_lookup"]
+
+    if not gitignore_path.exists():
+        tmpdir = shared_temp_dir
+        mocker.patch("pathlib.Path.cwd", return_value=tmpdir)
+        config = proj_create(input_value="y")
+
+    with open(gitignore_path, "r") as filehandle:
+        gitignore_content = filehandle.readlines()
+
+    for line in gitignore_content:
+        if fnmatch.fnmatch(lockfile_url_lookup_path.name, line.strip()):
+            return True
+    return False

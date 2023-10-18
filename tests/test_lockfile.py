@@ -16,8 +16,8 @@ def test_lockfile_generate(setup_config_files):
     config = setup_config_files
 
     # make sure there is something from non-defaults channels here
-    reqs_add(["flask"], channel="pip", config=config)
-    reqs_add(["pylint"], channel="conda-forge", config=config)
+    reqs_add(["pip::flask"], config=config)
+    reqs_add(["conda-forge::pylint"], config=config)
 
     lockfile_generate(config)
     assert config["paths"]["lockfile"].exists()
@@ -128,7 +128,7 @@ def test_lockfile_check_when_file_exists_and_valid(setup_config_files):
         json.dump(lockfile_data, f)
 
     # Test
-    result = lockfile_check(config, die_on_error=False)
+    result, _ = lockfile_check(config, die_on_error=False)
 
     assert result is True
 
@@ -159,9 +159,10 @@ def test_lockfile_check_when_file_exists_but_invalid(setup_config_files):
         json.dump(lockfile_data, f)
 
     # Test
-    result = lockfile_check(config, die_on_error=False)
+    result, cd = lockfile_check(config, die_on_error=False)
 
     assert result is False
+    assert len(cd["inconsistent"]) > 0
 
 
 def test_lockfile_check_when_file_not_exists(setup_config_files):
@@ -183,7 +184,7 @@ def test_lockfile_check_when_file_not_exists(setup_config_files):
         config["paths"]["lockfile"].unlink()
 
     # Test
-    result = lockfile_check(config, die_on_error=False)
+    result, _ = lockfile_check(config, die_on_error=False)
 
     assert result is False
 
@@ -202,7 +203,7 @@ def test_lockfile_reqs_check_consistent(mocker, setup_config_files):
     lockfile_generate(config, regenerate=True)
     assert lockfile_reqs_check(config) is True
 
-    reqs_add(["git+https://github.com/PyCQA/flake8.git"], config=config, channel="pip")
+    reqs_add(["pip::git+https://github.com/PyCQA/flake8.git"], config=config)
     lockfile_generate(config, regenerate=True)
     assert lockfile_reqs_check(config) is True
 
@@ -222,7 +223,7 @@ def test_lockfile_reqs_check_consistent_equals(setup_config_files):
     is satisfied by the lock file.
     """
     config = setup_config_files
-    reqs_add(["python==3.11"], config=config, channel="pip")
+    reqs_add(["pip::python==3.11"], config=config)
     info_dict = get_conda_info()
     platform = info_dict["platform"]
 
@@ -345,7 +346,7 @@ def test_lockfile_reqs_check_inconsistent(setup_config_files, mocker):
     assert lockfile_reqs_check(config, lockfile_consistent=False, die_on_error=False) is False
 
     # test with patched lockfile_check to be False
-    mocker.patch("conda_ops.commands_lockfile.lockfile_check", return_value=False)
+    mocker.patch("conda_ops.commands_lockfile.lockfile_check", return_value=(False, {}))
     with pytest.raises(SystemExit):
         lockfile_reqs_check(config, die_on_error=True)
     assert lockfile_reqs_check(config, die_on_error=False) is False

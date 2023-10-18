@@ -1,4 +1,6 @@
 import logging
+import os
+import re
 
 from ruamel.yaml import YAML
 
@@ -47,3 +49,15 @@ def align_and_print_data(data, header=None):
 
     table_str += "\n"
     return table_str
+
+
+def is_url_requirement(requirement):
+    is_url = False
+    if "-e " in requirement:
+        is_url = True
+    if requirement.startswith(".") or requirement.startswith("~") or re.match(r"^\w+:\\", requirement) is not None or os.path.isabs(requirement) or "/" in requirement:
+        is_url = True
+    for protocol in ["+ssh:", "+file:", "+https:"]:
+        if protocol in requirement:
+            is_url = True
+    return is_url

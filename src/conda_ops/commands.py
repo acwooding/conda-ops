@@ -9,23 +9,26 @@ import sys
 # from conda.cli.main_info import get_info_dict
 
 from .utils import logger
-from .commands_proj import proj_check, get_conda_info
+from .commands_proj import proj_check, get_conda_info, CondaOpsManagedCondarc
 from .commands_reqs import reqs_check
-from .commands_lockfile import lockfile_check, lockfile_reqs_check
+from .commands_lockfile import lockfile_check, lockfile_reqs_check, lock_package_consistency_check
 from .commands_env import (
-    env_check,
-    env_lockfile_check,
-    conda_step_env_lock,
-    pip_step_env_lock,
-    env_delete,
-    check_env_exists,
-    env_install,
-    env_regenerate,
-    check_env_active,
-    env_create,
     active_env_check,
+    check_env_active,
+    check_env_exists,
+    conda_step_env_lock,
+    env_check,
+    env_create,
+    env_delete,
+    env_install,
+    env_lockfile_check,
+    env_regenerate,
+    get_prefix,
+    pip_step_env_lock,
 )
 from .conda_config import check_condarc_matches_opinions, check_config_items_match
+from .python_api import run_command
+from .requirements import load_url_lookup
 from .split_requirements import create_split_files
 
 ##################################################################
@@ -146,18 +149,157 @@ def lockfile_generate(config, regenerate=True, platform=None):
     print(f"Lockfile {lock_file} generated.")
 
 
+def populate_local_url_lookup(config, die_on_error=True, platform=None, output_instructions=False):
+    """
+    When a local url lookup is missing, try to resolve it and add it to the lookup file.
+    """
+    ops_dir = config["paths"]["ops_dir"]
+    requirements_file = config["paths"]["requirements"]
+    lock_file = config["paths"]["lockfile"]
+    env_name = config["settings"]["env_name"]
+
+    if platform is None:
+        info_dict = get_conda_info()
+        platform = info_dict["platform"]
+
+    if lock_file.exists():
+        with open(lock_file, "r", encoding="utf-8") as lockfile:
+            try:
+                json_reqs = json.load(lockfile)
+            except Exception as exception:
+                logger.warning(f"Unable to load lockfile {lock_file}")
+                logger.debug(exception)
+                if output_instructions:
+                    logger.info("To regenerate the lock file:")
+                    logger.info(">>> conda ops sync")
+                if die_on_error:
+                    sys.exit(1)
+                else:
+                    return False
+    else:
+        logger.warning("There is no lock file.")
+        if output_instructions:
+            logger.info("To create the lock file:")
+            logger.info(">>> conda ops sync")
+        if die_on_error:
+            sys.exit(1)
+        else:
+            return False
+
+    consistency_dict = lock_package_consistency_check(json_reqs, config, platform)
+    no_url_lookup = consistency_dict["no_url_lookup"]
+
+    if len(no_url_lookup) < 1:
+        logger.info("No missing local url lookups found. Nothing to resolve.")
+        return True
+
+    # create a blank environment name to create the lockfile from scratch
+    logger.info("Generating temporary environment for resolving the local url lookups from pip-based requirements.")
+    raw_test_env = env_name + "-lockfile-generate"
+    for i in range(100):
+        test_env = raw_test_env + f"-{i}"
+        if not check_env_exists(test_env):
+            break
+    logger.debug(f"Using temporary environment: {raw_test_env}")
+
+    # check if the environment exists. If not, create it and include pip.
+    # XXX may need to use the same version of python as the environment. Maybe not.
+    prefix = get_prefix(test_env)
+    logger.debug(f"Creating environment {env_name} at {prefix} ")
+    with CondaOpsManagedCondarc(config["paths"]["condarc"]):
+        conda_args = ["--prefix", prefix, "pip"]
+        stdout, stderr, result_code = run_command("create", conda_args, use_exception_handler=True)
+        if result_code != 0:
+            logger.error(stdout)
+            logger.error(stderr)
+            return None
+        print(stdout)
+
+    if not requirements_file.exists():
+        logger.error(f"Requirements file does not exist: {requirements_file}")
+        logger.info("To create a minimal default requirements file:")
+        logger.info(">>> conda ops reqs create")
+        if die_on_error:
+            sys.exit(1)
+        else:
+            return False
+    if not reqs_check(config, die_on_error=False):
+        logger.error("Requirements file is not in the correct format. Update it and try again.")
+        if die_on_error:
+            sys.exit(1)
+        else:
+            return False
+
+    create_split_files(requirements_file, ops_dir)
+
+    with open(ops_dir / ".ops.channel-order.include", "r", encoding="utf-8") as order_file:
+        order_list = order_file.read().split()
+
+    json_reqs = None
+    channel = "sdist"
+    try:
+        json_reqs, extra_pip_dict = pip_step_env_lock(channel, config, env_name=test_env)
+    except Exception as exception:
+        print(exception)
+        json_reqs = None
+    if json_reqs is None:
+        logger.error("Failed to generate local url lookup entries.")
+        if output_instructions:
+            logger.info("Try a full sync instead:")
+            logger.info(">>> conda ops sync")
+        if die_on_error:
+            sys.exit(1)
+        else:
+            return False
+
+    # check if missing package information has been added
+    lookup = load_url_lookup(config=config)
+    for package_entry in no_url_lookup:
+        try:
+            entry = lookup[package_entry.name]
+        except Exception as e:
+            print(e)
+            # if it's missing add it now
+
+    # clean up
+    Path(ops_dir / f".ops.{channel}-requirements.txt").unlink()
+    Path(ops_dir / f".ops.lock.{channel}").unlink()
+    Path(ops_dir / ".ops.channel-order.include").unlink()
+
+    env_delete(env_name=test_env)
+    logger.debug("Deleted intermediate environment")
+    logger.info("Local url entries added to lookup")
+    return True
+
+
 def sync(config, regenerate_lockfile=True, force=False):
     """
     Sync the requirements file with the lockfile and environment.
     """
     complete = False
     reqs_consistent = reqs_check(config, die_on_error=True)
-    lockfile_consistent = lockfile_check(config, die_on_error=False, output_instructions=False)
+    lockfile_consistent, consistency_dict = lockfile_check(config, die_on_error=False, output_instructions=False)
+
     if lockfile_consistent:
         lockfile_reqs_consistent = lockfile_reqs_check(config, reqs_consistent=reqs_consistent, lockfile_consistent=lockfile_consistent, die_on_error=False, output_instructions=False)
+    elif len(consistency_dict) > 0:
+        lockfile_reqs_consistent = False
+        if len(consistency_dict["no_url_lookup"]) > 0 and len(consistency_dict["no_url"]) == 0 and len(consistency_dict["inconsistent"]) == 0 and consistency_dict["platform_in_lockfile"]:
+            # try to resolve missing url lookup before doing anything else if that's all that's missing
+            logger.info("Trying to resolve missing local url lookups")
+            success = populate_local_url_lookup(config, die_on_error=False)
+            if success:
+                lockfile_consistent, consistency_dict = lockfile_check(config, die_on_error=False, output_instructions=False)
+                if lockfile_consistent:
+                    lockfile_reqs_consistent = lockfile_reqs_check(config, reqs_consistent=reqs_consistent, lockfile_consistent=lockfile_consistent, die_on_error=False, output_instructions=False)
+            else:
+                logger.info("Trying a full sync instead")
+    else:
+        # cannot determine consistency if lockfile
+        lockfile_reqs_consistent = False
     if not (lockfile_consistent and lockfile_reqs_consistent) or force:
         lockfile_generate(config, regenerate=regenerate_lockfile)
-        lockfile_consistent = lockfile_check(config, die_on_error=False, output_instructions=False)
+        lockfile_consistent, consistency_dict = lockfile_check(config, die_on_error=False, output_instructions=False)
 
     env_name = config["settings"]["env_name"]
     if check_env_exists(env_name):
@@ -209,10 +351,9 @@ def consistency_check(config=None, die_on_error=False, output_instructions=False
     config_opinions = check_condarc_matches_opinions(config=config, die_on_error=die_on_error)
 
     env_name = config["settings"]["env_name"]
-    logger.info(f"Managed Conda Environment: {env_name}")
 
     reqs_consistent = reqs_check(config, die_on_error=die_on_error)
-    lockfile_consistent = lockfile_check(config, die_on_error=die_on_error, output_instructions=output_instructions)
+    lockfile_consistent, _ = lockfile_check(config, die_on_error=die_on_error, output_instructions=output_instructions)
 
     if lockfile_consistent:
         lockfile_reqs_consistent = lockfile_reqs_check(
@@ -220,14 +361,14 @@ def consistency_check(config=None, die_on_error=False, output_instructions=False
         )
 
         env_consistent = env_check(config, die_on_error=die_on_error, output_instructions=output_instructions)
-        active_env_consistent = active_env_check(config, die_on_error=die_on_error, output_instructions=output_instructions, env_exists=env_consistent)
-
         if env_consistent:
+            logger.info(f"Found managed conda environment: {env_name}")
             env_lockfile_consistent, _ = env_lockfile_check(config, env_consistent=env_consistent, lockfile_consistent=lockfile_consistent, die_on_error=die_on_error, output_instructions=True)
+        active_env_consistent = active_env_check(config, die_on_error=die_on_error, output_instructions=output_instructions, env_exists=env_consistent)
 
     if not lockfile_consistent:
         print("")
-        logger.info("Lock file does not exist or is not consistent. To (re)generate and sync it:")
+        logger.info("The lock file does not exist or is not consistent. To (re)generate and sync it:")
         logger.info(">>> conda ops sync")
         print("")
     elif not lockfile_reqs_consistent:
@@ -235,6 +376,7 @@ def consistency_check(config=None, die_on_error=False, output_instructions=False
         logger.info("The lock file may not be in sync with the requirements.")
         logger.info("To sync the lock file and environment with the requirements:")
         logger.info(">>> conda ops sync")
+
         print("")
     elif not env_consistent:
         print("")

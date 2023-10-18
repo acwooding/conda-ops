@@ -9,6 +9,7 @@ from .commands_env import (
     env_activate,
     env_deactivate,
     env_regenerate,
+    env_clean_temp,
     env_create,
     env_delete,
     env_check,
@@ -45,7 +46,8 @@ def conda_ops(argv: list):
     lockfile = subparsers.add_parser("lockfile", help="Additional operations for managing the lockfile. Accepts generate, check, reqs-check.", parents=[parent_parser])
     lockfile.add_argument("kind", choices=["generate", "check", "reqs-check"])
     env = subparsers.add_parser("env", help="Additional operations for managing the environment. Accepts create, install, delete, regenerate, check, lockfile-check.", parents=[parent_parser])
-    env.add_argument("kind", choices=["create", "delete", "activate", "deactivate", "check", "lockfile-check", "regenerate", "install"])
+    env.add_argument("kind", choices=["create", "delete", "activate", "deactivate", "check", "lockfile-check", "regenerate", "install", "clean"])
+    env.add_argument("-n", "--name", dest="env_name", nargs=1, type=str)
 
     # hidden parser for testing purposes
     subparsers.add_parser("test")
@@ -65,15 +67,12 @@ def conda_ops(argv: list):
         else:
             condaops_config_manage(argv, args, config=config)
     elif args.command == "init":
-        proj_create()
-        config = proj_load()
-        condarc_create(config=config)
-        if not config["paths"]["requirements"].exists():
-            reqs_create(config=config)
-        else:
-            logger.info("Requirements file already exists")
+        config, overwrite = proj_create()
+        condarc_create(config=config, overwrite=overwrite)
+        reqs_create(config=config)
     elif args.command == "add":
-        reqs_add(args.packages, channel=args.channel, config=config)
+        packages = args.packages + args.other_packages
+        reqs_add(packages, config=config)
         logger.info("To update the lockfile and environment with the additional packages:")
         logger.info(">>> conda ops sync")
     elif args.command == "remove":
@@ -81,7 +80,8 @@ def conda_ops(argv: list):
         logger.info("To update the lockfile and environment with the removal of packages:")
         logger.info(">>> conda ops sync")
     elif args.command == "install":
-        reqs_add(args.packages, channel=args.channel, config=config)
+        packages = args.packages + args.other_packages
+        reqs_add(packages, config=config)
         sync_complete = sync(config, force=args.force)
         if sync_complete:
             logger.info("Packages installed.")
@@ -102,7 +102,7 @@ def conda_ops(argv: list):
         if args.kind == "generate":
             lockfile_generate(config, regenerate=True)
         elif args.kind == "check":
-            check = lockfile_check(config)
+            check, _ = lockfile_check(config)
             if check:
                 logger.info("Lockfile is consistent")
         elif args.kind == "reqs-check":
@@ -127,6 +127,11 @@ def conda_ops(argv: list):
             env_check(config)
         elif args.kind == "lockfile-check":
             env_lockfile_check(config)
+        elif args.kind == "clean":
+            if args.env_name is not None:
+                env_clean_temp(env_base_name=args.env_name[0])
+            else:
+                env_clean_temp(config=config)
     elif args.command == "test":
         check_condarc_matches_opinions(config=config)
     elif args.reqs_command == "create":
@@ -153,6 +158,85 @@ def conda_ops(argv: list):
 
 # #############################################################################################
 #
+# custom actions
+#
+# #############################################################################################
+class ParseChannels(argparse.Action):
+    def __init__(self, option_strings, dest, nargs=None, const=None, default=None, type=None, choices=None, required=False, help=None, metavar=None):
+        argparse.Action.__init__(
+            self,
+            option_strings=option_strings,
+            dest=dest,
+            nargs=nargs,
+            const=const,
+            default=default,
+            type=type,
+            choices=choices,
+            required=required,
+            help=help,
+            metavar=metavar,
+        )
+        for name, value in sorted(locals().items()):
+            if name == "self" or value is None:
+                continue
+        return
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        return_values = getattr(namespace, self.dest)
+        channel_name = values[0]
+
+        n = 1
+        if len(values) > n:
+            for i, package in enumerate(values[n:]):
+                # check if the channel is specified directly
+                # this breaks the -c pattern and returns it to normal package
+                # parsing
+                if "::" in package:
+                    return_values += values[i + n :]
+                    break
+                return_values.append(f"{channel_name}::{package}")
+        setattr(namespace, self.dest, return_values)
+
+
+class ParsePip(argparse.Action):
+    def __init__(self, option_strings, dest, nargs=None, const=None, default=None, type=None, choices=None, required=False, help=None, metavar=None):
+        argparse.Action.__init__(
+            self,
+            option_strings=option_strings,
+            dest=dest,
+            nargs=nargs,
+            const=const,
+            default=default,
+            type=type,
+            choices=choices,
+            required=required,
+            help=help,
+            metavar=metavar,
+        )
+        for name, value in sorted(locals().items()):
+            if name == "self" or value is None:
+                continue
+        return
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        channel_name = "pip"
+        return_values = getattr(namespace, self.dest)
+        if len(values) > 0:
+            for i, package in enumerate(values):
+                # check if the channel is specified directly
+                # as :: breaks the --pip pattern
+                if "::" in package:
+                    return_values += values[i + n :]
+                    break
+                elif "-e" in option_string:
+                    return_values.append(f"-e {channel_name}::{package}")
+                else:
+                    return_values.append(f"{channel_name}::{package}")
+        setattr(namespace, self.dest, return_values)
+
+
+# #############################################################################################
+#
 # sub-parsers
 #
 # #############################################################################################
@@ -161,12 +245,31 @@ def conda_ops(argv: list):
 def configure_parser_add(subparsers, parents):
     descr = "Add packages to the requirements file."
     p = subparsers.add_parser("add", description=descr, help=descr, parents=parents)
-    p.add_argument("packages", type=str, nargs="+")
+    p.add_argument("packages", type=str, nargs="*", default=[], action="extend")
     p.add_argument(
         "-c",
         "--channel",
-        help="Indicates the channel that the added packages are coming from, set the channel to 'pip' \
-        if the packages you are adding are to be installed via pip",
+        nargs="+",
+        dest="other_packages",
+        default=[],
+        action=ParseChannels,
+        help="Indicates the channel that the added packages that follow are coming from, that is, `-c c1 p1 p2` indicates that packages p1 and p2 come from channel c1",
+    )
+    p.add_argument(
+        "--pip",
+        nargs="+",
+        default=[],
+        dest="other_packages",
+        action=ParsePip,
+        help="Indicates that the packages following it are from pip, that is, `--pip p1 p2` indicates that the pacakges p1 and p2 should be added to the pip section",
+    )
+    p.add_argument(
+        "-e",
+        nargs=1,
+        default=[],
+        dest="other_packages",
+        action=ParsePip,
+        help="Indicates that the package that follows should be installed via pip with the editable option, that is `-e p1` means that the package p1 should be installed by pip in editable mode",
     )
     return p
 
@@ -180,12 +283,31 @@ def configure_parser_init(subparsers, parents):
 def configure_parser_install(subparsers, parents):
     descr = "Add packages to the requirements file and sync the environment and lockfile."
     p = subparsers.add_parser("install", description=descr, help=descr, parents=parents)
-    p.add_argument("packages", type=str, nargs="+")
+    p.add_argument("packages", type=str, nargs="+", default=[], action="extend")
     p.add_argument(
         "-c",
         "--channel",
-        help="Indicates the channel that the added packages are coming from, set the channel to 'pip' \
-        if the packages you are adding are to be installed via pip",
+        nargs="+",
+        dest="other_packages",
+        default=[],
+        action=ParseChannels,
+        help="Indicates the channel that the added packages that follow are coming from, that is, `-c c1 p1 p2` indicates that pacakges p1 and p2 come from channel c1",
+    )
+    p.add_argument(
+        "--pip",
+        nargs="+",
+        default=[],
+        action=ParsePip,
+        dest="other_packages",
+        help="Indicates that the packages following it are from pip, that is, `--pip p1 p2` indicates that the pacakges p1 and p2 should be added to the pip section",
+    )
+    p.add_argument(
+        "-e",
+        nargs=1,
+        default=[],
+        action=ParsePip,
+        dest="other_packages",
+        help="Indicates that the package that follows should be installed via pip with the editable option, that is `-e p1` means that the package p1 should be installed by pip in editable mode",
     )
     p.add_argument("-f", "--force", action="store_true", help="Force the lock file and environment to be recreated.")
     return p

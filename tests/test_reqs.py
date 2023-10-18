@@ -66,7 +66,7 @@ def test_reqs_add_pip(setup_config_files):
     and then check if the package was correctly added.
     """
     config = setup_config_files
-    reqs_add(["flask", "git+https://github.com/lmcinnes/pynndescent.git", "-e ."], channel="pip", config=config)
+    reqs_add(["pip::flask", "pip::git+https://github.com/lmcinnes/pynndescent.git", "-e pip::."], config=config)
     reqs = yaml.load(config["paths"]["requirements"].open())
     conda_reqs, pip_dict = pop_pip_section(reqs["dependencies"])
     assert "flask" not in conda_reqs
@@ -82,7 +82,7 @@ def test_reqs_remove_pip(setup_config_files):
     remove it, and then check if the package was correctly removed.
     """
     config = setup_config_files
-    reqs_add(["flask", "git+https://github.com/lmcinnes/pynndescent.git", "-e ."], channel="pip", config=config)
+    reqs_add(["pip::flask", "pip::git+https://github.com/lmcinnes/pynndescent.git", "-e pip::."], config=config)
     reqs_remove(["flask", "git+https://github.com/lmcinnes/pynndescent.git", "-e ."], config=config)
     reqs = yaml.load(config["paths"]["requirements"].open())
     conda_reqs, pip_dict = pop_pip_section(reqs["dependencies"])
@@ -97,7 +97,7 @@ def test_reqs_add_conda_forge(setup_config_files):
     and then check if the package was correctly added.
     """
     config = setup_config_files
-    reqs_add(["pylint"], channel="conda-forge", config=config)
+    reqs_add(["conda-forge::pylint"], config=config)
     reqs = yaml.load(config["paths"]["requirements"].open())
     assert "conda-forge::pylint" in reqs["dependencies"]
     assert "conda-forge" in reqs["channels"]
@@ -111,7 +111,7 @@ def test_reqs_remove_conda_forge(setup_config_files):
     """
     config = setup_config_files
     reqs_file = config["paths"]["requirements"]
-    reqs_add(["pylint"], channel="conda-forge", config=config)
+    reqs_add(["conda-forge::pylint"], config=config)
     reqs_remove(["pylint"], config=config)
     reqs = yaml.load(reqs_file.open())
     assert "conda-forge::pylint" not in reqs["dependencies"]
@@ -185,7 +185,7 @@ def test_reqs_add_equals_pip(setup_config_files):
     with an equals sign.
     """
     config = setup_config_files
-    reqs_add(["black=22"], config=config, channel="pip")
+    reqs_add(["pip::black=22"], config=config)
     reqs = yaml.load(config["paths"]["requirements"].open())
     conda_reqs, pip_dict = pop_pip_section(reqs["dependencies"])
 
@@ -271,15 +271,20 @@ def test_clean_package_args():
     """
     Test that package_args works as expected.
     """
-    test_paths = ["-e .", "/my/file/path", "git+https://my/url"]
-    assert clean_package_args(test_paths, channel="pip") == test_paths
+    test_paths_input = ["-e pip::.", "pip::/my/file/path", "pip::git+https://my/url"]
+    test_paths_output = ["-e .", "/my/file/path", "git+https://my/url"]
+    assert sorted([x.to_reqs_entry() for x in clean_package_args(test_paths_input)]) == sorted(test_paths_output)
 
     # test different channels
     for channel in ["pip", "conda-forge", None]:
         # valid list to be altered
-        package_args = ["numpy pandas", "black=22 ", " python=3.11"]
+        package_args = ["numpy", "pandas", "black=22 ", " python=3.11"]
+        if channel is not None:
+            channel_package_args = [f"{channel}::{package.strip()}" for package in package_args]
+        else:
+            channel_package_args = package_args
 
-        clean_packages = clean_package_args(package_args, channel=channel)
+        clean_packages = sorted([x.to_reqs_entry() for x in clean_package_args(channel_package_args)])
         if channel == "pip":
             assert clean_packages == sorted(["python==3.11", "numpy", "pandas", "black==22"])
         elif channel == "conda-forge":

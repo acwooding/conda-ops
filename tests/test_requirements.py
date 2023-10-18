@@ -116,7 +116,77 @@ def test_to_explicit():
     ]
 
 
-def test_package_parsing():
+def test_packagespec_parsing():
     p = PackageSpec("git+https://github.com/lmcinnes/pynndescent.git", manager="pip")
     assert p.spec == "git+https://github.com/lmcinnes/pynndescent.git"
     assert str(p) == "git+https://github.com/lmcinnes/pynndescent.git"
+    assert p.channel == p.manager == "pip"
+
+    p = PackageSpec("pip::git+https://github.com/lmcinnes/pynndescent.git")
+    assert p.spec == "pip::git+https://github.com/lmcinnes/pynndescent.git"
+    assert p.to_reqs_entry() == "git+https://github.com/lmcinnes/pynndescent.git"
+    assert str(p) == "git+https://github.com/lmcinnes/pynndescent.git"
+    assert p.channel == p.manager == "pip"
+
+    p = PackageSpec("-e pip::git+https://github.com/lmcinnes/pynndescent.git")
+    assert p.spec == "-e pip::git+https://github.com/lmcinnes/pynndescent.git"
+    assert p.to_reqs_entry() == "-e git+https://github.com/lmcinnes/pynndescent.git"
+    assert str(p) == "-e git+https://github.com/lmcinnes/pynndescent.git"
+    assert p.channel == p.manager == "pip"
+
+    package = "channel1::package1"
+    p = PackageSpec(package)
+    assert p.spec == package
+    assert p.to_reqs_entry() == package
+    assert str(p) == package
+    assert p.channel == "channel1"
+    assert p.manager == "conda"
+
+    package = "defaults::package1"
+    p = PackageSpec(package)
+    assert p.spec == package
+    assert p.to_reqs_entry() == "package1"
+    assert str(p) == package
+    assert p.channel == "defaults"
+    assert p.manager == "conda"
+
+    package = "package1"
+    p = PackageSpec(package)
+    assert p.spec == package
+    assert p.to_reqs_entry() == "package1"
+    assert str(p) == package
+    assert p.channel == "defaults"
+    assert p.manager == "conda"
+
+
+def test_lockfile_lookup_parsing(setup_config_files):
+    config = setup_config_files
+
+    info_dict = json.loads(
+        """{
+        "channel": "pypi",
+        "editable": true,
+        "hash": {
+            "sha256": null
+        },
+        "manager": "pip",
+        "name": "my-package",
+        "pip_name": "my-package",
+        "platform": "osx-64",
+        "requested": true,
+        "url": "file:///base_path/directory",
+        "version": "1.0"
+    }"""
+    )
+
+    lock_spec = LockSpec(info_dict)
+
+    lock_entry = lock_spec.to_lock_entry(config=config)
+    assert "local://my-package" == lock_entry["url"]
+    assert "file" not in lock_entry["url"]
+
+    spec_from_lock = LockSpec.from_lock_entry(lock_entry, config=config)
+    assert spec_from_lock.url == info_dict["url"]
+
+    for k, v in spec_from_lock.info_dict.items():
+        assert v == lock_spec.info_dict[k]
