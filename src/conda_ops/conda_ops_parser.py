@@ -111,22 +111,22 @@ def conda_ops(argv: list):
                 logger.info("Lockfile and requirements are consistent")
     elif args.command == "env":
         if args.kind == "create":
-            env_create(config)
+            env_create(config=config)
         if args.kind == "regenerate":
             env_regenerate(config=config)
         elif args.kind == "install":
-            env_install(config)
+            env_install(config=config)
         elif args.kind == "delete":
-            env_delete(config)
+            env_delete(config=config)
             logger.info("Conda ops environment deleted.")
         elif args.kind == "activate":
             env_activate(config=config)
         elif args.kind == "deactivate":
             env_deactivate(config)
         elif args.kind == "check":
-            env_check(config)
+            env_check(config=config)
         elif args.kind == "lockfile-check":
-            env_lockfile_check(config)
+            env_lockfile_check(config=config)
         elif args.kind == "clean":
             if args.env_name is not None:
                 env_clean_temp(env_base_name=args.env_name[0])
