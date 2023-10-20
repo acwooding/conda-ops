@@ -107,7 +107,8 @@ conda ops config --set solver libmamba
 ```
 Libmamba is especially useful if your environment isn't solving since it gives much better error messages (and quickly) about what's going on.
 
-
+### Requirements File
+`conda-ops` uses an `environment.yml` file as its requirements file. If you have an existing `environment.yml` file in your repo when you initialize a conda ops project (`conda ops init`), it will automatically pick up the existing file and use it. Furthermore, if there are any additions or changes that need to be made to make it compatible with `conda-ops` (namely, channels, if used, must all be specified in the section `channels` in order of preference), you will be prompted to have the file updated accordingly.
 
 ## Development Requirements: Testing and Linting
 To set up testing or linting, you'll need the depedencies specified under `[project.optional-dependencies]` in the `pyproject.toml` installed into your environment.

@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import shutil
 import sys
+import time
 
 # from conda.cli.main_info import get_info_dict
 
@@ -322,7 +323,10 @@ def sync(config, regenerate_lockfile=True, force=False):
                     input_value = "y"
                 if input_value == "y":
                     logger.info("Regenerating the environment")
-                    env_regenerate(config=config)
+                    # attempt to figure out what's making this delete step fail
+                    time.sleep(5)
+                    env_delete(config=config, env_exists=True)
+                    env_create(config=config)
                     complete = True
                 else:
                     logger.warning("Unable to complete the sync. Please make any desired changes and then try again.")

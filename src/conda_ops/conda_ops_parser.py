@@ -137,7 +137,7 @@ def conda_ops(argv: list):
     elif args.reqs_command == "create":
         reqs_create(config)
     elif args.reqs_command == "add":
-        reqs_add(args.packages, channel=args.channel, config=config)
+        reqs_add(args.packages, config=config)
         logger.info("To update the lock file:")
         logger.info(">>> conda ops sync")
     elif args.reqs_command == "remove":
@@ -339,14 +339,7 @@ def configure_parser_reqs(subparsers, parents):
     p = subparsers.add_parser("reqs", help=descr, parents=parents)
     reqs_subparser = p.add_subparsers(dest="reqs_command", metavar="reqs_command")
     reqs_subparser.add_parser("create")
-    r_add = reqs_subparser.add_parser("add")
-    r_add.add_argument("packages", type=str, nargs="+")
-    r_add.add_argument(
-        "-c",
-        "--channel",
-        help="indicate the channel that the packages are coming from, set this to 'pip' \
-        if the packages you are adding are to be installed via pip",
-    )
+    r_add = configure_parser_add(reqs_subparser, parents)
     r_remove = reqs_subparser.add_parser("remove")
     r_remove.add_argument("packages", type=str, nargs="+")
     reqs_subparser.add_parser("check")
