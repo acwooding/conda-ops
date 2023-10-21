@@ -8,7 +8,7 @@ DIST_DIR = dist
 PYTEST_CMD = pytest
 TEST_ENV = conda-ops-test-env
 DIST_FILES = $(DIST_DIR)/$(PACKAGE_NAME)-*.tar.gz $(DIST_DIR)/$(WHEEL_NAME)-*.whl
-VERSION = "0.3rc3"
+VERSION = "0.3rc4"
 
 .PHONY: local-test
 ## Build, install and test locally
@@ -27,7 +27,7 @@ pre-release-test: local-test pypi-test
 release: upload uninstall install-pypi test uninstall
 
 .PHONY: clean
-## Clean up temporary files
+## Delete distribution files
 clean:
 	rm -rf $(DIST_DIR)
 
