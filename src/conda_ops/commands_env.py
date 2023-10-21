@@ -624,19 +624,19 @@ def env_install(config=None):
     delete_explicit_lock_files(config)
 
 
-def env_delete(config=None, env_name=None):
+def env_delete(config=None, env_name=None, env_exists=None):
     """
     Deleted the conda ops managed conda environment (aka. conda remove -n env_name --all)
     """
     if env_name is None:
         env_name = config["settings"]["env_name"]
+    if env_exists is None:
+        env_exists = check_env_exists(env_name)
 
-    env_exists = check_env_exists(env_name)
     if not env_exists:
         logger.warning(f"The conda environment {env_name} does not exist, and cannot be deleted.")
         logger.info("To create the environment:")
         logger.info(">>> conda ops env create")
-        # logger.info(">>> conda ops create")
     if check_env_active(env_name):
         logger.warning(f"The conda environment {env_name} is active, and cannot be deleted.")
         logger.info("To deactivate the environment:")
@@ -665,7 +665,7 @@ def env_regenerate(config=None, env_name=None, lock_file=None):
         logger.info(">>> conda deactivate")
         sys.exit(1)
 
-    env_delete(config=config, env_name=env_name)
+    env_delete(env_name=env_name)
     env_create(config=config, env_name=env_name, lock_file=lock_file)
 
 

@@ -111,22 +111,22 @@ def conda_ops(argv: list):
                 logger.info("Lockfile and requirements are consistent")
     elif args.command == "env":
         if args.kind == "create":
-            env_create(config)
+            env_create(config=config)
         if args.kind == "regenerate":
             env_regenerate(config=config)
         elif args.kind == "install":
-            env_install(config)
+            env_install(config=config)
         elif args.kind == "delete":
-            env_delete(config)
+            env_delete(config=config)
             logger.info("Conda ops environment deleted.")
         elif args.kind == "activate":
             env_activate(config=config)
         elif args.kind == "deactivate":
             env_deactivate(config)
         elif args.kind == "check":
-            env_check(config)
+            env_check(config=config)
         elif args.kind == "lockfile-check":
-            env_lockfile_check(config)
+            env_lockfile_check(config=config)
         elif args.kind == "clean":
             if args.env_name is not None:
                 env_clean_temp(env_base_name=args.env_name[0])
@@ -137,7 +137,7 @@ def conda_ops(argv: list):
     elif args.reqs_command == "create":
         reqs_create(config)
     elif args.reqs_command == "add":
-        reqs_add(args.packages, channel=args.channel, config=config)
+        reqs_add(args.packages, config=config)
         logger.info("To update the lock file:")
         logger.info(">>> conda ops sync")
     elif args.reqs_command == "remove":
@@ -339,14 +339,7 @@ def configure_parser_reqs(subparsers, parents):
     p = subparsers.add_parser("reqs", help=descr, parents=parents)
     reqs_subparser = p.add_subparsers(dest="reqs_command", metavar="reqs_command")
     reqs_subparser.add_parser("create")
-    r_add = reqs_subparser.add_parser("add")
-    r_add.add_argument("packages", type=str, nargs="+")
-    r_add.add_argument(
-        "-c",
-        "--channel",
-        help="indicate the channel that the packages are coming from, set this to 'pip' \
-        if the packages you are adding are to be installed via pip",
-    )
+    r_add = configure_parser_add(reqs_subparser, parents)
     r_remove = reqs_subparser.add_parser("remove")
     r_remove.add_argument("packages", type=str, nargs="+")
     reqs_subparser.add_parser("check")

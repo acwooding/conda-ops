@@ -8,13 +8,26 @@ DIST_DIR = dist
 PYTEST_CMD = pytest
 TEST_ENV = conda-ops-test-env
 DIST_FILES = $(DIST_DIR)/$(PACKAGE_NAME)-*.tar.gz $(DIST_DIR)/$(WHEEL_NAME)-*.whl
+VERSION = "0.3"
 
-.PHONY: all
-## Default target: build and test
-all: clean install-dist test uninstall
+.PHONY: local-test
+## Build, install and test locally
+local-test: clean install-dist test uninstall
+
+.PHONY: pypi-test
+## Build, upload to test pypi, install and test
+pypi-test: upload-test install-testpypi test uninstall
+
+.PHONY: pre-release-test
+## Build, install and test locally, then upload to test pypi, install and test
+pre-release-test: local-test pypi-test
+
+.PHONY: release
+## Upload to pypi, install and test the release
+release: upload uninstall install-pypi test uninstall
 
 .PHONY: clean
-## Clean up temporary files
+## Delete distribution files
 clean:
 	rm -rf $(DIST_DIR)
 
@@ -42,12 +55,12 @@ install-dist: build
 
 .PHONY: install-testpypi
 ## Install the TestPyPI version
-install-testpyi:
-	$(CONDA_EXE) run -n $(TEST_ENV) pip install --index-url "https://test.pypi.org/simple/" --no-deps $(PACKAGE_NAME)
+install-testpypi:
+	$(CONDA_EXE) run -n $(TEST_ENV) pip install --index-url "https://test.pypi.org/simple/" --no-deps $(PACKAGE_NAME)==$(VERSION)
 
 .PHONY: install-pypi
 ## Install the PyPI version
-install-testpyi:
+install-pypi:
 	$(CONDA_EXE) run -n $(TEST_ENV) pip install $(PACKAGE_NAME)
 
 .PHONY: install-dev

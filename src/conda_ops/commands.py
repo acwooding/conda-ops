@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import shutil
 import sys
+import time
 
 # from conda.cli.main_info import get_info_dict
 
@@ -303,7 +304,7 @@ def sync(config, regenerate_lockfile=True, force=False):
 
     env_name = config["settings"]["env_name"]
     if check_env_exists(env_name):
-        env_lockfile_consistent, regenerate = env_lockfile_check(config, lockfile_consistent=lockfile_consistent, die_on_error=False, output_instructions=False)
+        env_lockfile_consistent, regenerate = env_lockfile_check(config=config, lockfile_consistent=lockfile_consistent, die_on_error=False, output_instructions=False)
         if not env_lockfile_consistent and not (regenerate or force):
             logger.info(f"Updating the environment: {env_name} from the lock file")
             env_install(config=config)
@@ -322,7 +323,10 @@ def sync(config, regenerate_lockfile=True, force=False):
                     input_value = "y"
                 if input_value == "y":
                     logger.info("Regenerating the environment")
-                    env_regenerate(config)
+                    # attempt to figure out what's making this delete step fail
+                    time.sleep(5)
+                    env_delete(config=config, env_exists=True)
+                    env_create(config=config)
                     complete = True
                 else:
                     logger.warning("Unable to complete the sync. Please make any desired changes and then try again.")
