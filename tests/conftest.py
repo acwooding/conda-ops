@@ -31,7 +31,7 @@ def setup_config_files(shared_temp_dir):
             "pip_explicit_lockfile": ops_dir / "lockfile.pypi",
             "nohash_explicit_lockfile": ops_dir / "lockfile.nohash",
             "condarc": ops_dir / ".condarc",
-            "lockfile_url_lookup": ops_dir / "lockfile_url_lookup.ini",
+            "lockfile_url_lookup": ops_dir / "lockfile-local-url.ini",
             "gitignore": ops_dir / ".gitignore",
         },
         "settings": {

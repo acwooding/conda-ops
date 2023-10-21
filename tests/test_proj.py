@@ -123,7 +123,10 @@ def test_lockfile_url_lookup_gitignore(mocker, setup_config_files, shared_temp_d
     with open(gitignore_path, "r") as filehandle:
         gitignore_content = filehandle.readlines()
 
+    check = False
+    print(lockfile_url_lookup_path.name)
     for line in gitignore_content:
+        print(line)
         if fnmatch.fnmatch(lockfile_url_lookup_path.name, line.strip()):
-            return True
-    return False
+            check = True
+    assert check
