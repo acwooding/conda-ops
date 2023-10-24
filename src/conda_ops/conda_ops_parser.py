@@ -37,6 +37,7 @@ def conda_ops(argv: list):
     install = configure_parser_install(subparsers, parents=[parent_parser])
     uninstall = configure_parser_uninstall(subparsers, parents=[parent_parser])
     config_parser = configure_parser_config(subparsers, parents=[parent_parser])
+    status = subparsers.add_parser("status", help="Report on the status of the conda-ops project")
 
     activate = subparsers.add_parser("activate", add_help=False)
     activate.add_argument("kind", nargs=argparse.REMAINDER)

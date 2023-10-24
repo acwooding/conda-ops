@@ -114,3 +114,25 @@ def test_conda_ops_uninstall(setup_config_structure, shared_temp_dir):
     assert "flake8" not in reqs["dependencies"]
 
     assert consistency_check(config)
+
+
+def test_conda_ops_status(setup_config_structure, shared_temp_dir):
+    """
+    Check conda ops and conda ops status run and do the same thing
+    """
+    config = setup_config_structure
+
+    argv = ["conda", "ops", "status"]
+    result = subprocess.run(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=shared_temp_dir, text=True)
+    status_stdout = result.stdout
+    status_stderr = result.stderr
+    assert result.returncode == 0
+
+    argv = ["conda", "ops"]
+    result = subprocess.run(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=shared_temp_dir, text=True)
+    ops_stdout = result.stdout
+    ops_stderr = result.stderr
+
+    assert result.returncode == 0
+    assert status_stdout == ops_stdout
+    assert len(status_stdout) > 1

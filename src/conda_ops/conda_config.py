@@ -6,7 +6,7 @@ from conda.common.serialize import yaml_round_trip_load, yaml_round_trip_dump
 from conda.common.iterators import groupby_to_dict as groupby
 from conda.common.compat import isiterable
 
-from .utils import logger
+from .utils import logger, align_and_print_data
 from .python_api import run_command
 from .commands_proj import CondaOpsManagedCondarc
 
@@ -295,13 +295,14 @@ def condarc_create(rc_path=None, config=None, overwrite=False):
     sequence_parameters = grouped_paramaters["sequence"]
 
     rc_config = {}
+    differences = []
     for key in WHITELIST_CHANNEL + WHITELIST_SOLVER:
         if key in CONDAOPS_OPINIONS.keys():
             if key in sequence_parameters:
                 if list(param_dict[key]) != CONDAOPS_OPINIONS[key]:
-                    logger.warning(f"Setting conda-ops configuration of {key} to {CONDAOPS_OPINIONS[key]}, while existing default is {param_dict[key]}.")
+                    differences.append((key, CONDAOPS_OPINIONS[key], param_dict[key]))
             elif str(param_dict[key]) != str(CONDAOPS_OPINIONS[key]):
-                logger.warning(f"Setting conda-ops configuration of {key} to {CONDAOPS_OPINIONS[key]}, while existing default is {param_dict[key]}.")
+                differences.append((key, CONDAOPS_OPINIONS[key], param_dict[key]))
             rc_config[key] = CONDAOPS_OPINIONS[key]
         else:
             # Add in custom formatting
@@ -323,6 +324,10 @@ def condarc_create(rc_path=None, config=None, overwrite=False):
                     rc_config[key] = param_dict[key]
             else:
                 rc_config[key] = str(param_dict[key])
+    if len(differences) > 0:
+        logger.warning(f"The following configurations will be set differently in this conda-ops project than is currently set for conda:")
+        logger.info(align_and_print_data(differences, header=("Config Key", "Conda-ops", "Existing Default")))
+        logger.info("Use `conda ops config --set` to change these values if desired")
 
     with open(rc_path, "w") as rc:
         rc.write(yaml_round_trip_dump(rc_config))
