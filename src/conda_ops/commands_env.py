@@ -76,7 +76,7 @@ def env_create(config=None, env_name=None, lock_file=None):
             prefix = get_prefix(env_name)
             with CondaOpsManagedCondarc(config["paths"]["condarc"]):
                 conda_args = ["--prefix", prefix, "--file", str(explicit_lock_file)]
-                stdout, stderr, result_code = run_command("create", conda_args)
+                stdout, stderr, result_code = run_command("create", conda_args, stdout=None)
                 if result_code != 0:
                     logger.error(stdout)
                     logger.error(stderr)
@@ -92,7 +92,7 @@ def env_create(config=None, env_name=None, lock_file=None):
                 sys.stdout = capture_output = StringIO()
                 with redirect_stdout(capture_output):
                     conda_args = ["--prefix", get_prefix(env_name), "pip", "install", "-r", str(explicit_file), "--verbose", "--no-cache"]
-                    stdout, stderr, result_code = run_command("run", conda_args)
+                    stdout, stderr, result_code = run_command("run", conda_args, stdout=None)
                     if result_code != 0:
                         logger.error(stdout)
                         logger.error(stderr)
@@ -250,23 +250,21 @@ def conda_step_env_lock(channel, config, env_name=None):
     if check_env_exists(env_name):
         conda_args = ["--prefix", prefix, "-c", channel] + package_list
         with CondaOpsManagedCondarc(config["paths"]["condarc"]):
-            stdout, stderr, result_code = run_command("install", conda_args)
+            stdout, stderr, result_code = run_command("install", conda_args, stdout=None)
             if result_code != 0:
                 logger.error(stdout)
                 logger.error(stderr)
                 return None
-            print(stdout)
     else:
         # create the environment directly
         logger.debug(f"Creating environment {env_name} at {prefix} ")
         with CondaOpsManagedCondarc(config["paths"]["condarc"]):
             conda_args = ["--prefix", prefix, "-c", channel] + package_list
-            stdout, stderr, result_code = run_command("create", conda_args, use_exception_handler=True)
+            stdout, stderr, result_code = run_command("create", conda_args, use_exception_handler=True, stdout=None)
             if result_code != 0:
                 logger.error(stdout)
                 logger.error(stderr)
                 return None
-            print(stdout)
 
     channel_lockfile = ops_dir / f".ops.lock.{channel}"
     json_reqs = env_lock(config=config, lock_file=channel_lockfile, env_name=env_name)
@@ -299,14 +297,13 @@ def pip_step_env_lock(channel, config, env_name=None, extra_pip_dict=None):
         sys.stdout = capture_output = StringIO()
         with redirect_stdout(capture_output):
             conda_args = ["--prefix", get_prefix(env_name), "pip", "install", "-r", str(reqs_file), "--no-cache", "--report", f"{temp_pip_file}"]
-            stdout, stderr, result_code = run_command("run", conda_args, use_exception_handler=True)
+            stdout, stderr, result_code = run_command("run", conda_args, use_exception_handler=True, stdout=None)
             if result_code != 0:
                 logger.error(stdout)
                 logger.error(stderr)
                 return None
         sys.stdout = stdout_backup
         stdout_str = capture_output.getvalue()
-        print(stdout_str)
 
     pip_dict = extract_pip_info(temp_pip_file, config=config)
     temp_pip_file.unlink(missing_ok=True)
@@ -598,12 +595,11 @@ def env_install(config=None):
         if str(explicit_file) == str(explicit_lock_file):
             with CondaOpsManagedCondarc(config["paths"]["condarc"]):
                 conda_args = ["--prefix", get_prefix(env_name), "--file", str(explicit_lock_file)]
-                stdout, stderr, result_code = run_command("install", conda_args)
+                stdout, stderr, result_code = run_command("install", conda_args, stdout=None)
                 if result_code != 0:
                     logger.error(stdout)
                     logger.error(stderr)
                     sys.exit(result_code)
-            print(stdout)
         else:
             logger.debug("Installing pip packages from lock file into the environment")
             # Workaround for the issue in conda version 23.5.0 (and greater?) see issues.
@@ -613,14 +609,13 @@ def env_install(config=None):
                 sys.stdout = capture_output = StringIO()
                 with redirect_stdout(capture_output):
                     conda_args = ["--prefix", get_prefix(env_name), "pip", "install", "-r", str(explicit_file), "--verbose", "--no-cache"]
-                    stdout, stderr, result_code = run_command("run", conda_args, use_exception_handler=True)
+                    stdout, stderr, result_code = run_command("run", conda_args, use_exception_handler=True, stdout=None)
                     if result_code != 0:
                         logger.error(stdout)
                         logger.error(stderr)
                         sys.exit(result_code)
                 sys.stdout = stdout_backup
                 stdout_str = capture_output.getvalue()
-                print(stdout_str)
     delete_explicit_lock_files(config)
 
 

@@ -1,7 +1,7 @@
-import os
+import json
 import re
 import sys
-from urllib.parse import urlparse
+import urllib
 
 from packaging.requirements import Requirement
 from conda.common.pkg_formats.python import pypi_name_to_conda_name, norm_package_name
@@ -237,12 +237,12 @@ class LockSpec:
     @classmethod
     def from_lock_entry(cls, lock_dict, config=None, lookup_file=None):
         lock_url = lock_dict.get("url", None)
-        url = urlparse(lock_url)
+        url = urllib.parse.urlparse(lock_url)
         if url.scheme == "local":
             url_lookup = load_url_lookup(config=config, lookup_file=lookup_file)
             try:
                 lock_dict["url"] = url_lookup.get(url.netloc)
-            except Exception as e:
+            except Exception:
                 lock_dict["url"] = ""
 
         return cls(lock_dict)
@@ -252,7 +252,7 @@ class LockSpec:
         Take an explicit string from `conda list --explicit --md5` and add the url and md5 fields
         """
         # check we're using a valid matching LockSpec
-        if self.manager != "conda" or not self.name in explicit_string:
+        if (self.manager != "conda") or (self.name not in explicit_string):
             logger.error(f"The explicit string {explicit_string} does not match the LockSpec {self}")
             sys.exit(1)
         md5_split = explicit_string.split("#")
@@ -363,7 +363,7 @@ class LockSpec:
         Note that this modifies or adds an entry into the lookup_file
         """
         lock_entry = self.info_dict
-        url = urlparse(self.url)
+        url = urllib.parse.urlparse(self.url)
         if url.scheme == "file":
             url_name = self.name
             url_lookup = load_url_lookup(config=config, lookup_file=lookup_file)
