@@ -6,7 +6,7 @@ from conda.common.serialize import yaml_round_trip_load, yaml_round_trip_dump
 from conda.common.iterators import groupby_to_dict as groupby
 from conda.common.compat import isiterable
 
-from .utils import logger
+from .utils import logger, align_and_print_data
 from .python_api import run_command
 from .commands_proj import CondaOpsManagedCondarc
 
@@ -44,6 +44,10 @@ WHITELIST_CHANNEL = [
     "repodata_threads",
     "restore_free_channel",
     "use_only_tar_bz2",
+]
+
+NEW_CHANNEL = [
+    "no_lock",
 ]
 
 # solver config settings that we want to keep track of
@@ -162,6 +166,11 @@ CONFIG_LIST = [
     "verify_threads",
 ]
 
+NEW_CONFIG = [
+    "register_envs",
+    "trace",
+]
+
 
 ##################################################################
 #
@@ -170,7 +179,7 @@ CONFIG_LIST = [
 ##################################################################
 
 
-def check_config_items_match(config_map=None):
+def check_config_items_match(config_map=None, total_test=False):
     """
     Compare the built-in configuration lists with the conda configuration lists and determine if they match.
 
@@ -186,16 +195,20 @@ def check_config_items_match(config_map=None):
     # check the whitelist sections
     whitelist_categories = ["Channel Configuration", "Solver Configuration"]
 
-    channel_match = sorted(WHITELIST_CHANNEL) == sorted(list(config_map["Channel Configuration"]))
+    channel_match = sorted(WHITELIST_CHANNEL + NEW_CHANNEL) == sorted(list(config_map["Channel Configuration"]))
     if not channel_match:
         conda_set = set(config_map["Channel Configuration"])
-        ops_set = set(WHITELIST_CHANNEL)
+        ops_set = set(WHITELIST_CHANNEL + NEW_CHANNEL)
         extra_conda = conda_set.difference(ops_set)
         extra_ops = ops_set.difference(conda_set)
+        # allow for older versions of conda
+        extra_ops = extra_ops.difference(set(NEW_CHANNEL))
+        if len(extra_conda) == 0 and len(extra_ops) == 0:
+            channel_match = True
         if len(extra_conda) > 0:
-            logger.warning(f"The following channel configurations are in conda but not being tracked: {list(extra_conda)}")
+            logger.debug(f"The following channel configurations are in conda but not being tracked: {list(extra_conda)}")
         if len(extra_ops) > 0:
-            logger.warning(f"The following channel configurations are missing from conda: {list(extra_ops)}")
+            logger.debug(f"The following channel configurations are missing from conda: {list(extra_ops)}")
 
     solver_match = sorted(WHITELIST_SOLVER) == sorted(list(config_map["Solver Configuration"]))
     if not solver_match:
@@ -204,12 +217,12 @@ def check_config_items_match(config_map=None):
         extra_conda = conda_set.difference(ops_set)
         extra_ops = ops_set.difference(conda_set)
         if len(extra_conda) > 0:
-            logger.warning(f"The following solver configurations are in conda but not being tracked: {list(extra_conda)}")
+            logger.debug(f"The following solver configurations are in conda but not being tracked: {list(extra_conda)}")
         if len(extra_ops) > 0:
-            logger.warning(f"The following solver configurations are missing from conda: {list(extra_ops)}")
+            logger.debug(f"The following solver configurations are missing from conda: {list(extra_ops)}")
 
     # check everything else
-    config_list = set(CONFIG_LIST) - set(WHITELIST_CHANNEL + WHITELIST_SOLVER)
+    config_list = set(CONFIG_LIST + NEW_CONFIG) - set(WHITELIST_CHANNEL + WHITELIST_SOLVER)
     total_config = []
     for category, parameter_names in config_map.items():
         if category not in whitelist_categories:
@@ -220,11 +233,18 @@ def check_config_items_match(config_map=None):
         ops_set = set(config_list)
         extra_conda = conda_set.difference(ops_set)
         extra_ops = ops_set.difference(conda_set)
+        # allow for older versions of conda
+        extra_ops = extra_ops.difference(set(NEW_CONFIG))
+        if len(extra_conda) == 0 and len(extra_ops) == 0:
+            total_match = True
         if len(extra_conda) > 0:
-            logger.warning(f"The following configurations are in conda but unrecognized by conda-ops: {list(extra_conda)}")
+            logger.debug(f"The following configurations are in conda but unrecognized by conda-ops: {list(extra_conda)}")
         if len(extra_ops) > 0:
-            logger.warning(f"The following configurations settings are missing from conda: {list(extra_ops)}")
-    return channel_match and solver_match
+            logger.debug(f"The following configurations settings are missing from conda: {list(extra_ops)}")
+    if total_test:
+        return channel_match and solver_match and total_match
+    else:
+        return channel_match and solver_match
 
 
 def check_condarc_matches_opinions(rc_path=None, config=None, die_on_error=True):
@@ -295,13 +315,14 @@ def condarc_create(rc_path=None, config=None, overwrite=False):
     sequence_parameters = grouped_paramaters["sequence"]
 
     rc_config = {}
+    differences = []
     for key in WHITELIST_CHANNEL + WHITELIST_SOLVER:
         if key in CONDAOPS_OPINIONS.keys():
             if key in sequence_parameters:
-                if list(param_dict[key]) != CONDAOPS_OPINIONS[key]:
-                    logger.warning(f"Setting conda-ops configuration of {key} to {CONDAOPS_OPINIONS[key]}, while existing default is {param_dict[key]}.")
-            elif str(param_dict[key]) != str(CONDAOPS_OPINIONS[key]):
-                logger.warning(f"Setting conda-ops configuration of {key} to {CONDAOPS_OPINIONS[key]}, while existing default is {param_dict[key]}.")
+                if list(param_dict.get(key)) != CONDAOPS_OPINIONS[key]:
+                    differences.append((key, CONDAOPS_OPINIONS[key], param_dict.get(key)))
+            elif str(param_dict.get(key)) != str(CONDAOPS_OPINIONS[key]):
+                differences.append((key, CONDAOPS_OPINIONS[key], param_dict.get(key)))
             rc_config[key] = CONDAOPS_OPINIONS[key]
         else:
             # Add in custom formatting
@@ -311,18 +332,22 @@ def condarc_create(rc_path=None, config=None, overwrite=False):
             elif key == "custom_multichannels":
                 rc_config["custom_multichannels"] = {multichannel_name: [str(x) for x in channels] for multichannel_name, channels in param_dict["custom_multichannels"].items()}
             elif key == "channel_alias":
-                rc_config[key] = str(param_dict[key])
-            elif isinstance(param_dict[key], Mapping):
-                rc_config[key] = {str(k): str(v) for k, v in param_dict[key].items()}
-            elif isiterable(param_dict[key]):
-                rc_config[key] = [str(x) for x in param_dict[key]]
-            elif isinstance(param_dict[key], bool) or param_dict[key] is None:
+                rc_config[key] = str(param_dict.get(key))
+            elif isinstance(param_dict.get(key), Mapping):
+                rc_config[key] = {str(k): str(v) for k, v in param_dict.get(key).items()}
+            elif isiterable(param_dict.get(key)):
+                rc_config[key] = [str(x) for x in param_dict.get(key)]
+            elif isinstance(param_dict.get(key), bool) or param_dict.get(key) is None:
                 if key == "repodata_threads":
                     rc_config[key] = 0
                 else:
-                    rc_config[key] = param_dict[key]
+                    rc_config[key] = param_dict.get(key)
             else:
-                rc_config[key] = str(param_dict[key])
+                rc_config[key] = str(param_dict.get(key))
+    if len(differences) > 0:
+        logger.warning(f"The following configurations will be set differently in this conda-ops project than is currently set for conda:")
+        logger.info(align_and_print_data(differences, header=("Config Key", "Conda-ops", "Existing Default")))
+        logger.info("Use `conda ops config --set` to change these values if desired")
 
     with open(rc_path, "w") as rc:
         rc.write(yaml_round_trip_dump(rc_config))

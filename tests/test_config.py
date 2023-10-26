@@ -16,7 +16,7 @@ def test_check_config_items_match_mocked(mocker):
     mocker.patch("conda_ops.conda_config.WHITELIST_CHANNEL", ["param1", "param2"])
     mocker.patch("conda_ops.conda_config.WHITELIST_SOLVER", ["param3", "param4"])
     mocker.patch("conda_ops.conda_config.CONFIG_LIST", ["param5", "param6"])
-    mocker.patch.object(logger, "warning")
+    mocker.patch.object(logger, "debug")
 
     config_map = {"Channel Configuration": ["param1", "param2"], "Solver Configuration": ["param3", "param4"], "Other Category": ["param5", "param6"]}
 
@@ -25,11 +25,11 @@ def test_check_config_items_match_mocked(mocker):
 
     # Assert the expected outcome
     assert result is True
-    logger.warning.assert_not_called()
+    logger.debug.assert_not_called()
 
 
 def test_check_config_items_match_channel_mismatch(mocker):
-    mocker.patch.object(logger, "warning")
+    mocker.patch.object(logger, "debug")
 
     mocker.patch("conda_ops.conda_config.WHITELIST_CHANNEL", ["param1", "param2"])
     mocker.patch("conda_ops.conda_config.WHITELIST_SOLVER", ["param3", "param4"])
@@ -40,11 +40,11 @@ def test_check_config_items_match_channel_mismatch(mocker):
     result = check_config_items_match(config_map)
 
     assert result is False
-    logger.warning.assert_called_with("The following channel configurations are in conda but not being tracked: ['extra_param']")
+    logger.debug.assert_called_with("The following channel configurations are in conda but not being tracked: ['extra_param']")
 
 
 def test_check_config_items_match_solver_mismatch(mocker):
-    mocker.patch.object(logger, "warning")
+    mocker.patch.object(logger, "debug")
 
     mocker.patch("conda_ops.conda_config.WHITELIST_CHANNEL", ["param1", "param2"])
     mocker.patch("conda_ops.conda_config.WHITELIST_SOLVER", ["param3", "param4"])
@@ -55,11 +55,11 @@ def test_check_config_items_match_solver_mismatch(mocker):
     result = check_config_items_match(config_map)
 
     assert result is False
-    logger.warning.assert_called_with("The following solver configurations are in conda but not being tracked: ['extra_param']")
+    logger.debug.assert_called_with("The following solver configurations are in conda but not being tracked: ['extra_param']")
 
 
 def test_check_config_items_match_total_mismatch(mocker):
-    mocker.patch.object(logger, "warning")
+    mocker.patch.object(logger, "debug")
 
     mocker.patch("conda_ops.conda_config.WHITELIST_CHANNEL", ["param1", "param2"])
     mocker.patch("conda_ops.conda_config.WHITELIST_SOLVER", ["param3", "param4"])
@@ -70,7 +70,7 @@ def test_check_config_items_match_total_mismatch(mocker):
     result = check_config_items_match(config_map)
 
     assert result is True
-    logger.warning.assert_called_with("The following configurations are in conda but unrecognized by conda-ops: ['extra_param']")
+    logger.debug.assert_called_with("The following configurations are in conda but unrecognized by conda-ops: ['extra_param']")
 
 
 def test_condarc_create(setup_config_files):
