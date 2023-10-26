@@ -8,7 +8,7 @@ DIST_DIR = dist
 PYTEST_CMD = pytest
 TEST_ENV = conda-ops-test-env
 DIST_FILES = $(DIST_DIR)/$(PACKAGE_NAME)-*.tar.gz $(DIST_DIR)/$(WHEEL_NAME)-*.whl
-VERSION = "0.3"
+VERSION = "0.4a1"
 
 .PHONY: local-test
 ## Build, install and test locally
@@ -61,7 +61,7 @@ install-testpypi:
 .PHONY: install-pypi
 ## Install the PyPI version
 install-pypi:
-	$(CONDA_EXE) run -n $(TEST_ENV) pip install $(PACKAGE_NAME)
+	$(CONDA_EXE) run -n $(TEST_ENV) pip install $(PACKAGE_NAME)==$(VERSION)
 
 .PHONY: install-dev
 ## Install the development version
