@@ -304,6 +304,7 @@ def pip_step_env_lock(channel, config, env_name=None, extra_pip_dict=None):
                 return None
         sys.stdout = stdout_backup
         stdout_str = capture_output.getvalue()
+        print(stdout_str)
 
     pip_dict = extract_pip_info(temp_pip_file, config=config)
     temp_pip_file.unlink(missing_ok=True)
@@ -616,6 +617,7 @@ def env_install(config=None):
                         sys.exit(result_code)
                 sys.stdout = stdout_backup
                 stdout_str = capture_output.getvalue()
+                print(stdout_str)
     delete_explicit_lock_files(config)
 
 
