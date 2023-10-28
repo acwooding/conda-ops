@@ -38,14 +38,14 @@ def env_activate(*, config=None, name=None):
 def env_deactivate(config):
     """Deactivate managed conda environment"""
     env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
-    env_name = env.name
+    env_name = env.display_name
     conda_info = get_conda_info()
     active_env = conda_info["active_prefix_name"]
 
-    if active_env != env_name:
-        logger.warning("The active environment is {active_env}, not the conda ops managed environment {env_name}")
+    if str(active_env) != str(env_name):
+        logger.warning(f"The active environment is {active_env}, not the conda ops managed environment {env_name}")
 
-    logger.info(f"To deactivate the environment {active_env}:")
+    logger.info(f"To deactivate the environment {env.relative_display_name}:")
     logger.info(">>> conda deactivate")
 
 
@@ -59,9 +59,9 @@ def env_create(config=None, env_name=None, lock_file=None):
         env = EnvObject(env_name=env_name)
 
     if env.exists():
-        logger.error(f"Environment {env.display_name} exists.")
+        logger.error(f"Environment {env.relative_display_name} exists.")
         logger.info("To activate it:")
-        logger.info(f">>> conda activate {env.display_name}")
+        logger.info(f">>> conda activate {env.relative_display_name}")
         sys.exit(1)
 
     if lock_file is None:
@@ -107,7 +107,7 @@ def env_create(config=None, env_name=None, lock_file=None):
 
     delete_explicit_lock_files(config)
     logger.info("Environment created. To activate the environment:")
-    logger.info(f">>> conda activate {env.display_name}")
+    logger.info(f">>> conda activate {env.relative_display_name}")
 
 
 def env_clean_temp(env_base_name=None, config=None):
@@ -334,16 +334,16 @@ def env_check(config=None, die_on_error=True, output_instructions=True):
 
     check = True
 
-    env_name = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"]).name
+    env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
 
     info_dict = get_conda_info()
     platform = info_dict["platform"]
 
     logger.debug(f"Conda platform: {platform}")
 
-    if not check_env_exists(env_name):
+    if not env.exists():
         check = False
-        logger.warning(f"Managed conda environment ('{env_name}') does not yet exist.")
+        logger.warning(f"Managed conda environment ('{env.relative_display_name}') does not yet exist.")
         if output_instructions:
             logger.info("To create it:")
             logger.info(">>> conda ops sync")
@@ -361,24 +361,26 @@ def active_env_check(config=None, die_on_error=True, output_instructions=True, e
 
     check = True
 
-    env_name = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"]).name
+    env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
 
     info_dict = get_conda_info()
     active_conda_env = info_dict["active_prefix_name"]
 
+    if Path(active_conda_env).exists():
+        active_conda_env = Path(active_conda_env).resolve().relative_to(Path.cwd())
     logger.info(f"Detected active conda environment: {active_conda_env}")
 
-    if check_env_active(env_name):
+    if env.active():
         pass
     else:
         check = False
         if env_exists is None:
             env_exists = env_check(config=config, die_on_error=die_on_error, output_instructions=output_instructions)
             if env_exists:
-                logger.warning(f"Managed conda environment ('{env_name}') exists but is not active.")
+                logger.warning(f"Managed conda environment ('{env.relative_display_name}') exists but is not active.")
                 if output_instructions:
                     logger.info("To activate it:")
-                    logger.info(f">>> conda activate {env_name}")
+                    logger.info(f">>> conda activate {env.relative_display_name}")
     if die_on_error and not check:
         sys.exit(1)
     return check
@@ -391,7 +393,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
     if config is None:
         config = proj_load()
 
-    env_name = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"]).name
+    env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
 
     if lockfile_consistent is None:
         lockfile_consistent, _ = lockfile_check(config, die_on_error=die_on_error)
@@ -422,10 +424,10 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
     check = True
     regenerate = False
 
-    logger.debug(f"Enumerating packages from the conda ops environment {env_name}")
+    logger.debug(f"Enumerating packages from the conda ops environment {env.relative_display_name}")
 
     with CondaOpsManagedCondarc(config["paths"]["condarc"]):
-        conda_args = ["--prefix", get_prefix(env_name), "--explicit", "--md5"]
+        conda_args = ["--prefix", env.prefix, "--explicit", "--md5"]
         stdout, stderr, result_code = run_command("list", conda_args, use_exception_handler=True)
         if result_code != 0:
             logger.error("Could not get packages from the environment")
@@ -437,7 +439,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
                 return False, True
 
     conda_set = {x for x in stdout.split("\n") if "https" in x}
-    logger.debug(f"Found {len(conda_set)} conda package(s) in environment: {env_name}")
+    logger.debug(f"Found {len(conda_set)} conda package(s) in environment: {env.relative_display_name}")
 
     # generate the explicit lock file and load it
     explicit_files = generate_explicit_lock_files(config)
@@ -464,7 +466,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
                 logger.info("To restore the environment to the state of the lock file")
                 logger.info(">>> conda deactivate")
                 logger.info(">>> conda ops sync")
-                logger.info(f">>> conda activate {env_name}")
+                logger.info(f">>> conda activate {env.relative_display_name}")
                 print("\n")
         if len(in_lock) > 0:
             logger.info("The following conda packages are in the lock file but not in the environment:")
@@ -477,13 +479,13 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
 
     # need to use a subprocess to ensure we get all of the pip package info
     with CondaOpsManagedCondarc(config["paths"]["condarc"]):
-        conda_args = ["--prefix", get_prefix(env_name), "--json"]
+        conda_args = ["--prefix", env.prefix, "--json"]
         result = subprocess.run(["conda", "list"] + conda_args, capture_output=True, check=False)
         result_code = result.returncode
         stdout = result.stdout
         stderr = result.stderr
         if result_code != 0:
-            logger.error(f"Could not get pip packages from the environment {env_name}")
+            logger.error(f"Could not get pip packages from the environment {env.relative_display_name}")
             logger.info(f"stdout: {stdout}")
             logger.info(f"stderr: {stderr}")
             if die_on_error:
@@ -497,7 +499,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
         if package["channel"] in ["pypi", "<develop>"]:
             conda_dict[package["name"]] = package["version"]
 
-    logger.debug(f"Found {len(conda_dict)} pip package(s) in environment: {env_name}")
+    logger.debug(f"Found {len(conda_dict)} pip package(s) in environment: {env.relative_display_name}")
 
     if len(explicit_files) > 1:
         env_pip_interop(config=config, flag=True)
@@ -540,7 +542,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
                     logger.info("To restore the environment to the state of the lock file")
                     logger.info(">>> conda deactivate")
                     logger.info(">>> conda ops sync")
-                    logger.info(f">>> conda activate {env_name}")
+                    logger.info(f">>> conda activate {env.relative_display_name}")
             if len(in_lock) > 0:
                 logger.info("\nThe following pip packages are in the lock file but not in the environment:\n")
                 logger.info(align_and_print_pip_packages(in_lock))
@@ -569,7 +571,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
             logger.info("To restore the environment to the state of the lock file")
             logger.info(">>> conda deactivate")
             logger.info(">>> conda ops sync")
-            logger.info(f">>> conda activate {env_name}")
+            logger.info(f">>> conda activate {env.relative_display_name}")
     else:
         logger.debug("Pip packages in environment and lock file are in sync.\n")
 
@@ -645,18 +647,22 @@ def env_delete(config=None, env_name=None, env_exists=None):
         logger.warning(f"The conda environment {env.display_name} does not exist, and cannot be deleted.")
         logger.info("To create the environment:")
         logger.info(">>> conda ops env create")
-    if check_env_active(env_name):
-        logger.warning(f"The conda environment {env.display_name} is active, and cannot be deleted.")
+        return False
+    if env.active():
+        logger.warning(f"The conda environment {env.relative_display_name} is active, and cannot be deleted.")
         logger.info("To deactivate the environment:")
         logger.info(">>> conda deactivate")
+        return False
     else:
-        logger.debug(f"Deleting the conda environment {env.display_name}")
+        logger.debug(f"Deleting the conda environment {env.relative_display_name}")
         # no context handling needed to delete an environment
         stdout, stderr, result_code = run_command("remove", "--prefix", env.prefix, "--all", use_exception_handler=True)
         if result_code != 0:
             logger.error(stdout)
             logger.error(stderr)
             sys.exit(result_code)
+        else:
+            return True
 
 
 def env_regenerate(config=None, env_name=None, lock_file=None):

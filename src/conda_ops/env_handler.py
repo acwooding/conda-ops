@@ -63,7 +63,7 @@ class EnvObject(object):
         json_output = get_conda_info()
 
         env_list = [Path(x) for x in json_output["envs"]]
-        env_prefix = Path(self.prefix)
+        env_prefix = Path(self.prefix).resolve()
         return env_prefix in env_list
 
     def active(self):
@@ -77,12 +77,28 @@ class EnvObject(object):
     @property
     def display_name(self):
         """
-        Return env name is it is in use, and prefix otherwise.
+        Return env name is it is in use, and the fully qualified prefix otherwise.
         """
         if self.name is None:
             return Path(self.prefix).resolve()
         elif len(self.name) < 1:
             return Path(self.prefix).resolve()
+        else:
+            return self.name
+
+    @property
+    def relative_display_name(self):
+        """
+        Return env name is it is in use, and the prefix relative to the cwd otherwise.
+        """
+        if self.name is None:
+            p = Path(self.prefix).resolve()
+            cwd = Path.cwd()
+            return p.relative_to(cwd)
+        elif len(self.name) < 1:
+            p = Path(self.prefix).resolve()
+            cwd = Path.cwd()
+            return p.relative_to(cwd)
         else:
             return self.name
 

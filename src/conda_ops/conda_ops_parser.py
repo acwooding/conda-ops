@@ -118,8 +118,9 @@ def conda_ops(argv: list):
         elif args.kind == "install":
             env_install(config=config)
         elif args.kind == "delete":
-            env_delete(config=config)
-            logger.info("Conda ops environment deleted.")
+            success = env_delete(config=config)
+            if success:
+                logger.info("Conda ops environment deleted.")
         elif args.kind == "activate":
             env_activate(config=config)
         elif args.kind == "deactivate":

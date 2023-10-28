@@ -99,7 +99,7 @@ def test_env_check_existing(setup_config_files, mocker, caplog):
     Test the env_check function when the environment exists but is not active.
     """
     config = setup_config_files
-    mocker.patch("conda_ops.commands_env.check_env_exists", return_value=True)
+    mocker.patch("conda_ops.env_handler.EnvObject.exists", return_value=True)
 
     # Call the env_check function
     # die_on_error by default
@@ -114,7 +114,7 @@ def test_env_check_non_existing(setup_config_files, mocker):
     Test the env_check function when the environment does not exist.
     """
     config = setup_config_files
-    mocker.patch("conda_ops.commands_env.check_env_exists", return_value=False)
+    mocker.patch("conda_ops.env_handler.EnvObject.exists", return_value=False)
 
     # Call the env_check function
     # die_on_error by default
@@ -129,7 +129,7 @@ def test_active_env_check_active(setup_config_files, mocker):
     Test the active_env_check function when the environment is active.
     """
     config = setup_config_files
-    mocker.patch("conda_ops.commands_env.check_env_active", return_value=True)
+    mocker.patch("conda_ops.env_handler.EnvObject.active", return_value=True)
 
     assert active_env_check(config, die_on_error=False) is True
 

@@ -26,7 +26,7 @@ from .commands_env import (
     env_regenerate,
     pip_step_env_lock,
 )
-from .env_handler import get_prefix, get_conda_info, CondaOpsManagedCondarc
+from .env_handler import get_prefix, get_conda_info, CondaOpsManagedCondarc, EnvObject
 from .conda_config import check_condarc_matches_opinions, check_config_items_match
 from .python_api import run_command
 from .requirements import load_url_lookup
@@ -354,7 +354,7 @@ def consistency_check(config=None, die_on_error=False, output_instructions=False
     config_match = check_config_items_match()
     config_opinions = check_condarc_matches_opinions(config=config, die_on_error=die_on_error)
 
-    env_name = config["env_settings"]["env_name"]
+    env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
 
     reqs_consistent = reqs_check(config, die_on_error=die_on_error)
     lockfile_consistent, _ = lockfile_check(config, die_on_error=die_on_error, output_instructions=output_instructions)
@@ -366,7 +366,7 @@ def consistency_check(config=None, die_on_error=False, output_instructions=False
 
         env_consistent = env_check(config, die_on_error=die_on_error, output_instructions=output_instructions)
         if env_consistent:
-            logger.info(f"Found managed conda environment: {env_name}")
+            logger.info(f"Found managed conda environment: {env.relative_display_name}")
             env_lockfile_consistent, _ = env_lockfile_check(config, env_consistent=env_consistent, lockfile_consistent=lockfile_consistent, die_on_error=die_on_error, output_instructions=True)
         active_env_consistent = active_env_check(config, die_on_error=die_on_error, output_instructions=output_instructions, env_exists=env_consistent)
 
@@ -384,21 +384,21 @@ def consistency_check(config=None, die_on_error=False, output_instructions=False
         print("")
     elif not env_consistent:
         print("")
-        logger.warning(f"Managed conda environment ('{env_name}') does not yet exist.")
+        logger.warning(f"Managed conda environment ('{env.relative_display_name}') does not yet exist.")
         logger.info("To create it:")
         logger.info(">>> conda ops sync")
         print("")
     elif not active_env_consistent:
         print("")
-        logger.warning(f"Managed conda environment ('{env_name}') exists but is not active.")
+        logger.warning(f"Managed conda environment ('{env.relative_display_name}') exists but is not active.")
         logger.info("To activate it:")
-        logger.info(f">>> conda activate {env_name}")
+        logger.info(f">>> conda activate {env.relative_display_name}")
         print("")
 
     # don't include not being active in the return value
     return_value = config_match and config_opinions and reqs_consistent and lockfile_consistent and env_consistent and lockfile_reqs_consistent and env_lockfile_consistent
     if return_value:
         print("")
-        logger.info(f"The conda ops project {env_name} is consistent")
+        logger.info(f"The conda ops environment {env.relative_display_name} is consistent")
         print("")
     return return_value
