@@ -34,8 +34,9 @@ def setup_config_files(shared_temp_dir):
             "lockfile_url_lookup": ops_dir / "lockfile-local-url.ini",
             "gitignore": ops_dir / ".gitignore",
         },
-        "settings": {
+        "env_settings": {
             "env_name": str(shared_temp_dir.name),
+            "prefix": "",
         },
     }
     requirements_dict = {

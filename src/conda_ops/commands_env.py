@@ -6,7 +6,8 @@ from io import StringIO
 from contextlib import redirect_stdout
 
 from .python_api import run_command
-from .commands_proj import proj_load, get_conda_info, CondaOpsManagedCondarc
+from .commands_proj import proj_load
+from .env_handler import get_conda_info, CondaOpsManagedCondarc, get_prefix, EnvObject, check_env_exists, check_env_active
 from .conda_config import env_pip_interop
 from .commands_lockfile import lockfile_check
 from .requirements import LockSpec, PackageSpec
@@ -21,7 +22,8 @@ from .utils import logger, align_and_print_data
 
 def env_activate(*, config=None, name=None):
     """Activate the managed environment"""
-    env_name = config["settings"]["env_name"]
+    env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
+    env_name = env.name
     if name is None:
         name = env_name
     if name != env_name:
@@ -35,8 +37,8 @@ def env_activate(*, config=None, name=None):
 
 def env_deactivate(config):
     """Deactivate managed conda environment"""
-
-    env_name = config["settings"]["env_name"]
+    env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
+    env_name = env.name
     conda_info = get_conda_info()
     active_env = conda_info["active_prefix_name"]
 
@@ -51,12 +53,15 @@ def env_create(config=None, env_name=None, lock_file=None):
     """
     Create the conda ops managed environment from the lock file
     """
-    if env_name is None:
-        env_name = config["settings"]["env_name"]
-    if check_env_exists(env_name):
-        logger.error(f"Environment {env_name} exists.")
+    if config is not None:
+        env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
+    elif env_name is not None:
+        env = EnvObject(env_name=env_name)
+
+    if env.exists():
+        logger.error(f"Environment {env.display_name} exists.")
         logger.info("To activate it:")
-        logger.info(f">>> conda activate {env_name}")
+        logger.info(f">>> conda activate {env.display_name}")
         sys.exit(1)
 
     if lock_file is None:
@@ -72,10 +77,9 @@ def env_create(config=None, env_name=None, lock_file=None):
     for explicit_file in explicit_files:
         explicit_lock_file = config["paths"]["explicit_lockfile"]
         if str(explicit_file) == str(explicit_lock_file):
-            logger.info(f"Creating the environment {env_name}")
-            prefix = get_prefix(env_name)
+            logger.info(f"Creating the environment {env.display_name}")
             with CondaOpsManagedCondarc(config["paths"]["condarc"]):
-                conda_args = ["--prefix", prefix, "--file", str(explicit_lock_file)]
+                conda_args = ["--prefix", env.prefix, "--file", str(explicit_lock_file)]
                 stdout, stderr, result_code = run_command("create", conda_args, stdout=None)
                 if result_code != 0:
                     logger.error(stdout)
@@ -91,7 +95,7 @@ def env_create(config=None, env_name=None, lock_file=None):
                 stdout_backup = sys.stdout
                 sys.stdout = capture_output = StringIO()
                 with redirect_stdout(capture_output):
-                    conda_args = ["--prefix", get_prefix(env_name), "pip", "install", "-r", str(explicit_file), "--verbose", "--no-cache"]
+                    conda_args = ["--prefix", env.prefix, "pip", "install", "-r", str(explicit_file), "--verbose", "--no-cache"]
                     stdout, stderr, result_code = run_command("run", conda_args, stdout=None)
                     if result_code != 0:
                         logger.error(stdout)
@@ -103,7 +107,7 @@ def env_create(config=None, env_name=None, lock_file=None):
 
     delete_explicit_lock_files(config)
     logger.info("Environment created. To activate the environment:")
-    logger.info(f">>> conda activate {env_name}")
+    logger.info(f">>> conda activate {env.display_name}")
 
 
 def env_clean_temp(env_base_name=None, config=None):
@@ -113,7 +117,7 @@ def env_clean_temp(env_base_name=None, config=None):
     if env_base_name is None:
         if config is None:
             config = proj_load()
-        env_base_name = config["settings"]["env_name"]
+        env_base_name = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"]).name
 
     envs_to_clean = []
     raw_test_env = env_base_name + "-lockfile-generate"
@@ -147,7 +151,7 @@ def env_lock(config, lock_file=None, env_name=None, pip_dict=None):
     Generate a lockfile from the contents of the environment.
     """
     if env_name is None:
-        env_name = config["settings"]["env_name"]
+        env_name = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"]).name
     if lock_file is None:
         lock_file = config["paths"]["lockfile"]
 
@@ -235,7 +239,7 @@ def conda_step_env_lock(channel, config, env_name=None):
     Given a conda channel from the channel order list, update the environment and generate a new lock file.
     """
     if env_name is None:
-        env_name = config["settings"]["env_name"]
+        env_name = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"]).name
     ops_dir = config["paths"]["ops_dir"]
 
     logger.info(f"Generating the intermediate lock file for channel:{channel}")
@@ -280,7 +284,7 @@ def pip_step_env_lock(channel, config, env_name=None, extra_pip_dict=None):
     # possibly set this at the first creation of the environment so it's always True
 
     if env_name is None:
-        env_name = config["settings"]["env_name"]
+        env_name = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"]).name
 
     env_pip_interop(config=config, flag=True)
 
@@ -330,7 +334,7 @@ def env_check(config=None, die_on_error=True, output_instructions=True):
 
     check = True
 
-    env_name = config["settings"]["env_name"]
+    env_name = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"]).name
 
     info_dict = get_conda_info()
     platform = info_dict["platform"]
@@ -357,7 +361,7 @@ def active_env_check(config=None, die_on_error=True, output_instructions=True, e
 
     check = True
 
-    env_name = config["settings"]["env_name"]
+    env_name = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"]).name
 
     info_dict = get_conda_info()
     active_conda_env = info_dict["active_prefix_name"]
@@ -387,7 +391,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
     if config is None:
         config = proj_load()
 
-    env_name = config["settings"]["env_name"]
+    env_name = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"]).name
 
     if lockfile_consistent is None:
         lockfile_consistent, _ = lockfile_check(config, die_on_error=die_on_error)
@@ -586,7 +590,7 @@ def env_install(config=None):
     if config is None:
         config = proj_load()
 
-    env_name = config["settings"]["env_name"]
+    env_name = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"]).name
     lock_file = config["paths"]["lockfile"]
     explicit_files = generate_explicit_lock_files(config, lock_file=lock_file)
 
@@ -625,23 +629,30 @@ def env_delete(config=None, env_name=None, env_exists=None):
     """
     Deleted the conda ops managed conda environment (aka. conda remove -n env_name --all)
     """
+    if config is not None:
+        env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
+    elif env_name is not None:
+        env = EnvObject(env_name=env_name)
+    else:
+        logger.error("One of config or env_name must be specified to env_delete")
+
     if env_name is None:
-        env_name = config["settings"]["env_name"]
+        env_name = env.name
     if env_exists is None:
-        env_exists = check_env_exists(env_name)
+        env_exists = env.exists()
 
     if not env_exists:
-        logger.warning(f"The conda environment {env_name} does not exist, and cannot be deleted.")
+        logger.warning(f"The conda environment {env.display_name} does not exist, and cannot be deleted.")
         logger.info("To create the environment:")
         logger.info(">>> conda ops env create")
     if check_env_active(env_name):
-        logger.warning(f"The conda environment {env_name} is active, and cannot be deleted.")
+        logger.warning(f"The conda environment {env.display_name} is active, and cannot be deleted.")
         logger.info("To deactivate the environment:")
         logger.info(">>> conda deactivate")
     else:
-        logger.debug(f"Deleting the conda environment {env_name}")
+        logger.debug(f"Deleting the conda environment {env.display_name}")
         # no context handling needed to delete an environment
-        stdout, stderr, result_code = run_command("remove", "--prefix", get_prefix(env_name), "--all", use_exception_handler=True)
+        stdout, stderr, result_code = run_command("remove", "--prefix", env.prefix, "--all", use_exception_handler=True)
         if result_code != 0:
             logger.error(stdout)
             logger.error(stderr)
@@ -655,7 +666,7 @@ def env_regenerate(config=None, env_name=None, lock_file=None):
     if lock_file is None:
         lock_file = config["paths"]["lockfile"]
     if env_name is None:
-        env_name = config["settings"]["env_name"]
+        env_name = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"]).name
 
     if check_env_active(env_name):
         logger.error(f"The environment {env_name} to be regenerated is active. Deactivate and try again.")
@@ -779,43 +790,6 @@ def extract_pip_info(json_input, config=None, platform=None):
         p_info = LockSpec.from_pip_report(package, platform=platform)
         package_dict[p_info.conda_name] = p_info.to_lock_entry()
     return package_dict
-
-
-def get_prefix(env_name):
-    """
-    When conda is in an environment, the prefix gets computed on top of the active environment prefix which
-    leads to odd behavious. Determine the prefix to use and pass that instead.
-    """
-    conda_info = get_conda_info()
-    active_prefix = conda_info["active_prefix"]
-    env_dirs = conda_info["envs_dirs"]
-    prefix = Path(env_dirs[0])
-    if active_prefix is not None:
-        if Path(env_dirs[0]) == Path(active_prefix) / "envs":
-            split = str(env_dirs[0]).split("envs")
-            prefix = Path(split[0]) / "envs"
-    return str(prefix / env_name)
-
-
-def check_env_exists(env_name):
-    """
-    Given the name of a conda environment, check if it exists
-    """
-    json_output = get_conda_info()
-
-    env_list = [Path(x) for x in json_output["envs"]]
-    env_prefix = Path(get_prefix(env_name))
-    return env_prefix in env_list
-
-
-def check_env_active(env_name):
-    """
-    Given the name of a conda environment, check if it is active
-    """
-    conda_info = get_conda_info()
-    active_env = conda_info["active_prefix_name"]
-
-    return active_env == env_name
 
 
 def align_and_print_conda_packages(conda_set, header=("Package Name", "Version", "Channel", "Arch", "Build")):

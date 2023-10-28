@@ -23,7 +23,7 @@ from conda.models.version import ver_eval
 from packaging.version import parse
 
 from .commands_reqs import reqs_check
-from .commands_proj import get_conda_info
+from .env_handler import get_conda_info
 from .requirements import PackageSpec, LockSpec
 from .split_requirements import env_split, get_conda_channel_order
 from .utils import yaml, logger

@@ -48,7 +48,7 @@ def test_env_create(mocker, setup_config_files):
     """
     config = setup_config_files
     mocker.patch("conda_ops.commands_proj.proj_load", return_value=config)
-    env_name = config["settings"]["env_name"]
+    env_name = config["env_settings"]["env_name"]
 
     # Make sure we have a legit lockfile
     lockfile_generate(config, regenerate=True)
@@ -172,7 +172,7 @@ def test_env_lockfile_check_consistent_environment_and_lockfile(caplog, setup_co
     config = setup_config_files
     lockfile_generate(config)
 
-    if check_env_exists(config["settings"]["env_name"]):
+    if check_env_exists(config["env_settings"]["env_name"]):
         env_regenerate(config)
     else:
         env_create(config)
@@ -204,7 +204,7 @@ def test_env_lock_pip_dict(setup_config_files):
     }
     reqs_add(test_packages, config=config)
     lockfile_generate(config)
-    env_name = config["settings"]["env_name"]
+    env_name = config["env_settings"]["env_name"]
     if check_env_exists(env_name):
         env_regenerate(config)
     else:

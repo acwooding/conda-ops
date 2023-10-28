@@ -10,7 +10,7 @@ import time
 # from conda.cli.main_info import get_info_dict
 
 from .utils import logger
-from .commands_proj import proj_check, get_conda_info, CondaOpsManagedCondarc
+from .commands_proj import proj_check
 from .commands_reqs import reqs_check
 from .commands_lockfile import lockfile_check, lockfile_reqs_check, lock_package_consistency_check
 from .commands_env import (
@@ -24,9 +24,9 @@ from .commands_env import (
     env_install,
     env_lockfile_check,
     env_regenerate,
-    get_prefix,
     pip_step_env_lock,
 )
+from .env_handler import get_prefix, get_conda_info, CondaOpsManagedCondarc
 from .conda_config import check_condarc_matches_opinions, check_config_items_match
 from .python_api import run_command
 from .requirements import load_url_lookup
@@ -55,7 +55,7 @@ def lockfile_generate(config, regenerate=True, platform=None):
     ops_dir = config["paths"]["ops_dir"]
     requirements_file = config["paths"]["requirements"]
     lock_file = config["paths"]["lockfile"]
-    env_name = config["settings"]["env_name"]
+    env_name = config["env_settings"]["env_name"]
 
     if regenerate:
         # create a blank environment name to create the lockfile from scratch
@@ -157,7 +157,7 @@ def populate_local_url_lookup(config, die_on_error=True, platform=None, output_i
     ops_dir = config["paths"]["ops_dir"]
     requirements_file = config["paths"]["requirements"]
     lock_file = config["paths"]["lockfile"]
-    env_name = config["settings"]["env_name"]
+    env_name = config["env_settings"]["env_name"]
 
     if platform is None:
         info_dict = get_conda_info()
@@ -302,7 +302,7 @@ def sync(config, regenerate_lockfile=True, force=False):
         lockfile_generate(config, regenerate=regenerate_lockfile)
         lockfile_consistent, consistency_dict = lockfile_check(config, die_on_error=False, output_instructions=False)
 
-    env_name = config["settings"]["env_name"]
+    env_name = config["env_settings"]["env_name"]
     if check_env_exists(env_name):
         env_lockfile_consistent, regenerate = env_lockfile_check(config=config, lockfile_consistent=lockfile_consistent, die_on_error=False, output_instructions=False)
         if not env_lockfile_consistent and not (regenerate or force):
@@ -354,7 +354,7 @@ def consistency_check(config=None, die_on_error=False, output_instructions=False
     config_match = check_config_items_match()
     config_opinions = check_condarc_matches_opinions(config=config, die_on_error=die_on_error)
 
-    env_name = config["settings"]["env_name"]
+    env_name = config["env_settings"]["env_name"]
 
     reqs_consistent = reqs_check(config, die_on_error=die_on_error)
     lockfile_consistent, _ = lockfile_check(config, die_on_error=die_on_error, output_instructions=output_instructions)

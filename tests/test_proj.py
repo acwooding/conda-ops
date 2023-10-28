@@ -3,7 +3,8 @@ import os
 
 import pytest
 
-from conda_ops.commands_proj import proj_create, proj_load, proj_check, CondaOpsManagedCondarc
+from conda_ops.commands_proj import proj_create, proj_load, proj_check
+from conda_ops.env_handler import CondaOpsManagedCondarc
 
 # Assuming these constants are defined in conda_ops
 CONDA_OPS_DIR_NAME = ".conda-ops"
@@ -26,7 +27,7 @@ def test_proj_create(mocker, shared_temp_dir):
 
     config, overwrite = proj_create(input_value="n")
 
-    assert "settings" in config
+    assert "env_settings" in config
     assert "paths" in config
     assert (tmpdir / CONDA_OPS_DIR_NAME).is_dir()
     assert (tmpdir / CONDA_OPS_DIR_NAME / CONFIG_FILENAME).exists()
@@ -49,10 +50,10 @@ def test_proj_load(mocker, shared_temp_dir):
 
     config = proj_load(die_on_error=True)
 
-    assert "settings" in config
+    assert "env_settings" in config
     assert "paths" in config
     assert len(config["paths"]) == 10
-    assert len(config["settings"]) == 1
+    assert len(config["env_settings"]) == 2
 
 
 def test_proj_check(mocker, shared_temp_dir):

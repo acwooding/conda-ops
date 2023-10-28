@@ -8,7 +8,7 @@ from conda.common.compat import isiterable
 
 from .utils import logger, align_and_print_data
 from .python_api import run_command
-from .commands_proj import CondaOpsManagedCondarc
+from .env_handler import CondaOpsManagedCondarc
 
 ##################################################################
 #
