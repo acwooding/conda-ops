@@ -94,11 +94,17 @@ class EnvObject(object):
         if self.name is None:
             p = Path(self.prefix).resolve()
             cwd = Path.cwd()
-            return p.relative_to(cwd)
+            try:
+                return p.relative_to(cwd)
+            except Exception:
+                return p
         elif len(self.name) < 1:
             p = Path(self.prefix).resolve()
             cwd = Path.cwd()
-            return p.relative_to(cwd)
+            try:
+                return p.relative_to(cwd)
+            except Exception:
+                return p
         else:
             return self.name
 
@@ -134,15 +140,18 @@ def get_prefix(env_name):
     return str(prefix / env_name)
 
 
-def check_env_exists(env_name):
+def check_env_exists(env_name=None, prefix=None):
     """
     Given the name of a conda environment, check if it exists
     """
     json_output = get_conda_info()
 
     env_list = [Path(x) for x in json_output["envs"]]
-    env_prefix = Path(get_prefix(env_name))
-    return env_prefix in env_list
+    if prefix is None:
+        prefix = Path(get_prefix(env_name))
+    else:
+        prefix = Path(prefix)
+    return prefix in env_list
 
 
 def check_env_active(env_name):

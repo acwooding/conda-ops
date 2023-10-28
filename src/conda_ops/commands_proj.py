@@ -126,7 +126,8 @@ def proj_create(input_value=None):
         with open(gitignore_path, "r") as filehandle:
             gitignore_content = filehandle.read()
     else:
-        gitignore_content = "\n.join(['*.explicit', '*.nohash', '*.pypi', '.ops.*'])"
+        s = "\n"
+        gitignore_content = f"{s.join(['*.explicit', '*.nohash', '*.pypi', '.ops.*'])}"
 
     if lockfile_url_entry not in gitignore_content:
         gitignore_content += "\n" + lockfile_url_entry
