@@ -34,7 +34,7 @@ def test_proj_create(mocker, shared_temp_dir):
     assert not overwrite
 
 
-def test_proj_load(mocker, shared_temp_dir):
+def test_proj_load(mocker, shared_temp_dir, setup_config_structure):
     """
     Test case to verify the behavior of the `proj_load` function.
 
@@ -47,7 +47,7 @@ def test_proj_load(mocker, shared_temp_dir):
     """
     tmpdir = shared_temp_dir
     mocker.patch("pathlib.Path.cwd", return_value=tmpdir)
-
+    _ = setup_config_structure
     config = proj_load(die_on_error=True)
 
     assert "env_settings" in config
@@ -56,7 +56,7 @@ def test_proj_load(mocker, shared_temp_dir):
     assert len(config["env_settings"]) == 2
 
 
-def test_proj_check(mocker, shared_temp_dir):
+def test_proj_check(mocker, shared_temp_dir, setup_config_structure):
     """
     Test case to verify the behavior of the `proj_check` function when a config object is present.
 
@@ -69,6 +69,7 @@ def test_proj_check(mocker, shared_temp_dir):
     """
     tmpdir = shared_temp_dir
     mocker.patch("pathlib.Path.cwd", return_value=tmpdir)
+    _ = setup_config_structure
     result = proj_check(die_on_error=True)
 
     assert result

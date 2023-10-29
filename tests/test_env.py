@@ -3,7 +3,8 @@ from packaging.requirements import Requirement
 import pytest
 
 from conda_ops.commands import lockfile_generate
-from conda_ops.commands_env import env_create, env_check, get_prefix, check_env_exists, env_lockfile_check, env_regenerate, env_delete, env_lock, active_env_check
+from conda_ops.commands_env import env_create, env_check, get_prefix, env_lockfile_check, env_regenerate, env_delete, env_lock, active_env_check
+from conda_ops.env_handler import check_env_exists
 from conda_ops.commands_reqs import reqs_add
 from conda_ops.python_api import run_command
 

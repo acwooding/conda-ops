@@ -51,7 +51,7 @@ OTHER_CONFIG_PATHS = {
 }
 
 
-def proj_create(input_value=None):
+def proj_create(prefix="", input_value=None):
     """
     Initialize the conda ops project by creating a .conda-ops directory and config file.
 
@@ -90,7 +90,7 @@ def proj_create(input_value=None):
     env_name = Path.cwd().name.lower()
 
     _config_paths = {**INITIAL_FILE_PATHS, **OTHER_CONFIG_PATHS}
-    _config_settings = {"env_name": env_name, "prefix": ""}
+    _config_settings = {"env_name": env_name, "prefix": prefix}
 
     # create config_file
     KVStore(_config_settings, config_file=config_file, config_section="OPS_SETTINGS")
@@ -127,7 +127,7 @@ def proj_create(input_value=None):
             gitignore_content = filehandle.read()
     else:
         s = "\n"
-        gitignore_content = f"{s.join(['*.explicit', '*.nohash', '*.pypi', '.ops.*'])}"
+        gitignore_content = f"{s.join(['*.explicit', '*.nohash', '*.pypi', '.ops.*', prefix])}"
 
     if lockfile_url_entry not in gitignore_content:
         gitignore_content += "\n" + lockfile_url_entry

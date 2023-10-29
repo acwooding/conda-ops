@@ -58,7 +58,7 @@ def setup_config_files(shared_temp_dir):
 def setup_config_structure(shared_temp_dir, mocker):
     mocker.patch("pathlib.Path.cwd", return_value=shared_temp_dir)
 
-    config, overwrite = proj_create(input_value="n")
+    config, overwrite = proj_create(input_value="y")
     reqs_create(config)
     condarc_create(config=config, overwrite=overwrite)
     return config
