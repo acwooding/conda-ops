@@ -150,6 +150,8 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
         lockfile_consistent, _ = lockfile_check(config, die_on_error=die_on_error)
 
     if lockfile_consistent and reqs_consistent:
+        ## TODO: I think this can be removed since we explicitly check if the lockfile
+        ## satisfies the requirements
         if requirements_file.stat().st_mtime <= lock_file.stat().st_mtime:
             logger.debug("Lock file is newer than the requirements file")
         else:

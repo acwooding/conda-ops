@@ -15,8 +15,6 @@ from .commands_reqs import reqs_check
 from .commands_lockfile import lockfile_check, lockfile_reqs_check, lock_package_consistency_check
 from .commands_env import (
     active_env_check,
-    check_env_active,
-    check_env_exists,
     conda_step_env_lock,
     env_check,
     env_create,
@@ -26,7 +24,7 @@ from .commands_env import (
     env_regenerate,
     pip_step_env_lock,
 )
-from .env_handler import get_prefix, get_conda_info, CondaOpsManagedCondarc, EnvObject
+from .env_handler import get_prefix, get_conda_info, CondaOpsManagedCondarc, EnvObject, check_env_active, check_env_exists
 from .conda_config import check_condarc_matches_opinions, check_config_items_match
 from .python_api import run_command
 from .requirements import load_url_lookup

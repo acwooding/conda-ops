@@ -7,7 +7,7 @@ from contextlib import redirect_stdout
 
 from .python_api import run_command
 from .commands_proj import proj_load
-from .env_handler import get_conda_info, CondaOpsManagedCondarc, get_prefix, EnvObject, check_env_exists, check_env_active
+from .env_handler import get_conda_info, CondaOpsManagedCondarc, get_prefix, EnvObject
 from .conda_config import env_pip_interop
 from .commands_lockfile import lockfile_check
 from .requirements import LockSpec, PackageSpec
@@ -23,16 +23,15 @@ from .utils import logger, align_and_print_data
 def env_activate(*, config=None, name=None):
     """Activate the managed environment"""
     env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
-    env_name = env.name
     if name is None:
-        name = env_name
-    if name != env_name:
-        logger.warning(f"Requested environment {name} which does not match the conda ops managed environment {env_name}")
-    if check_env_active(env_name):
-        logger.warning(f"The conda ops environment {env_name} is already active.")
+        name = env.name
+    if name != env.name:
+        logger.warning(f"Requested environment {name} which does not match the conda ops managed environment {env.name}")
+    if env.active():
+        logger.warning(f"The conda ops environment {env.name} is already active.")
     else:
         logger.info("To activate the conda ops environment:")
-        logger.info(f">>> conda activate {env_name}")
+        logger.info(f">>> conda activate {env.relative_display_name}")
 
 
 def env_deactivate(config):
@@ -40,10 +39,10 @@ def env_deactivate(config):
     env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
     env_name = env.display_name
     conda_info = get_conda_info()
-    active_env = conda_info["active_prefix_name"]
+    active_env = conda_info["active_prefix"]
 
-    if str(active_env) != str(env_name):
-        logger.warning(f"The active environment is {active_env}, not the conda ops managed environment {env_name}")
+    if str(active_env) != str(env.prefix):
+        logger.warning(f"The active environment is {active_env}, not the conda ops managed environment {env.relative_display_name}")
 
     logger.info(f"To deactivate the environment {env.relative_display_name}:")
     logger.info(">>> conda deactivate")
@@ -375,10 +374,14 @@ def active_env_check(config=None, die_on_error=True, output_instructions=True, e
     env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
 
     info_dict = get_conda_info()
+    # this will be a name if there is a name and a prefix if there isn't  one
     active_conda_env = info_dict["active_prefix_name"]
 
     if Path(active_conda_env).exists():
-        active_conda_env = Path(active_conda_env).resolve().relative_to(Path.cwd())
+        try:
+            active_conda_env = Path(active_conda_env).resolve().relative_to(Path.cwd())
+        except Exception:
+            active_conda_env = Path(active_conda_env)
     logger.info(f"Detected active conda environment: {active_conda_env}")
 
     if env.active():
