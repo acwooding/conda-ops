@@ -22,7 +22,7 @@ from .utils import logger, align_and_print_data
 
 def env_activate(*, config=None, name=None):
     """Activate the managed environment"""
-    env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
+    env = EnvObject(**config["env_settings"], env_dir=config["paths"]["env_dir"])
     if name is None:
         name = env.name
     if name != env.name:
@@ -36,7 +36,7 @@ def env_activate(*, config=None, name=None):
 
 def env_deactivate(config):
     """Deactivate managed conda environment"""
-    env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
+    env = EnvObject(**config["env_settings"], env_dir=config["paths"]["env_dir"])
     env_name = env.display_name
     conda_info = get_conda_info()
     active_env = conda_info["active_prefix"]
@@ -53,7 +53,7 @@ def env_create(config=None, env_name=None, lock_file=None):
     Create the conda ops managed environment from the lock file
     """
     if config is not None:
-        env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
+        env = EnvObject(**config["env_settings"], env_dir=config["paths"]["env_dir"])
     elif env_name is not None:
         env = EnvObject(env_name=env_name)
 
@@ -116,7 +116,7 @@ def env_clean_temp(env_base_name=None, config=None):
     if env_base_name is None:
         if config is None:
             config = proj_load()
-        env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
+        env = EnvObject(**config["env_settings"], env_dir=config["paths"]["env_dir"])
     else:
         env = EnvObject(env_name=env_base_name)
 
@@ -152,9 +152,9 @@ def env_lock(config=None, lock_file=None, env_name=None, prefix=None, pip_dict=N
     Generate a lockfile from the contents of the environment.
     """
     if env_name is None and prefix is None:
-        env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
+        env = EnvObject(**config["env_settings"], env_dir=config["paths"]["env_dir"])
     elif config is not None:
-        env = EnvObject(env_name=env_name, prefix=prefix, ops_dir=config["paths"]["ops_dir"])
+        env = EnvObject(env_name=env_name, prefix=prefix, env_dir=config["paths"]["env_dir"])
     else:
         env = EnvObject(env_name=env_name, prefix=prefix)
 
@@ -245,9 +245,9 @@ def conda_step_env_lock(channel, config, env_name=None, prefix=None):
     Given a conda channel from the channel order list, update the environment and generate a new lock file.
     """
     if env_name is None and prefix is None:
-        env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
+        env = EnvObject(**config["env_settings"], env_dir=config["paths"]["env_dir"])
     else:
-        env = EnvObject(env_name=env_name, prefix=prefix, ops_dir=config["paths"]["ops_dir"])
+        env = EnvObject(env_name=env_name, prefix=prefix, env_dir=config["paths"]["env_dir"])
 
     ops_dir = config["paths"]["ops_dir"]
 
@@ -292,9 +292,9 @@ def pip_step_env_lock(channel, config, env_name=None, prefix=None, extra_pip_dic
     # possibly set this at the first creation of the environment so it's always True
 
     if env_name is None and prefix is None:
-        env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
+        env = EnvObject(**config["env_settings"], env_dir=config["paths"]["env_dir"])
     else:
-        env = EnvObject(env_name=env_name, prefix=prefix, ops_dir=config["paths"]["ops_dir"])
+        env = EnvObject(env_name=env_name, prefix=prefix, env_dir=config["paths"]["env_dir"])
 
     env_pip_interop(config=config, flag=True)
 
@@ -344,7 +344,7 @@ def env_check(config=None, die_on_error=True, output_instructions=True):
 
     check = True
 
-    env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
+    env = EnvObject(**config["env_settings"], env_dir=config["paths"]["env_dir"])
 
     info_dict = get_conda_info()
     platform = info_dict["platform"]
@@ -371,7 +371,7 @@ def active_env_check(config=None, die_on_error=True, output_instructions=True, e
 
     check = True
 
-    env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
+    env = EnvObject(**config["env_settings"], env_dir=config["paths"]["env_dir"])
 
     info_dict = get_conda_info()
     # this will be a name if there is a name and a prefix if there isn't  one
@@ -407,7 +407,7 @@ def env_lockfile_check(config=None, env_consistent=None, lockfile_consistent=Non
     if config is None:
         config = proj_load()
 
-    env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
+    env = EnvObject(**config["env_settings"], env_dir=config["paths"]["env_dir"])
 
     if lockfile_consistent is None:
         lockfile_consistent, _ = lockfile_check(config, die_on_error=die_on_error)
@@ -606,7 +606,7 @@ def env_install(config=None):
     if config is None:
         config = proj_load()
 
-    env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
+    env = EnvObject(**config["env_settings"], env_dir=config["paths"]["env_dir"])
     lock_file = config["paths"]["lockfile"]
     explicit_files = generate_explicit_lock_files(config, lock_file=lock_file)
 
@@ -646,9 +646,9 @@ def env_delete(config=None, env_name=None, prefix=None, env_exists=None):
     Deleted the conda ops managed conda environment (aka. conda remove -n env_name --all)
     """
     if env_name is None and prefix is None and config is not None:
-        env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
+        env = EnvObject(**config["env_settings"], env_dir=config["paths"]["env_dir"])
     elif config is not None:
-        env = EnvObject(env_name=env_name, prefix=prefix, ops_dir=config["paths"]["ops_dir"])
+        env = EnvObject(env_name=env_name, prefix=prefix, env_dir=config["paths"]["env_dir"])
     elif env_name is not None or prefix is not None:
         env = EnvObject(env_name=env_name, prefix=prefix)
     else:
@@ -685,9 +685,9 @@ def env_regenerate(config=None, env_name=None, prefix=None, lock_file=None):
     Delete the environment and regenerate from a lock file.
     """
     if env_name is None and prefix is None and config is not None:
-        env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
+        env = EnvObject(**config["env_settings"], env_dir=config["paths"]["env_dir"])
     elif config is not None:
-        env = EnvObject(env_name=env_name, prefix=prefix, ops_dir=config["paths"]["ops_dir"])
+        env = EnvObject(env_name=env_name, prefix=prefix, env_dir=config["paths"]["env_dir"])
     elif env_name is not None or prefix is not None:
         env = EnvObject(env_name=env_name, prefix=prefix)
     else:

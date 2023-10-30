@@ -33,6 +33,7 @@ def setup_config_files(shared_temp_dir):
             "condarc": ops_dir / ".condarc",
             "lockfile_url_lookup": ops_dir / "lockfile-local-url.ini",
             "gitignore": ops_dir / ".gitignore",
+            "env_dir": ops_dir / "envs",
         },
         "env_settings": {
             "env_name": str(shared_temp_dir.name),

@@ -48,6 +48,7 @@ OTHER_CONFIG_PATHS = {
     "lockfile_url_lookup": "${ops_dir}/lockfile-local-url.ini",
     "nohash_explicit_lockfile": "${ops_dir}/lockfile.nohash",
     "pip_explicit_lockfile": "${ops_dir}/lockfile.pypi",
+    "env_dir": "${ops_dir}/envs",
 }
 
 
@@ -127,7 +128,7 @@ def proj_create(prefix="", input_value=None):
             gitignore_content = filehandle.read()
     else:
         s = "\n"
-        gitignore_content = f"{s.join(['*.explicit', '*.nohash', '*.pypi', '.ops.*', prefix])}"
+        gitignore_content = f"{s.join(['*.explicit', '*.nohash', '*.pypi', '.ops.*', 'envs'])}"
 
     if lockfile_url_entry not in gitignore_content:
         gitignore_content += "\n" + lockfile_url_entry

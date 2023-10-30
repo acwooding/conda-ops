@@ -279,7 +279,7 @@ def configure_parser_add(subparsers, parents):
 def configure_parser_init(subparsers, parents):
     descr = "Create a conda ops project in the current directory and create a requirements file if it doesn't exist."
     p = subparsers.add_parser("init", description=descr, help=descr, parents=parents)
-    p.add_argument("-p", "--prefix", action="store", help="Path to environment location (i.e. prefix) relative to the .conda-ops directory.", dest="relative_prefix", default="")
+    p.add_argument("-p", "--prefix", action="store", help="Path to environment location (i.e. prefix) relative to the .conda-ops/envs directory.", dest="relative_prefix", default="")
     return p
 
 

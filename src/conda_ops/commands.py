@@ -53,7 +53,7 @@ def lockfile_generate(config, regenerate=True, platform=None):
     ops_dir = config["paths"]["ops_dir"]
     requirements_file = config["paths"]["requirements"]
     lock_file = config["paths"]["lockfile"]
-    env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
+    env = EnvObject(**config["env_settings"], env_dir=config["paths"]["env_dir"])
 
     env_prefix = env.prefix
 
@@ -277,7 +277,7 @@ def sync(config, regenerate_lockfile=True, force=False):
     """
     Sync the requirements file with the lockfile and environment.
     """
-    env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
+    env = EnvObject(**config["env_settings"], env_dir=config["paths"]["env_dir"])
 
     complete = False
     reqs_consistent = reqs_check(config, die_on_error=True)
@@ -355,7 +355,7 @@ def consistency_check(config=None, die_on_error=False, output_instructions=False
     config_match = check_config_items_match()
     config_opinions = check_condarc_matches_opinions(config=config, die_on_error=die_on_error)
 
-    env = EnvObject(**config["env_settings"], ops_dir=config["paths"]["ops_dir"])
+    env = EnvObject(**config["env_settings"], env_dir=config["paths"]["env_dir"])
 
     reqs_consistent = reqs_check(config, die_on_error=die_on_error)
     lockfile_consistent, _ = lockfile_check(config, die_on_error=die_on_error, output_instructions=output_instructions)

@@ -45,15 +45,15 @@ class CondaOpsManagedCondarc(AbstractContextManager):
 
 
 class EnvObject(object):
-    def __init__(self, env_name=None, prefix=None, ops_dir=None, **kwargs):
+    def __init__(self, env_name=None, prefix=None, env_dir=None, **kwargs):
         self.name = env_name
-        self.ops_dir = ops_dir
+        self.env_dir = env_dir
         if prefix is None and env_name is not None:
             self.prefix = get_prefix(env_name)
         elif len(prefix) < 1 and env_name is not None:
             self.prefix = get_prefix(env_name)
-        elif not Path(prefix).exists() and self.ops_dir is not None:
-            self.prefix = str(Path(self.ops_dir) / Path(prefix))
+        elif not Path(prefix).exists() and self.env_dir is not None:
+            self.prefix = str(Path(self.env_dir) / Path(prefix))
         else:
             self.prefix = str(prefix)
 
@@ -93,17 +93,19 @@ class EnvObject(object):
         Return the prefix relative to the cwd if it is a subdir of .conda_ops, otherwise return the env_name.
         """
         p = Path(self.prefix).resolve()
-        if self.ops_dir is not None:
+        if self.env_dir is not None:
             try:
-                rel_p = p.relative_to(self.ops_dir)
+                rel_p = p.relative_to(self.env_dir)
             except Exception:
                 rel_p = None
-        if rel_p is not None:
-            cwd = Path.cwd()
-            try:
-                return p.relative_to(cwd)
-            except Exception:
-                return p
+            if rel_p is not None:
+                cwd = Path.cwd()
+                try:
+                    return p.relative_to(cwd)
+                except Exception:
+                    return p
+            else:
+                return self.name
         else:
             return self.name
 

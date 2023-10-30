@@ -52,7 +52,7 @@ def test_proj_load(mocker, shared_temp_dir, setup_config_structure):
 
     assert "env_settings" in config
     assert "paths" in config
-    assert len(config["paths"]) == 10
+    assert len(config["paths"]) == 11
     assert len(config["env_settings"]) == 2
 
 
