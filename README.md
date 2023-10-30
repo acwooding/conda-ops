@@ -97,6 +97,16 @@ conda ops
 ```
 and follow the prompts from there.
 
+### Working with Jupyter
+If you want to work with your conda-ops project environment from with a Jupyter Notebook or Jupyter Lab context, we recommend running your Jupyter instance from a **different** environment from your current project environment, and making sure that the (conda) environment you're running Jupyter from has `nb_conda_kernels` installed in it so that you can select your conda-ops project environment from within the list of kernels in Jupyter (e.g. have a separate conda-ops project for managing your Jupyter instance!)
+
+To interact with and update your conda-ops managed project environment, we recommend using a terminal where the managed project environment is **not** active. You may need to add a cell at the top of your notebooks with
+```
+%load_ext autoreload
+%autoreload 2
+```
+so that changes to the environment automatically translate to the notebook. Everything should **just work**. If not, file an issue and we'll help to sort it out.
+
 ### Managing conda Configurations
 There is also a project specific `.condarc` file that is always and only invoked by `conda ops` within the current conda ops project. This configuration file contains all of the conda config settings relating to the solver and the channel settings so that solves are reproducible and the relevant configurations are easily shareable. See `conda ops config --help` for more details on how to work with and manage the conda configuration within a conda ops project.
 

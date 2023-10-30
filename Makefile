@@ -8,7 +8,7 @@ DIST_DIR = dist
 PYTEST_CMD = pytest
 TEST_ENV = conda-ops-test-env
 DIST_FILES = $(DIST_DIR)/$(PACKAGE_NAME)-*.tar.gz $(DIST_DIR)/$(WHEEL_NAME)-*.whl
-VERSION = "0.4a2"
+VERSION = "0.4rc1"
 
 .PHONY: local-test
 ## Build, install and test locally
