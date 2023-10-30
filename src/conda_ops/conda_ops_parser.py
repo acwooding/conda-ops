@@ -68,7 +68,7 @@ def conda_ops(argv: list):
         else:
             condaops_config_manage(argv, args, config=config)
     elif args.command == "init":
-        config, overwrite = proj_create()
+        config, overwrite = proj_create(prefix=args.relative_prefix)
         condarc_create(config=config, overwrite=overwrite)
         reqs_create(config=config)
     elif args.command == "add":
@@ -118,8 +118,9 @@ def conda_ops(argv: list):
         elif args.kind == "install":
             env_install(config=config)
         elif args.kind == "delete":
-            env_delete(config=config)
-            logger.info("Conda ops environment deleted.")
+            success = env_delete(config=config)
+            if success:
+                logger.info("Conda ops environment deleted.")
         elif args.kind == "activate":
             env_activate(config=config)
         elif args.kind == "deactivate":
@@ -278,13 +279,14 @@ def configure_parser_add(subparsers, parents):
 def configure_parser_init(subparsers, parents):
     descr = "Create a conda ops project in the current directory and create a requirements file if it doesn't exist."
     p = subparsers.add_parser("init", description=descr, help=descr, parents=parents)
+    p.add_argument("-p", "--prefix", action="store", help="Path to environment location (i.e. prefix) relative to the .conda-ops/envs directory.", dest="relative_prefix", default="")
     return p
 
 
 def configure_parser_install(subparsers, parents):
     descr = "Add packages to the requirements file and sync the environment and lockfile."
     p = subparsers.add_parser("install", description=descr, help=descr, parents=parents)
-    p.add_argument("packages", type=str, nargs="+", default=[], action="extend")
+    p.add_argument("packages", type=str, nargs="*", default=[], action="extend")
     p.add_argument(
         "-c",
         "--channel",

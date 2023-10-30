@@ -3,7 +3,7 @@ import json
 from conda_ops.commands import lockfile_generate
 from conda_ops.commands_lockfile import lockfile_check, lockfile_reqs_check
 from conda_ops.commands_reqs import reqs_add
-from conda_ops.commands_proj import get_conda_info
+from conda_ops.env_handler import get_conda_info
 
 CONDA_OPS_DIR_NAME = ".conda-ops"
 

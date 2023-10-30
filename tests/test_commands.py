@@ -1,4 +1,4 @@
-# Import the function or method you want to test
+import shutil
 import subprocess
 
 from conda_ops.utils import yaml
@@ -136,3 +136,20 @@ def test_conda_ops_status(setup_config_structure, shared_temp_dir):
     assert result.returncode == 0
     assert status_stdout == ops_stdout
     assert len(status_stdout) > 1
+
+
+def test_conda_ops_init(shared_temp_dir):
+    """
+    Check conda ops init runs
+    """
+    shutil.rmtree(shared_temp_dir / ".conda-ops")
+
+    argv = ["conda", "ops", "init"]
+    result = subprocess.run(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=shared_temp_dir, text=True)
+    shutil.rmtree(shared_temp_dir / ".conda-ops")
+    assert result.returncode == 0
+
+    argv = ["conda", "ops", "init", "-p", "envs/test"]
+    result = subprocess.run(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=shared_temp_dir, text=True)
+    shutil.rmtree(shared_temp_dir / ".conda-ops")
+    assert result.returncode == 0

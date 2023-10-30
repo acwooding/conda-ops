@@ -195,7 +195,7 @@ def reqs_create(config):
     Create the requirements file if it doesn't already exist
     """
     requirements_file = config["paths"]["requirements"]
-    env_name = config["settings"]["env_name"]
+    env_name = config["env_settings"]["env_name"]
 
     if not requirements_file.exists():
         requirements_dict = {
@@ -217,7 +217,7 @@ def reqs_check(config, die_on_error=True):
     Return True if the requirements pass all checks and False otherwise
     """
     requirements_file = config["paths"]["requirements"]
-    env_name = config["settings"]["env_name"]
+    env_name = config["env_settings"]["env_name"]
 
     check = True
     if requirements_file.exists():

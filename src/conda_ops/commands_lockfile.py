@@ -23,7 +23,7 @@ from conda.models.version import ver_eval
 from packaging.version import parse
 
 from .commands_reqs import reqs_check
-from .commands_proj import get_conda_info
+from .env_handler import get_conda_info
 from .requirements import PackageSpec, LockSpec
 from .split_requirements import env_split, get_conda_channel_order
 from .utils import yaml, logger
@@ -150,6 +150,8 @@ def lockfile_reqs_check(config, reqs_consistent=None, lockfile_consistent=None, 
         lockfile_consistent, _ = lockfile_check(config, die_on_error=die_on_error)
 
     if lockfile_consistent and reqs_consistent:
+        ## TODO: I think this can be removed since we explicitly check if the lockfile
+        ## satisfies the requirements
         if requirements_file.stat().st_mtime <= lock_file.stat().st_mtime:
             logger.debug("Lock file is newer than the requirements file")
         else:

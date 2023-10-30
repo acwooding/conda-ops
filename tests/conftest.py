@@ -33,9 +33,11 @@ def setup_config_files(shared_temp_dir):
             "condarc": ops_dir / ".condarc",
             "lockfile_url_lookup": ops_dir / "lockfile-local-url.ini",
             "gitignore": ops_dir / ".gitignore",
+            "env_dir": ops_dir / "envs",
         },
-        "settings": {
+        "env_settings": {
             "env_name": str(shared_temp_dir.name),
+            "prefix": "",
         },
     }
     requirements_dict = {
@@ -57,7 +59,7 @@ def setup_config_files(shared_temp_dir):
 def setup_config_structure(shared_temp_dir, mocker):
     mocker.patch("pathlib.Path.cwd", return_value=shared_temp_dir)
 
-    config, overwrite = proj_create(input_value="n")
+    config, overwrite = proj_create(input_value="y")
     reqs_create(config)
     condarc_create(config=config, overwrite=overwrite)
     return config

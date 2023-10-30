@@ -10,13 +10,11 @@ import time
 # from conda.cli.main_info import get_info_dict
 
 from .utils import logger
-from .commands_proj import proj_check, get_conda_info, CondaOpsManagedCondarc
+from .commands_proj import proj_check
 from .commands_reqs import reqs_check
 from .commands_lockfile import lockfile_check, lockfile_reqs_check, lock_package_consistency_check
 from .commands_env import (
     active_env_check,
-    check_env_active,
-    check_env_exists,
     conda_step_env_lock,
     env_check,
     env_create,
@@ -24,9 +22,9 @@ from .commands_env import (
     env_install,
     env_lockfile_check,
     env_regenerate,
-    get_prefix,
     pip_step_env_lock,
 )
+from .env_handler import get_prefix, get_conda_info, CondaOpsManagedCondarc, EnvObject, check_env_active, check_env_exists
 from .conda_config import check_condarc_matches_opinions, check_config_items_match
 from .python_api import run_command
 from .requirements import load_url_lookup
@@ -55,19 +53,21 @@ def lockfile_generate(config, regenerate=True, platform=None):
     ops_dir = config["paths"]["ops_dir"]
     requirements_file = config["paths"]["requirements"]
     lock_file = config["paths"]["lockfile"]
-    env_name = config["settings"]["env_name"]
+    env = EnvObject(**config["env_settings"], env_dir=config["paths"]["env_dir"])
+
+    env_prefix = env.prefix
 
     if regenerate:
         # create a blank environment name to create the lockfile from scratch
         logger.info("Generating temporary environment for building lock file from requirements.")
-        raw_test_env = env_name + "-lockfile-generate"
+        raw_test_env_prefix = str(env.prefix) + "-lockfile-generate"
         for i in range(100):
-            test_env = raw_test_env + f"-{i}"
-            if not check_env_exists(test_env):
+            test_env = raw_test_env_prefix + f"-{i}"
+            if not check_env_exists(prefix=test_env):
                 break
-        logger.debug(f"Using temporary environment: {raw_test_env}")
+        logger.debug(f"Using temporary environment: {test_env}")
     else:
-        test_env = env_name
+        test_env = env.prefix
 
     if not requirements_file.exists():
         logger.error(f"Requirements file does not exist: {requirements_file}")
@@ -91,13 +91,13 @@ def lockfile_generate(config, regenerate=True, platform=None):
 
         if channel not in pip_channels:
             try:
-                json_reqs = conda_step_env_lock(channel, config, env_name=test_env)
+                json_reqs = conda_step_env_lock(channel, config, prefix=test_env)
             except Exception as exception:
                 print(exception)
                 json_reqs = None
         else:
             try:
-                json_reqs, extra_pip_dict = pip_step_env_lock(channel, config, env_name=test_env, extra_pip_dict=extra_pip_dict)
+                json_reqs, extra_pip_dict = pip_step_env_lock(channel, config, prefix=test_env, extra_pip_dict=extra_pip_dict)
             except Exception as exception:
                 print(exception)
                 json_reqs = None
@@ -145,7 +145,7 @@ def lockfile_generate(config, regenerate=True, platform=None):
 
     Path(ops_dir / ".ops.channel-order.include").unlink()
     if regenerate:
-        env_delete(env_name=test_env)
+        env_delete(prefix=test_env)
         logger.debug("Deleted intermediate environment")
     print(f"Lockfile {lock_file} generated.")
 
@@ -157,7 +157,7 @@ def populate_local_url_lookup(config, die_on_error=True, platform=None, output_i
     ops_dir = config["paths"]["ops_dir"]
     requirements_file = config["paths"]["requirements"]
     lock_file = config["paths"]["lockfile"]
-    env_name = config["settings"]["env_name"]
+    env_name = config["env_settings"]["env_name"]
 
     if platform is None:
         info_dict = get_conda_info()
@@ -277,6 +277,8 @@ def sync(config, regenerate_lockfile=True, force=False):
     """
     Sync the requirements file with the lockfile and environment.
     """
+    env = EnvObject(**config["env_settings"], env_dir=config["paths"]["env_dir"])
+
     complete = False
     reqs_consistent = reqs_check(config, die_on_error=True)
     lockfile_consistent, consistency_dict = lockfile_check(config, die_on_error=False, output_instructions=False)
@@ -302,15 +304,14 @@ def sync(config, regenerate_lockfile=True, force=False):
         lockfile_generate(config, regenerate=regenerate_lockfile)
         lockfile_consistent, consistency_dict = lockfile_check(config, die_on_error=False, output_instructions=False)
 
-    env_name = config["settings"]["env_name"]
-    if check_env_exists(env_name):
+    if env.exists():
         env_lockfile_consistent, regenerate = env_lockfile_check(config=config, lockfile_consistent=lockfile_consistent, die_on_error=False, output_instructions=False)
         if not env_lockfile_consistent and not (regenerate or force):
-            logger.info(f"Updating the environment: {env_name} from the lock file")
+            logger.info(f"Updating the environment: {env.display_name} from the lock file")
             env_install(config=config)
             complete = True
         elif force or regenerate:
-            if check_env_active(env_name):
+            if env.active():
                 print("")
                 logger.warning("To complete the sync, the environment needs to be regenerated, but the environment is currently active.")
                 logger.info("To deactivate the environment and complete the sync:")
@@ -354,7 +355,7 @@ def consistency_check(config=None, die_on_error=False, output_instructions=False
     config_match = check_config_items_match()
     config_opinions = check_condarc_matches_opinions(config=config, die_on_error=die_on_error)
 
-    env_name = config["settings"]["env_name"]
+    env = EnvObject(**config["env_settings"], env_dir=config["paths"]["env_dir"])
 
     reqs_consistent = reqs_check(config, die_on_error=die_on_error)
     lockfile_consistent, _ = lockfile_check(config, die_on_error=die_on_error, output_instructions=output_instructions)
@@ -366,7 +367,7 @@ def consistency_check(config=None, die_on_error=False, output_instructions=False
 
         env_consistent = env_check(config, die_on_error=die_on_error, output_instructions=output_instructions)
         if env_consistent:
-            logger.info(f"Found managed conda environment: {env_name}")
+            logger.info(f"Found managed conda environment: {env.relative_display_name}")
             env_lockfile_consistent, _ = env_lockfile_check(config, env_consistent=env_consistent, lockfile_consistent=lockfile_consistent, die_on_error=die_on_error, output_instructions=True)
         active_env_consistent = active_env_check(config, die_on_error=die_on_error, output_instructions=output_instructions, env_exists=env_consistent)
 
@@ -384,21 +385,21 @@ def consistency_check(config=None, die_on_error=False, output_instructions=False
         print("")
     elif not env_consistent:
         print("")
-        logger.warning(f"Managed conda environment ('{env_name}') does not yet exist.")
+        logger.warning(f"Managed conda environment ('{env.relative_display_name}') does not yet exist.")
         logger.info("To create it:")
         logger.info(">>> conda ops sync")
         print("")
     elif not active_env_consistent:
         print("")
-        logger.warning(f"Managed conda environment ('{env_name}') exists but is not active.")
+        logger.warning(f"Managed conda environment ('{env.relative_display_name}') exists but is not active.")
         logger.info("To activate it:")
-        logger.info(f">>> conda activate {env_name}")
+        logger.info(f">>> conda activate {env.relative_display_name}")
         print("")
 
     # don't include not being active in the return value
     return_value = config_match and config_opinions and reqs_consistent and lockfile_consistent and env_consistent and lockfile_reqs_consistent and env_lockfile_consistent
     if return_value:
         print("")
-        logger.info(f"The conda ops project {env_name} is consistent")
+        logger.info(f"The conda ops environment {env.relative_display_name} is consistent")
         print("")
     return return_value

@@ -3,7 +3,8 @@ import os
 
 import pytest
 
-from conda_ops.commands_proj import proj_create, proj_load, proj_check, CondaOpsManagedCondarc
+from conda_ops.commands_proj import proj_create, proj_load, proj_check
+from conda_ops.env_handler import CondaOpsManagedCondarc
 
 # Assuming these constants are defined in conda_ops
 CONDA_OPS_DIR_NAME = ".conda-ops"
@@ -26,14 +27,14 @@ def test_proj_create(mocker, shared_temp_dir):
 
     config, overwrite = proj_create(input_value="n")
 
-    assert "settings" in config
+    assert "env_settings" in config
     assert "paths" in config
     assert (tmpdir / CONDA_OPS_DIR_NAME).is_dir()
     assert (tmpdir / CONDA_OPS_DIR_NAME / CONFIG_FILENAME).exists()
     assert not overwrite
 
 
-def test_proj_load(mocker, shared_temp_dir):
+def test_proj_load(mocker, shared_temp_dir, setup_config_structure):
     """
     Test case to verify the behavior of the `proj_load` function.
 
@@ -46,16 +47,16 @@ def test_proj_load(mocker, shared_temp_dir):
     """
     tmpdir = shared_temp_dir
     mocker.patch("pathlib.Path.cwd", return_value=tmpdir)
-
+    _ = setup_config_structure
     config = proj_load(die_on_error=True)
 
-    assert "settings" in config
+    assert "env_settings" in config
     assert "paths" in config
-    assert len(config["paths"]) == 10
-    assert len(config["settings"]) == 1
+    assert len(config["paths"]) == 11
+    assert len(config["env_settings"]) == 2
 
 
-def test_proj_check(mocker, shared_temp_dir):
+def test_proj_check(mocker, shared_temp_dir, setup_config_structure):
     """
     Test case to verify the behavior of the `proj_check` function when a config object is present.
 
@@ -68,6 +69,7 @@ def test_proj_check(mocker, shared_temp_dir):
     """
     tmpdir = shared_temp_dir
     mocker.patch("pathlib.Path.cwd", return_value=tmpdir)
+    _ = setup_config_structure
     result = proj_check(die_on_error=True)
 
     assert result

@@ -22,7 +22,7 @@ def test_reqs_create(shared_temp_dir):
     """
     config = {
         "paths": {"requirements": shared_temp_dir / CONDA_OPS_DIR_NAME / "reqs_test_environment.yml"},
-        "settings": {"env_name": str(shared_temp_dir.name)},
+        "env_settings": {"env_name": str(shared_temp_dir.name)},
     }
     ops_dir = shared_temp_dir / CONDA_OPS_DIR_NAME
     ops_dir.mkdir(exist_ok=True)

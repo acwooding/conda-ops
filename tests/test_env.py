@@ -3,7 +3,8 @@ from packaging.requirements import Requirement
 import pytest
 
 from conda_ops.commands import lockfile_generate
-from conda_ops.commands_env import env_create, env_check, get_prefix, check_env_exists, env_lockfile_check, env_regenerate, env_delete, env_lock, active_env_check
+from conda_ops.commands_env import env_create, env_check, get_prefix, env_lockfile_check, env_regenerate, env_delete, env_lock, active_env_check
+from conda_ops.env_handler import check_env_exists
 from conda_ops.commands_reqs import reqs_add
 from conda_ops.python_api import run_command
 
@@ -48,7 +49,7 @@ def test_env_create(mocker, setup_config_files):
     """
     config = setup_config_files
     mocker.patch("conda_ops.commands_proj.proj_load", return_value=config)
-    env_name = config["settings"]["env_name"]
+    env_name = config["env_settings"]["env_name"]
 
     # Make sure we have a legit lockfile
     lockfile_generate(config, regenerate=True)
@@ -99,7 +100,7 @@ def test_env_check_existing(setup_config_files, mocker, caplog):
     Test the env_check function when the environment exists but is not active.
     """
     config = setup_config_files
-    mocker.patch("conda_ops.commands_env.check_env_exists", return_value=True)
+    mocker.patch("conda_ops.env_handler.EnvObject.exists", return_value=True)
 
     # Call the env_check function
     # die_on_error by default
@@ -114,7 +115,7 @@ def test_env_check_non_existing(setup_config_files, mocker):
     Test the env_check function when the environment does not exist.
     """
     config = setup_config_files
-    mocker.patch("conda_ops.commands_env.check_env_exists", return_value=False)
+    mocker.patch("conda_ops.env_handler.EnvObject.exists", return_value=False)
 
     # Call the env_check function
     # die_on_error by default
@@ -129,7 +130,7 @@ def test_active_env_check_active(setup_config_files, mocker):
     Test the active_env_check function when the environment is active.
     """
     config = setup_config_files
-    mocker.patch("conda_ops.commands_env.check_env_active", return_value=True)
+    mocker.patch("conda_ops.env_handler.EnvObject.active", return_value=True)
 
     assert active_env_check(config, die_on_error=False) is True
 
@@ -172,7 +173,7 @@ def test_env_lockfile_check_consistent_environment_and_lockfile(caplog, setup_co
     config = setup_config_files
     lockfile_generate(config)
 
-    if check_env_exists(config["settings"]["env_name"]):
+    if check_env_exists(config["env_settings"]["env_name"]):
         env_regenerate(config)
     else:
         env_create(config)
@@ -204,7 +205,7 @@ def test_env_lock_pip_dict(setup_config_files):
     }
     reqs_add(test_packages, config=config)
     lockfile_generate(config)
-    env_name = config["settings"]["env_name"]
+    env_name = config["env_settings"]["env_name"]
     if check_env_exists(env_name):
         env_regenerate(config)
     else:
