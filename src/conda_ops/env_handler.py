@@ -128,17 +128,27 @@ def get_conda_info():
 def get_prefix(env_name):
     """
     When conda is in an environment, the prefix gets computed on top of the active environment prefix which
-    leads to odd behaviour. Dteermine the prefix to use and pass that instead.
+    leads to odd behaviour. Determine the prefix to use and pass that instead.
     """
     conda_info = get_conda_info()
     active_prefix = conda_info["active_prefix"]
     env_dirs = conda_info["envs_dirs"]
-    prefix = Path(env_dirs[0])
-    if active_prefix is not None:
-        if Path(env_dirs[0]) == Path(active_prefix) / "envs":
-            split = str(env_dirs[0]).split("envs")
-            prefix = Path(split[0]) / "envs"
-    return str(prefix / env_name)
+    prefix = None
+    for env_dir in env_dirs:
+        env_dir_path = Path(env_dir)
+        if active_prefix is not None:
+            if env_dir_path == Path(active_prefix) / "envs":
+                split = str(env_dir).split("envs")
+                prefix = Path(split[0]) / "envs"
+                break
+        if env_dir_path.exists() and os.access(env_dir_path, os.W_OK):
+            prefix = env_dir_path
+            break
+    if prefix is None:
+        logger.error(f"Permission error for all available conda envs directories: {env_dirs}. Check your conda config settings.")
+        sys.exit(1)
+    else:
+        return str(prefix / env_name)
 
 
 def check_env_exists(env_name=None, prefix=None):
