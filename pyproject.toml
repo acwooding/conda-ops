@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "conda-ops"
-version = "0.4rc2"
+version = "0.4"
 authors = [
   { name="Amy Wooding", email="amy@wooding.org" },
 ]
